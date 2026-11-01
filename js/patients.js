@@ -95,69 +95,178 @@ async function renderPatients() {
   } else pagi.innerHTML = '';
 }
 
+function customChronicValue(chronic) {
+  if (!Array.isArray(chronic)) return '';
+  const item = chronic.find(x => x && typeof x === 'object' && !Array.isArray(x) && typeof x.customCondition === 'string');
+  return item ? item.customCondition.trim().slice(0, 100) : '';
+}
+
+function hasBodyMeasurement(rows) {
+  return Array.isArray(rows) && rows.some(m => m && ['weight', 'height', 'waist', 'hips', 'arm'].some(k => m[k] != null));
+}
+
+function optionalMeasure(selector, min, max) {
+  const input = $(selector);
+  if (!input || String(input.value ?? '').trim() === '') return null;
+  const value = Number(input.value);
+  if (!Number.isFinite(value) || value < min || value > max) throw { code: 'invalid_initial_measurement' };
+  return value;
+}
+
+function patientBMI(weight, height) {
+  if (!(weight >= 20 && weight <= 350 && height >= 80 && height <= 230)) return null;
+  return +(weight / Math.pow(height / 100, 2)).toFixed(1);
+}
+
+function validMeasurementDate(date) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  const parsed = new Date(date + 'T00:00:00Z');
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date && date <= todayISO();
+}
+
 // ---- نموذج إضافة / تعديل مريض ----
 function openPatientModal(p) {
   const edit = Boolean(p); p = p || {};
+  const chronic = Array.isArray(p.chronic) ? p.chronic : [];
+  const customCondition = customChronicValue(chronic);
+  const measurementsEnabled = normalizeClinicalFeatures((State.settings || {}).clinicalFeatures).measurements;
+  const records = Array.isArray(p.measurements) ? p.measurements : [];
+  const existingBodyMeasurement = edit && hasBodyMeasurement(records);
+  const latestBody = existingBodyMeasurement
+    ? records.filter(m => m && ['weight', 'height', 'waist', 'hips', 'arm'].some(k => m[k] != null)).slice().sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))).at(-1)
+    : null;
+
+  const bodyFields = !measurementsEnabled ? '' :
+    '<fieldset class="patient-measurements full" aria-describedby="patientMeasureHint">' +
+      '<legend>قياسات البداية (اختياري)</legend>' +
+      '<p id="patientMeasureHint" class="patient-measurements-hint">تُحفظ القياسات كسجل بتاريخ مستقل، ولا تستبدل القياسات السابقة.</p>' +
+      '<div class="form-grid">' +
+        '<div class="field"><label for="f_height">' + (existingBodyMeasurement ? 'الطول المسجل (سم)' : 'الطول (سم)') + '</label><input class="input ltr" id="f_height" type="number" min="80" max="230" step="0.1"' + (existingBodyMeasurement ? ' disabled' : '') + ' value="' + (p.height ?? (latestBody && latestBody.height) ?? '') + '" placeholder="170"></div>' +
+        (existingBodyMeasurement
+          ? '<div class="field"><label for="f_weight">آخر وزن مسجل</label><input class="input ltr" id="f_weight" type="number" disabled value="' + (latestBody.weight ?? '') + '"><small class="muted">لإضافة قياس جديد استخدم «إضافة قياس» من ملف المريض.</small></div>'
+          : '<div class="field"><label for="f_weight">الوزن (كجم)</label><input class="input ltr" id="f_weight" type="number" min="20" max="350" step="0.1" placeholder="85.5"></div>' +
+            '<div class="field"><label for="f_waist">محيط الخصر (سم)</label><input class="input ltr" id="f_waist" type="number" min="40" max="200" step="0.5" placeholder="95"></div>' +
+            '<div class="field"><label for="f_hips">محيط الأرداف (سم)</label><input class="input ltr" id="f_hips" type="number" min="50" max="220" step="0.5" placeholder="110"></div>' +
+            '<div class="field"><label for="f_arm">محيط الذراع (سم)</label><input class="input ltr" id="f_arm" type="number" min="20" max="120" step="0.5" placeholder="32"></div>') +
+        '<div class="field full"><label for="f_bmi">مؤشر كتلة الجسم</label><output id="f_bmi" class="bmi-preview" aria-live="polite">سيظهر عند إدخال وزن وطول صالحين</output></div>' +
+        (existingBodyMeasurement ? '<p class="patient-measurements-hint full">القياسات المسجلة محفوظة في سجل المريض. تعديل هذا النموذج لا يحذفها.</p>' :
+          '<div class="field"><label for="f_measure_date">تاريخ قياس البداية</label><input class="input" id="f_measure_date" type="date" max="' + todayISO() + '" value="' + todayISO() + '"></div>') +
+      '</div>' +
+    '</fieldset>';
+
   openModal(edit ? 'تعديل بيانات المريض' : 'إضافة مريض جديد',
     '<form id="patientForm" class="form-grid">' +
-      '<div class="field full"><label>اسم المريض *</label><input class="input" id="f_name" required value="' + esc(p.name || '') + '" placeholder="الاسم ثلاثي"></div>' +
-      '<div class="field"><label>رقم الموبايل (واتساب) *</label><input class="input ltr" id="f_phone" required inputmode="tel" value="' + esc(p.phone || '') + '" placeholder="01xxxxxxxxx"></div>' +
-      '<div class="field"><label>السن</label><input class="input ltr" id="f_age" type="number" min="1" max="120" value="' + (p.age || '') + '"></div>' +
-      '<div class="field"><label>النوع</label><select class="input" id="f_gender">' +
+      '<div class="field full"><label for="f_name">اسم المريض *</label><input class="input" id="f_name" required value="' + esc(p.name || '') + '" placeholder="الاسم ثلاثي"></div>' +
+      '<div class="field"><label for="f_phone">رقم الموبايل (واتساب) *</label><input class="input ltr" id="f_phone" required inputmode="tel" value="' + esc(p.phone || '') + '" placeholder="01xxxxxxxxx"></div>' +
+      '<div class="field"><label for="f_age">السن</label><input class="input ltr" id="f_age" type="number" min="1" max="120" value="' + (p.age || '') + '"></div>' +
+      '<div class="field"><label for="f_gender">النوع</label><select class="input" id="f_gender">' +
         '<option ' + (p.gender === 'ذكر' ? 'selected' : '') + '>ذكر</option><option ' + (p.gender === 'أنثى' ? 'selected' : '') + '>أنثى</option></select></div>' +
-      '<div class="field"><label>التخصص</label><select class="input" id="f_type">' +
+      '<div class="field"><label for="f_type">التخصص</label><select class="input" id="f_type">' +
         '<option value="pt" ' + (p.type === 'pt' ? 'selected' : '') + '>علاج طبيعي</option>' +
         '<option value="nutrition" ' + (p.type === 'nutrition' ? 'selected' : '') + '>سمنة ونحافة</option></select></div>' +
-      '<div class="field"><label>الطول (سم)</label><input class="input ltr" id="f_height" type="number" min="80" max="230" value="' + (p.height || '') + '" placeholder="170"></div>' +
-      (edit
-        ? '<div class="field"><label>الوزن الحالي</label><input class="input ltr" disabled value="' + (weightChange(p).current ?? '—') + ' كجم"><small class="muted">لتسجيل وزن جديد استخدم «إضافة قياس» من ملف المريض</small></div>'
-        : '<div class="field"><label>الوزن عند البداية (كجم)</label><input class="input ltr" id="f_weight" type="number" step="0.1" min="20" max="350" placeholder="لمرضى السمنة"></div>') +
-      '<div class="field"><label>الوزن المستهدف (كجم)</label><input class="input ltr" id="f_target" type="number" step="0.1" min="20" max="250" value="' + (p.targetWeight || '') + '"></div>' +
-      '<div class="field"><label>تاريخ الميلاد</label><input class="input" type="date" id="f_birth" value="' + esc(p.birthDate || '') + '">' +
+      bodyFields +
+      '<div class="field"><label for="f_target">الوزن المستهدف (كجم)</label><input class="input ltr" id="f_target" type="number" step="0.1" min="20" max="250" value="' + (p.targetWeight || '') + '"></div>' +
+      '<div class="field"><label for="f_birth">تاريخ الميلاد</label><input class="input" type="date" id="f_birth" value="' + esc(p.birthDate || '') + '">' +
         '<small class="muted" style="font-size:11.5px;font-weight:700">ضروري لدخول المريض على بوابته — المحفظة من تليفونه</small></div>' +
-      '<div class="field full"><label>التشخيص / الهدف</label><input class="input" id="f_diag" value="' + esc(p.diagnosis || '') + '" placeholder="مثال: آلام أسفل الظهر — أو: نزول 15 كجم"></div>' +
-      // اختيار الأمراض المزمنة — تُفعّل متابعة السكر والضغط في ملف المريض
-      '<div class="field full"><label>أمراض مزمنة (اختر ما ينطبق)</label><div class="chk-grid">' +
+      '<div class="field full"><label for="f_diag">التشخيص / الهدف</label><input class="input" id="f_diag" value="' + esc(p.diagnosis || '') + '" placeholder="مثال: آلام أسفل الظهر — أو: نزول 15 كجم"></div>' +
+      '<div class="field full"><label>أمراض أو حالات صحية (اختر ما ينطبق)</label><div class="chk-grid">' +
         Object.keys(CHRONIC).map(k =>
-          '<label class="chk' + ((p.chronic || []).includes(k) ? ' on' : '') + '">' +
-          '<input type="checkbox" value="' + k + '" data-chronic' + ((p.chronic || []).includes(k) ? ' checked' : '') + '>' +
-          '<i class="fa-solid ' + CHRONIC[k].icon + '"></i> ' + CHRONIC[k].label + '</label>').join('') +
-      '</div></div>' +
-      // (بند 14) توثيق موافقة المريض على رسائل واتساب — بدونها النظام بيمنع الإرسال
-      '<div class="field full"><label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-weight:700">' +
+          '<label class="chk' + (chronic.includes(k) ? ' on' : '') + '">' +
+          '<input type="checkbox" value="' + k + '" data-chronic' + (chronic.includes(k) ? ' checked' : '') + '>' +
+          '<i class="fa-solid ' + CHRONIC[k].icon + '" aria-hidden="true"></i> ' + CHRONIC[k].label + '</label>').join('') +
+      '</div>' +
+      '<div class="chronic-custom"><label for="f_chronic_other"><input type="checkbox" id="f_chronic_other"' + (customCondition ? ' checked' : '') + '> حالة أخرى غير موجودة في القائمة</label>' +
+      '<div class="field" style="margin-top:9px"><label for="f_chronic_other_name">اسم الحالة</label><input class="input" id="f_chronic_other_name" maxlength="100" value="' + esc(customCondition) + '" placeholder="اكتب اسم المرض أو الحالة"></div></div></div>' +
+      '<div class="field full"><label for="f_consent" style="display:flex;align-items:center;gap:9px;cursor:pointer;font-weight:700">' +
         '<input type="checkbox" id="f_consent"' + (p.consentWa ? ' checked' : '') + ' style="width:17px;height:17px">' +
-        '<i class="fa-brands fa-whatsapp" style="color:#128c4b"></i> المريض وافق على استقبال رسائل واتساب (متابعة وتذكير مواعيد)</label>' +
+        '<i class="fa-brands fa-whatsapp" style="color:#128c4b" aria-hidden="true"></i> المريض وافق على استقبال رسائل واتساب (متابعة وتذكير مواعيد)</label>' +
         '<small class="muted" style="font-size:11.5px;font-weight:700">موافقة موثقة في الملف — بدونها كل رسائل واتساب اللي فيها بيانات المريض بتتقفل تلقائياً</small></div>' +
-      '<div class="field full"><label>ملاحظات</label><textarea class="input" id="f_notes" placeholder="أي ملاحظات طبية أو شخصية...">' + esc(p.notes || '') + '</textarea></div>' +
+      '<div class="field full"><label for="f_notes">ملاحظات</label><textarea class="input" id="f_notes" placeholder="أي ملاحظات طبية أو شخصية...">' + esc(p.notes || '') + '</textarea></div>' +
+      '<div id="patientFormError" class="form-error full" role="alert" aria-live="polite"></div>' +
       '<div class="modal-foot full"><button type="button" class="btn btn-ghost" data-close>إلغاء</button>' +
       '<button class="btn btn-primary"><i class="fa-solid fa-check"></i> ' + (edit ? 'حفظ التعديلات' : 'إضافة المريض') + '</button></div>' +
     '</form>', 620);
 
+  if (measurementsEnabled && !existingBodyMeasurement) {
+    const updateBMI = () => {
+      const weight = Number($('#f_weight').value), height = Number($('#f_height').value);
+      const value = patientBMI(weight, height);
+      $('#f_bmi').textContent = value == null ? 'سيظهر عند إدخال وزن وطول صالحين' : value + ' — قيمة محسوبة تلقائيًا';
+    };
+    ['#f_weight', '#f_height'].forEach(selector => {
+      $(selector).addEventListener('input', updateBMI);
+      $(selector).addEventListener('change', updateBMI);
+    });
+    updateBMI();
+  } else if (measurementsEnabled && existingBodyMeasurement) {
+    const value = patientBMI(latestBody.weight, Number($('#f_height').value));
+    $('#f_bmi').textContent = value == null ? 'أدخل طولًا صالحًا لحساب BMI' : value + ' — قيمة محسوبة تلقائيًا';
+  }
+
   $('#patientForm').onsubmit = async e => {
     e.preventDefault();
-    const btn = e.target.querySelector('.btn-primary'); btn.disabled = true;
+    const btn = e.target.querySelector('.btn-primary');
+    const formError = $('#patientFormError');
+    formError.textContent = ''; formError.classList.remove('show');
+    btn.disabled = true;
     const data = {
       name: $('#f_name').value.trim(), phone: $('#f_phone').value.trim(),
       age: +$('#f_age').value || null, gender: $('#f_gender').value, type: $('#f_type').value,
-      height: +$('#f_height').value || null, targetWeight: +$('#f_target').value || null,
-      birthDate: $('#f_birth').value || null, // portal login credential (phone + birthdate)
-      consentWa: $('#f_consent').checked,     // (بند 14) موافقة واتساب الموثقة
-      diagnosis: $('#f_diag').value.trim(), notes: $('#f_notes').value.trim(),
-      chronic: $$('[data-chronic]:checked').map(c => c.value) // الأمراض المزمنة المختارة
+      targetWeight: +$('#f_target').value || null, birthDate: $('#f_birth').value || null,
+      consentWa: $('#f_consent').checked,
+      diagnosis: $('#f_diag').value.trim(), notes: $('#f_notes').value.trim()
     };
+    const otherChecked = $('#f_chronic_other').checked;
+    const otherName = $('#f_chronic_other_name').value.trim();
+    if (otherChecked && (!otherName || otherName.length > 100)) {
+      formError.textContent = 'اكتب اسم الحالة الأخرى بحد أقصى 100 حرف، أو ألغِ تحديد الخيار.';
+      formError.classList.add('show'); btn.disabled = false; return;
+    }
+    const selected = $$('[data-chronic]:checked').map(c => c.value);
+    data.chronic = selected.concat(otherChecked ? [{ customCondition: otherName }] : []);
+
+    let baseline = null;
+    try {
+      if (measurementsEnabled && !existingBodyMeasurement) {
+        const height = optionalMeasure('#f_height', 80, 230);
+        data.height = height;
+        const weight = optionalMeasure('#f_weight', 20, 350);
+        const waist = optionalMeasure('#f_waist', 40, 200);
+        const hips = optionalMeasure('#f_hips', 50, 220);
+        const arm = optionalMeasure('#f_arm', 20, 120);
+        const computedBMI = patientBMI(weight, height);
+        const hasAny = [height, weight, waist, hips, arm].some(v => v != null);
+        const usefulForExistingPatient = [weight, waist, hips, arm].some(v => v != null);
+        const measurementDate = $('#f_measure_date').value || todayISO();
+        if (hasAny && (!edit || usefulForExistingPatient)) {
+          if (!validMeasurementDate(measurementDate)) throw { code: 'invalid_initial_measurement_date' };
+          baseline = {
+            date: measurementDate, height, weight, waist, hips, arm,
+            bmi: computedBMI, recordType: 'manual', note: edit ? 'قياسات بداية أُضيفت من نموذج المريض' : 'قياسات البداية'
+          };
+        }
+      }
+    } catch (err) {
+      formError.textContent = 'راجع قياسات البداية: أدخل أرقامًا ضمن الحدود الموضحة.';
+      formError.classList.add('show'); btn.disabled = false; return;
+    }
+
     try {
       if (edit) {
         await DB.update('patients', p.id, data);
+        if (baseline) await DB.addRecord(p.id, baseline);
         toast('تم حفظ تعديلات ' + data.name);
       } else {
-        const w = +$('#f_weight').value || null;
         data.status = 'active'; data.planId = null; data.createdAt = todayISO();
-        data.measurements = w ? [{ id: uid(), date: todayISO(), weight: w, note: 'القياس الأول — بداية البرنامج' }] : [];
+        data.measurements = baseline ? [baseline] : [];
         await DB.add('patients', data);
         toast('تمت إضافة المريض ' + data.name + ' بنجاح');
       }
       closeModal(); refreshCurrent();
-    } catch (err) { toast('حدث خطأ أثناء الحفظ', 'error'); btn.disabled = false; }
+    } catch (err) {
+      toast('حدث خطأ أثناء الحفظ — تحقق من الاتصال وحاول مجدداً', 'error');
+      btn.disabled = false;
+    }
   };
 }
 

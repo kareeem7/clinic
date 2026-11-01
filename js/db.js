@@ -49,11 +49,15 @@ const CHRONIC = {
 };
 // رقائق الأمراض المزمنة للمريض
 function chronicChips(p, small) {
-  const list = p.chronic || [];
-  if (!list.length) return '';
-  return list.filter(k => CHRONIC[k]).map(k =>
+  const list = Array.isArray(p.chronic) ? p.chronic : [];
+  const known = list.filter(k => typeof k === 'string' && CHRONIC[k]).map(k =>
     '<span class="chip chip-' + CHRONIC[k].cls + '"><i class="fa-solid ' + CHRONIC[k].icon + '"></i>' +
-    (small ? '' : ' ') + CHRONIC[k].label + '</span>').join('');
+    (small ? '' : ' ') + CHRONIC[k].label + '</span>');
+  const custom = list.filter(x => x && typeof x === 'object' && !Array.isArray(x) &&
+    typeof x.customCondition === 'string' && x.customCondition.trim()).map(x =>
+    '<span class="chip chip-gray"><i class="fa-solid fa-notes-medical"></i>' +
+    (small ? '' : ' ') + esc(x.customCondition.trim()) + '</span>');
+  return known.concat(custom).join('');
 }
 // Validate structured lab components before they reach PostgREST. The database
 // also enforces the JSON shape; errors intentionally contain no patient values.
@@ -347,8 +351,9 @@ const DB = {
           birthDate: data.birthDate || null, consentWa: data.consentWa || false
         },
         p_measurements: data.measurements.map(m => ({
-          date: m.date || todayISO(), weight: m.weight ?? null,
-          session: m.session ?? null, pain: m.pain ?? null, note: m.note || ''
+          date: m.date || todayISO(), height: m.height ?? null, weight: m.weight ?? null,
+          waist: m.waist ?? null, hips: m.hips ?? null, arm: m.arm ?? null, bmi: m.bmi ?? null,
+          session: m.session ?? null, pain: m.pain ?? null, note: m.note || '', recordType: m.recordType || 'manual'
         }))
       });
       if (error) throw error;
@@ -702,9 +707,17 @@ const DB = {
     };
     // Omit new nullable columns when unused so existing clinics can keep using
     // legacy measurement writes until the additive migration has been applied.
-    for (const [key, column] of Object.entries({ bmi: 'bmi', bodyFatMass: 'body_fat_mass',
+    if (rec.recordType === 'manual') {
+      const weight = Number(rec.weight), height = Number(rec.height);
+      payload.bmi = Number.isFinite(weight) && weight >= 20 && weight <= 350 &&
+        Number.isFinite(height) && height >= 80 && height <= 230
+        ? +(weight / Math.pow(height / 100, 2)).toFixed(1) : null;
+      rec.bmi = payload.bmi;
+    }
+    for (const [key, column] of Object.entries({ height: 'height', bmi: 'bmi', bodyFatMass: 'body_fat_mass',
       skeletalMuscleMass: 'skeletal_muscle_mass', visceralFatLevel: 'visceral_fat_level',
       bodyWaterPct: 'body_water_pct', recordType: 'record_type' })) {
+      if (key === 'bmi' && rec.recordType === 'manual') continue;
       if (rec[key] != null) payload[column] = rec[key];
     }
     const { data, error } = await this.sb.from('patient_records').insert(payload).select();
@@ -716,7 +729,7 @@ const DB = {
   },
 
   async updateRecord(pid, mid, patch) {
-    const allowed = ['date', 'weight', 'waist', 'hips', 'arm', 'fat', 'bmi', 'bodyFatMass',
+    const allowed = ['date', 'height', 'weight', 'waist', 'hips', 'arm', 'fat', 'bmi', 'bodyFatMass',
       'skeletalMuscleMass', 'visceralFatLevel', 'bodyWaterPct', 'recordType', 'session', 'pain', 'note'];
     const safe = {};
     for (const key of allowed) if (Object.prototype.hasOwnProperty.call(patch, key)) safe[key] = patch[key];

@@ -31,6 +31,10 @@ const Actions = {
       catch (e) { logError(e, 'patient.edit'); toast('تعذّر تحميل بيانات المريض للتعديل — ' + explainError(e), 'error'); return; }
     }
     if (!p) { toast('تعذّر العثور على بيانات المريض للتعديل', 'error'); return; }
+    if (normalizeClinicalFeatures((State.settings || {}).clinicalFeatures).measurements && !p._recordsLoaded) {
+      try { await DB.loadRecords(p.id); p._recordsLoaded = true; }
+      catch (e) { logError(e, 'patient.edit.records'); toast('تعذّر تحميل القياسات قبل التعديل — ' + explainError(e), 'error'); return; }
+    }
     openPatientModal(p);
   },
   'del-patient':   ds => deletePatient(ds.id),
