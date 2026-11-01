@@ -23,6 +23,7 @@ function deferred() {
 function harness() {
   const elements = new Map(), storage = new Map(), calls = [];
   const screens = [], charts = {}, toasts = [];
+  let invoke = async () => ({ data: { path: 'doctor/patient/photo.png' }, error: null });
   let rpc = async (name, args) => {
     if (name === 'patient_portal_login') return { data: { ok: true, token: args.p_phone }, error: null };
     if (name === 'patient_portal_data') return { data: { ok: true, patient: {}, clinic: {} }, error: null };
@@ -54,13 +55,16 @@ function harness() {
     window: {}, $, $$: () => [], Charts: charts,
     todayISO: () => '2026-11-01', humanDate: date => date, relDay: date => date, fmtTime: time => time, esc: escapeHtml,
     toast(message, type) { toasts.push({ message, type }); }, switchAuthTab() {}, showScreen(name) { screens.push(name); },
-    DB: { sb: { rpc(name, args) { calls.push({ name, args }); return rpc(name, args); } } }
+    DB: { sb: {
+      rpc(name, args) { calls.push({ name, args }); return rpc(name, args); },
+      functions: { invoke(name, options) { calls.push({ name, options }); return invoke(name, options); } }
+    } }
   });
   vm.runInContext(source, context, { filename: 'patient-portal.js' });
   vm.runInContext('Portal.render = () => {}', context);
   return {
     run: expression => vm.runInContext(expression, context), $, charts, storage, calls, screens, toasts,
-    setRpc(fn) { rpc = fn; }
+    setRpc(fn) { rpc = fn; }, setInvoke(fn) { invoke = fn; }
   };
 }
 
@@ -272,4 +276,59 @@ test('photo path validation is shared by setup SQL and standalone migration', ()
   assert.match(body, /split_part\(p_photo_path, '\/', 3\) = ''/);
   assert.match(body, /from storage\.objects o\s+where o\.bucket_id = 'patient-photos' and o\.name = p_photo_path/);
   assert.ok(body.indexOf('if coalesce(p_photo_path') < body.indexOf('insert into public.patient_records'));
+});
+
+
+test('photo upload uses the captured patient token and server-returned path', async () => {
+  const app = harness();
+  await app.run("Portal.login('A', '2000-01-01')");
+  app.$('#lgWeight').value = '80'; app.$('#lgDate').value = '2026-11-01';
+  const file = { type: 'image/png', size: 10 };
+  app.$('#lgPhoto').files = [file];
+  app.setRpc(async name => name === 'patient_portal_add_measurement'
+    ? { data: { ok: true }, error: null }
+    : { data: { ok: true, patient: {}, clinic: {} }, error: null });
+  await app.run('portalSubmitMeasurement()');
+  const upload = app.calls.find(c => c.name === 'portal-photo-upload');
+  assert.equal(upload.options.headers['x-patient-token'], 'A');
+  assert.equal(upload.options.body, file);
+  const measurement = app.calls.find(c => c.name === 'patient_portal_add_measurement');
+  assert.equal(measurement.args.p_token, 'A');
+  assert.equal(measurement.args.p_photo_path, 'doctor/patient/photo.png');
+});
+
+test('switching patient during photo upload cannot send the old measurement or change the new form', async () => {
+  const app = harness(), pending = deferred();
+  await app.run("Portal.login('A', '2000-01-01')");
+  app.$('#lgWeight').value = '80'; app.$('#lgDate').value = '2026-11-01';
+  app.$('#lgPhoto').files = [{ type: 'image/png', size: 10 }];
+  app.setInvoke(() => pending.promise);
+  const oldSave = app.run('portalSubmitMeasurement()');
+  await app.run('Portal.logout()');
+  await app.run("Portal.login('B', '2000-01-01')");
+  app.$('#lgWeight').value = '92';
+  assert.equal(app.$('#lgSave').disabled, false);
+  pending.resolve({ data: { path: 'doctor/patient/photo.png' }, error: null });
+  await oldSave;
+  assert.equal(app.calls.filter(c => c.name === 'patient_portal_add_measurement').length, 0);
+  assert.equal(app.$('#lgWeight').value, '92');
+  assert.equal(app.$('#lgSave').disabled, false);
+});
+
+test('late measurement response does not clear a new patient form', async () => {
+  const app = harness(), pending = deferred();
+  await app.run("Portal.login('A', '2000-01-01')");
+  app.$('#lgWeight').value = '80'; app.$('#lgDate').value = '2026-11-01';
+  app.setRpc(async name => name === 'patient_portal_add_measurement' ? pending.promise : { data: null });
+  const oldSave = app.run('portalSubmitMeasurement()');
+  await app.run('Portal.logout()');
+  app.setRpc(async name => name === 'patient_portal_login'
+    ? { data: { ok: true, token: 'B' } }
+    : { data: { ok: true, patient: {}, clinic: {} } });
+  await app.run("Portal.login('B', '2000-01-01')");
+  app.$('#lgWeight').value = '92';
+  pending.resolve({ data: { ok: true }, error: null });
+  await oldSave;
+  assert.equal(app.calls.find(c => c.name === 'patient_portal_add_measurement').args.p_token, 'A');
+  assert.equal(app.$('#lgWeight').value, '92');
 });
