@@ -196,8 +196,10 @@ const DB = {
   // الاشتراك قبل سحب أي بيانات مرضى للذاكرة. جدول doctors مقصود ألا يكون
   // مقفولاً بـclinic_active في RLS حتى والدكتور الموقوف يقدر يقرأ سبب إيقافه.
   async loadSettingsRow() {
-    const { data: docRow } = await this.sb.from('doctors').select('settings').eq('id', this.uid).maybeSingle();
-    State.settings = (docRow && docRow.settings) ? docRow.settings : defaultClinicData().settings;
+    const { data: docRow, error } = await this.sb.from('doctors').select('settings').eq('id', this.uid).maybeSingle();
+    if (error) throw error;
+    if (!docRow) throw { code: 'clinic_profile_missing' };
+    State.settings = docRow.settings || defaultClinicData().settings;
     return State.settings;
   },
 
@@ -251,9 +253,11 @@ const DB = {
       const [roster, appointments, plans] = await Promise.all([
         this.loadRoster(), grabAppts(), grab('plans')
       ]);
-      const { data: docRow } = await this.sb.from('doctors').select('settings').eq('id', this.uid).maybeSingle();
+      const { data: docRow, error: docError } = await this.sb.from('doctors').select('settings').eq('id', this.uid).maybeSingle();
+      if (docError) throw docError;
+      if (!docRow) throw { code: 'clinic_profile_missing' };
       State.appointments = appointments;
-      State.settings = (docRow && docRow.settings) ? docRow.settings : defaultClinicData().settings;
+      State.settings = docRow.settings || defaultClinicData().settings;
       State.pTotal = roster.filter(p => p.status === 'active').length;
       if (plans.length) { State.plans = plans; }
       else {
@@ -407,8 +411,8 @@ const DB = {
     return ps;
   },
   // بانى استعلام قائمة المرضى (بحث + فلتر تخصص) — يُستخدم للصفوف وللعدّ معاً
-  _pfQuery(q, type) {
-    let b = this.sb.from('patients')
+  _pfQuery(q, type, selectOptions) {
+    let b = this.sb.from('patients').select('*', selectOptions)
       .eq('doctor_id', this.uid).is('deleted_at', null).eq('status', 'active');
     if (type && type !== 'all') b = b.eq('type', type);
     const s = String(q || '').replace(/[%(),]/g, ' ').trim();
@@ -423,12 +427,11 @@ const DB = {
   // صفحة مرضى من السيرفر + إجمالي المطابقين (للترقيم) — الصفوف الكاملة تُخزّن في الفهرس
   async pagePatients(opts) {
     const per = opts.per || 10, page = Math.max(1, opts.page || 1);
-    const { data, error } = await this._pfQuery(opts.q, opts.type).select('*')
+    const { data, error } = await this._pfQuery(opts.q, opts.type)
       .order('name').order('id')
       .range((page - 1) * per, page * per - 1);
     if (error) throw error;
-    const { count, error: e2 } = await this._pfQuery(opts.q, opts.type)
-      .select('*', { count: 'exact', head: true });
+    const { count, error: e2 } = await this._pfQuery(opts.q, opts.type, { count: 'exact', head: true });
     if (e2) throw e2;
     const rows = (data || []).map(r => {
       const p = fromRow('patients', r); p._full = true;

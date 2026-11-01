@@ -136,7 +136,6 @@ function openPatientModal(p) {
   $('#patientForm').onsubmit = async e => {
     e.preventDefault();
     const btn = e.target.querySelector('.btn-primary'); btn.disabled = true;
-    const w = +$('#f_weight').value || null;
     const data = {
       name: $('#f_name').value.trim(), phone: $('#f_phone').value.trim(),
       age: +$('#f_age').value || null, gender: $('#f_gender').value, type: $('#f_type').value,
@@ -151,6 +150,7 @@ function openPatientModal(p) {
         await DB.update('patients', p.id, data);
         toast('تم حفظ تعديلات ' + data.name);
       } else {
+        const w = +$('#f_weight').value || null;
         data.status = 'active'; data.planId = null; data.createdAt = todayISO();
         data.measurements = w ? [{ id: uid(), date: todayISO(), weight: w, note: 'القياس الأول — بداية البرنامج' }] : [];
         await DB.add('patients', data);
