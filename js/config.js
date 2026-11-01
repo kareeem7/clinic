@@ -751,6 +751,18 @@ begin
     return jsonb_build_object('ok', false, 'error', 'التاريخ لازم يكون النهارده أو خلال آخر أسبوع');
   end if;
 
+  -- The reference must point to an existing object under this session's
+  -- doctor and patient, not an arbitrary path supplied by the client.
+  if coalesce(p_photo_path, '') <> '' and (
+       split_part(p_photo_path, '/', 1) <> v_s.doctor_id::text
+    or split_part(p_photo_path, '/', 2) <> v_s.patient_id::text
+    or split_part(p_photo_path, '/', 3) = ''
+    or not exists (select 1 from storage.objects o
+                   where o.bucket_id = 'patient-photos' and o.name = p_photo_path)
+  ) then
+    return jsonb_build_object('ok', false, 'error', 'تعذّر التحقق من الصورة — حاول رفعها مجدداً');
+  end if;
+
   insert into public.patient_records (doctor_id, patient_id, date, weight, waist, hips, arm, note, photo_path, source)
     values (v_s.doctor_id, v_s.patient_id, v_date, p_weight, p_waist, p_hips, p_arm,
             left(p_note, 500), nullif(p_photo_path, ''), 'patient');   -- source forced here
@@ -1050,4 +1062,57 @@ end; $$;
 -- QA-12 Anon purge blocked: نداء purge_deleted_rows بمفتاح anon عبر REST.
 --    Expect: permission denied for function (REVOKE execute).
 -- QA-13 Photo path: ارفع صورة من البوابة → المسار doctorId/patientId/uuid.jpg
---    من غير أي توكن، و photo_path المتخزن في patient_records مافيهوش سر.`;
+--    من غير أي توكن، و photo_path المتخزن في patient_records مافيهوش سر.
+
+-- Require a verified MFA session for doctor and admin data access.
+-- Run as a single transaction after reviewing the existing Supabase policies.
+-- Portal RPCs use their patient session token and intentionally remain usable by anon.
+-- Deploy the matching app (registration uses INSERT, not UPSERT) before this SQL.
+-- Review all existing policies/functions and test JWT, MFA and portal flows before production.
+
+-- Restrictive policies are ANDed with every permissive policy. They cover
+-- existing and future permissive policies for the authenticated role.
+do $$
+declare t text;
+begin
+  foreach t in array array['patients', 'appointments', 'patient_records', 'patient_notes', 'plans',
+                            'audit_logs', 'superadmins', 'admin_notes', 'system_settings'] loop
+    execute format('drop policy if exists require_mfa on public.%I', t);
+    execute format('create policy require_mfa on public.%I as restrictive for all to authenticated using ((auth.jwt()->>''aal'') = ''aal2'') with check ((auth.jwt()->>''aal'') = ''aal2'')', t);
+  end loop;
+end $$;
+
+-- The initial registration insert occurs before TOTP enrollment. Reads,
+-- updates and deletes of a doctor profile still require MFA.
+drop policy if exists require_mfa_select on public.doctors;
+create policy require_mfa_select on public.doctors as restrictive for select to authenticated
+  using ((auth.jwt()->>'aal') = 'aal2');
+drop policy if exists require_mfa_update on public.doctors;
+create policy require_mfa_update on public.doctors as restrictive for update to authenticated
+  using ((auth.jwt()->>'aal') = 'aal2') with check ((auth.jwt()->>'aal') = 'aal2');
+drop policy if exists require_mfa_delete on public.doctors;
+create policy require_mfa_delete on public.doctors as restrictive for delete to authenticated
+  using ((auth.jwt()->>'aal') = 'aal2');
+
+-- Limit only photo reads, not patient-portal uploads or unrelated buckets.
+drop policy if exists require_mfa_photo_read on storage.objects;
+create policy require_mfa_photo_read on storage.objects as restrictive for select to authenticated
+  using (bucket_id <> 'patient-photos' or (auth.jwt()->>'aal') = 'aal2');
+
+-- SECURITY DEFINER functions bypass table RLS, so their own checks are required.
+create or replace function public.is_super_admin()
+returns boolean language sql stable security definer set search_path = public
+as $$ select coalesce(auth.jwt()->>'aal' = 'aal2', false)
+  and exists (select 1 from public.superadmins where id = auth.uid()) $$;
+
+create or replace function public.save_clinic_settings(patch jsonb)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null or coalesce(auth.jwt()->>'aal', '') <> 'aal2' then
+    raise exception 'MFA required' using errcode = '42501';
+  end if;
+  update public.doctors
+  set settings = coalesce(settings, '{}'::jsonb) || (coalesce(patch, '{}'::jsonb) - 'account')
+  where id = auth.uid();
+end; $$;
+`;

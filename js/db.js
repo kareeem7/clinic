@@ -153,7 +153,8 @@ const DB = {
     if (!data.session) throw { code: 'confirm-email' };
     this.uid = data.user.id;
     const s0 = defaultClinicData().settings;
-    const { error: sErr } = await this.sb.from('doctors').upsert({
+    // A new profile is inserted before MFA enrollment; reads and updates require AAL2.
+    const { error: sErr } = await this.sb.from('doctors').insert({
       id: this.uid,
       settings: {
         ...s0, doctorName: name, specialty: spec, clinicName: clinic || ('عيادة ' + name),

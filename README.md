@@ -1,6 +1,7 @@
 # README — نظام إدارة العيادات (عيادتي)
 
 ## 🧪 الاختبارات (بند 29)
+- **اختبارات Node الحالية:** من مجلد المشروع شغّل `npm test` (يتطلب Node.js 22؛ لا توجد حزم مطلوبة). البديل: `node --test tests/*.test.cjs`. الاختبارات تستخدم محاكاة، ولا تغني عن اختبارات المتصفح وقاعدة البيانات الفعلية.
 - **pgTAP (RLS & RPCs):** ملف `tests/pgtap/rls_and_rpc.sql` — 14 اختباراً (سياسات العزل، الدوال، purge، الذرّية) — سليم syntax (pglast) — يُشغّل في Supabase SQL Editor.
 - **Playwright (المسارات الرئيسية):** ملف `tests/e2e/main-flows.spec.mjs` + `tests/playwright.config.mjs` + `tests/package.json` — 12 اختباراً (الإقلاع، الموارد، CSS، المودال focus/dialog، التنبيهات، التبويبات، التقويم aria، الاتصال الصادق، المرضى بلا اتصال، Globals، الاستجابة) — **النتيجة: 12/12 نجاح (11.5s)**.
 - **تشغيل الـE2E:** `cd tests && npm install && npx playwright test` (متوفر Chromium محلياً).
