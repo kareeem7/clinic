@@ -13,9 +13,15 @@
    js/settings.js — الإعدادات وحالة النظام
    ============================================================ */
 function renderSettings() {
-  const s = State.settings;
+  const s = State.settings || {};
   $('#setClinic').value = s.clinicName || ''; $('#setDoctor').value = s.doctorName || '';
   $('#setPhone').value = s.phone || ''; $('#setPrice').value = s.price || ''; $('#setAddress').value = s.address || '';
+  const features = normalizeClinicalFeatures(s.clinicalFeatures);
+  $('#setFeatureMeasurements').checked = features.measurements;
+  $('#setFeatureInbody').checked = features.inbody;
+  $('#setFeatureLabs').checked = features.labs;
+  $('#setFeatureGlucose').checked = features.glucoseTracking;
+  $('#setFeatureBloodPressure').checked = features.bloodPressureTracking;
 
   // Message-style card: build once, fill with saved styles, live preview engine
   ensureMsgStyleUI();

@@ -17,6 +17,25 @@
    Contains NO patient data: only clinic settings and the starter
    nutrition-plan library, written to Supabase on first sign-in.
    ============================================================ */
+const CLINICAL_FEATURE_DEFAULTS = Object.freeze({
+  measurements: false,
+  inbody: false,
+  labs: false,
+  glucoseTracking: false,
+  bloodPressureTracking: false
+});
+
+// Missing, malformed, or non-boolean feature flags fail closed (disabled).
+function normalizeClinicalFeatures(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return Object.fromEntries(Object.keys(CLINICAL_FEATURE_DEFAULTS).map(key => [key, source[key] === true]));
+}
+
+function normalizeClinicSettings(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : defaultClinicData().settings;
+  return { ...source, clinicalFeatures: normalizeClinicalFeatures(source.clinicalFeatures) };
+}
+
 function defaultClinicData() {
 
   // مكتبة خطط التغذية الجاهزة: 10 خطط موثقة بالسعرات والمدة والبدائل
@@ -79,7 +98,10 @@ function defaultClinicData() {
   // Starter library + empty clinic profile. The doctor edits these in Settings.
   return {
     plans,
-    settings: { clinicName: '', doctorName: '', specialty: '', phone: '', price: 0, address: '' }
+    settings: {
+      clinicName: '', doctorName: '', specialty: '', phone: '', price: 0, address: '',
+      clinicalFeatures: { ...CLINICAL_FEATURE_DEFAULTS }
+    }
   };
 }
 

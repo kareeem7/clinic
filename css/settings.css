@@ -13,5 +13,18 @@ settings.css
 .sys-row i{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:15px;flex:none}
 .sys-row b{font-size:14px;font-weight:800;display:block}
 .sys-row small{color:var(--muted);font-size:12px}
+.feature-settings{min-width:0;margin:2px 0 0;padding:14px;border:1px solid var(--line);border-radius:var(--r-md)}
+.feature-settings legend{padding:0 8px;color:#274b49;font-size:14px;font-weight:900}
+.feature-settings legend i{color:var(--teal-700);margin-inline-end:5px}
+.feature-settings-hint{margin:-2px 0 12px;color:var(--muted);font-size:12px;line-height:1.7}
+.feature-toggle-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.feature-toggle{min-width:0;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#fbfdfd;cursor:pointer}
+.feature-toggle:hover{border-color:var(--teal-500);background:#f6fbfa}
+.feature-toggle:focus-within{outline:3px solid rgba(20,184,166,.2);outline-offset:2px}
+.feature-toggle-copy{display:flex;flex-direction:column;gap:3px;min-width:0}
+.feature-toggle-copy b{font-size:13px;color:#334d4b}
+.feature-toggle-copy small{color:var(--muted);font-size:11.5px;line-height:1.5}
+.feature-toggle input{width:20px;height:20px;flex:none;accent-color:var(--teal-700);cursor:pointer}
+@media (max-width:768px){.feature-toggle-list{grid-template-columns:1fr}}
 .steps-list{margin:10px 0 0;padding-inline-start:18px;font-size:13px;color:#3d5654;font-weight:600;display:flex;flex-direction:column;gap:6px}
 .steps-list li::marker{color:var(--teal-600);font-weight:800}

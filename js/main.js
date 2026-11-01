@@ -417,12 +417,30 @@ async function boot() {
   // 13) Doctor settings save
   $('#settingsForm').onsubmit = async e => {
     e.preventDefault();
-    await DB.saveSettings({
-      clinicName: $('#setClinic').value.trim(), doctorName: $('#setDoctor').value.trim(),
-      phone: $('#setPhone').value.trim(), price: +$('#setPrice').value || 0, address: $('#setAddress').value.trim()
-    });
-    syncShellIdentity();
-    toast('تم حفظ بيانات العيادة');
+    const btn = $('#settingsForm').querySelector('button[type="submit"]');
+    const oldLabel = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i> جارٍ الحفظ...';
+    try {
+      await DB.saveSettings({
+        clinicName: $('#setClinic').value.trim(), doctorName: $('#setDoctor').value.trim(),
+        phone: $('#setPhone').value.trim(), price: +$('#setPrice').value || 0, address: $('#setAddress').value.trim(),
+        clinicalFeatures: {
+          measurements: $('#setFeatureMeasurements').checked === true,
+          inbody: $('#setFeatureInbody').checked === true,
+          labs: $('#setFeatureLabs').checked === true,
+          glucoseTracking: $('#setFeatureGlucose').checked === true,
+          bloodPressureTracking: $('#setFeatureBloodPressure').checked === true
+        }
+      });
+      syncShellIdentity();
+      toast('تم حفظ إعدادات العيادة');
+    } catch (ex) {
+      toast('تعذّر حفظ الإعدادات — ' + explainError(ex), 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = oldLabel;
+    }
   };
 
   // Restore the patient portal only after all UI handlers are bound. A rejected
