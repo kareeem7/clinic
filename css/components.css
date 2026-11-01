@@ -1,0 +1,58 @@
+/*
+========================================
+components.css
+الوظيفة: مكونات عامة: حقول الإدخال، الأزرار بكل أنواعها، الرقائق Chips، الصور الرمزية.
+الأقسام: الحقول والإدخال، الأزرار، الرقائق، الصورة الرمزية
+آخر تعديل: 2026-10-31 — تقسيم من index.html الموحد (القواعد منسوخة حرفياً وبلا أي تغيير، والترتيب محفوظ)
+========================================
+*/
+/* ====== الحقول والإدخال ====== */
+.field{display:flex;flex-direction:column;gap:7px}
+.field label{font-size:13px;font-weight:700;color:#3d5654}
+.in-wrap{position:relative;display:flex;align-items:center}
+.in-wrap>i{position:absolute;inset-inline-start:14px;color:#9db8b5;font-size:14px;pointer-events:none}
+.input,.in-wrap>input,.in-wrap>select,textarea.input{width:100%;padding:12px 44px 12px 14px;border:1.5px solid var(--line);
+  border-radius:var(--r-md);background:#fbfdfd;transition:var(--tr);font-size:14.5px;font-weight:600}
+textarea.input{padding:12px 14px;resize:vertical;min-height:86px}
+select.input,.in-wrap>select{padding-inline-start:14px;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2364748b' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:left 14px center}
+.input:focus,.in-wrap>input:focus,.in-wrap>select:focus,textarea.input:focus{outline:none;border-color:var(--teal-500);
+  box-shadow:0 0 0 4px rgba(20,184,166,.13);background:#fff}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-grid .full{grid-column:1/-1}
+
+/* ====== الأزرار ====== */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;border-radius:var(--r-md);
+  font-weight:800;font-size:14px;transition:var(--tr);white-space:nowrap}
+.btn:active{transform:scale(.97)}
+.btn.sm{padding:8px 14px;font-size:13px;border-radius:var(--r-sm)}
+.btn.block{width:100%}
+.btn-primary{background:linear-gradient(135deg,var(--teal-600),var(--teal-700));color:#fff;box-shadow:0 6px 18px rgba(13,148,136,.28)}
+.btn-primary:hover{box-shadow:0 10px 26px rgba(13,148,136,.38);transform:translateY(-1px)}
+.btn-ghost{background:#eef4f3;color:#334d4b}
+.btn-ghost:hover{background:#e2eceb}
+.btn-danger{background:var(--rose);color:#fff}
+.btn-danger:hover{background:#be123c}
+.btn-outline{background:#fff;border:1.5px solid var(--line);color:#334d4b}
+.btn-outline:hover{border-color:var(--teal-500);color:var(--teal-700)}
+.icon-btn{width:38px;height:38px;border-radius:11px;display:inline-grid;place-items:center;color:#5b7673;transition:var(--tr);flex:none}
+.icon-btn:hover{background:#e9f2f1;color:var(--teal-700)}
+.icon-btn.sm{width:32px;height:32px;font-size:12.5px;border-radius:9px}
+.icon-btn.danger:hover{background:var(--rose-soft);color:var(--rose)}
+.icon-btn.wa:hover{background:#e5f9ef;color:#128c4b}
+
+/* ====== الرقائق (Chips) ====== */
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap}
+.chip i{font-size:10.5px}
+.chip-teal{background:var(--teal-50);color:var(--teal-700)}
+.chip-amber{background:var(--amber-soft);color:var(--amber-ink)}
+.chip-rose{background:var(--rose-soft);color:var(--rose)}
+.chip-blue{background:var(--blue-soft);color:var(--blue)}
+.chip-green{background:var(--green-soft);color:var(--green)}
+.chip-gray{background:#eef2f2;color:var(--muted)}
+.chip-violet{background:var(--violet-soft);color:var(--violet)}
+
+/* ====== الصورة الرمزية ====== */
+.avatar{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:15px;flex:none}
+.avatar.lg{width:64px;height:64px;font-size:22px;border-radius:19px}

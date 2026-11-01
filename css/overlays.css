@@ -1,0 +1,39 @@
+/*
+========================================
+overlays.css
+الوظيفة: الطبقات الطافية: المودالات، تنبيهات Toast، شريط التنقل السفلي للموبايل — مع keyframes الخاصة بها.
+الأقسام: المودالات، Toast، bottomNav، fadeIn/popIn/toastIn/toastOut
+آخر تعديل: 2026-10-31 — تقسيم من index.html الموحد (القواعد منسوخة حرفياً وبلا أي تغيير، والترتيب محفوظ)
+========================================
+*/
+/* ====== المودالات ====== */
+.modal-overlay{position:fixed;inset:0;background:rgba(8,40,38,.5);backdrop-filter:blur(4px);z-index:100;display:flex;
+  align-items:center;justify-content:center;padding:18px;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0}}
+.modal{background:#fff;border-radius:var(--r-xl);width:100%;max-height:92vh;max-height:92dvh;display:flex;flex-direction:column;
+  box-shadow:var(--shadow-lg);animation:popIn .25s cubic-bezier(.34,1.4,.64,1) both}
+@keyframes popIn{from{opacity:0;transform:scale(.94) translateY(14px)}}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px 0}
+.modal-head h3{font-size:17px;font-weight:900}
+.modal-body{padding:16px 22px 22px;overflow-y:auto}
+.modal-foot{display:flex;gap:10px;margin-top:18px}
+.modal-foot .btn{flex:1}
+
+/* ====== التنبيهات (Toast) ====== */
+#toastRoot{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:9px;align-items:center;pointer-events:none}
+.toast{display:flex;align-items:center;gap:10px;background:var(--teal-900);color:#fff;padding:12px 20px;border-radius:14px;
+  font-weight:700;font-size:13.5px;box-shadow:var(--shadow-lg);animation:toastIn .3s cubic-bezier(.34,1.4,.64,1) both;max-width:min(92vw,420px)}
+.toast.success i{color:#4ade80}.toast.error i{color:#fb7185}.toast.info i{color:var(--teal-500)}
+@keyframes toastIn{from{opacity:0;transform:translateY(16px) scale(.95)}}
+.toast.out{animation:toastOut .3s ease both}
+@keyframes toastOut{to{opacity:0;transform:translateY(10px) scale(.95)}}
+
+/* ====== شريط التنقل السفلي (موبايل) ====== */
+#bottomNav{display:none;position:fixed;bottom:0;inset-inline:0;z-index:50;background:rgba(255,255,255,.92);backdrop-filter:blur(16px);
+  border-top:1px solid var(--line);padding:6px 10px calc(8px + env(safe-area-inset-bottom))}
+#bottomNav .in{display:flex;justify-content:space-around}
+#bottomNav button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 12px;border-radius:12px;
+  color:#7a9491;font-size:10.5px;font-weight:800;transition:var(--tr);min-width:58px}
+#bottomNav button i{font-size:17px}
+#bottomNav button.active{color:var(--teal-700)}
+#bottomNav button.active i{transform:translateY(-1px)}

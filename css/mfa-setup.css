@@ -1,0 +1,14 @@
+/*
+========================================
+mfa-setup.css
+الوظيفة: شاشة التحقق بخطوتين (MFA) وشاشة الإعداد المانعة (إعداد Supabase).
+الأقسام: mfa-qr، شاشتا MFA وSetup
+آخر تعديل: 2026-10-31 — تقسيم من index.html الموحد (القواعد منسوخة حرفياً وبلا أي تغيير، والترتيب محفوظ)
+========================================
+*/
+/* ===== شاشة التحقق بخطوتين (MFA) وشاشة الإعداد المانعة ===== */
+.mfa-qr{display:grid;place-items:center;padding:14px;background:#fff;border:1.5px solid var(--line);border-radius:16px;width:fit-content;margin:8px auto}
+.mfa-qr img{width:180px;height:180px}
+.mfa-secret{direction:ltr;text-align:center;font-family:ui-monospace,Consolas,monospace;background:#eef3f2;padding:9px 12px;border-radius:10px;font-weight:800;letter-spacing:2px}
+.secret-note{font-size:12px;color:var(--muted);text-align:center}
+.setup-steps{display:flex;flex-direction:column;gap:10px}

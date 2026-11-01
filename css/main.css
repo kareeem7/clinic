@@ -1,0 +1,24 @@
+/*
+========================================
+main.css
+الوظيفة: ملف تجميع — يستورد كل ملفات الستايل بالترتيب الأصلي نفسه
+الترتيب مهم: التتالي (Cascade) يعتمد عليه — ممنوع تغيير ترتيب الاستيراد
+========================================
+*/
+@import url('variables.css');
+@import url('base.css');
+@import url('auth.css');
+@import url('components.css');
+@import url('layout.css');
+@import url('dashboard.css');
+@import url('patients.css');
+@import url('patient-profile.css');
+@import url('appointments.css');
+@import url('plans.css');
+@import url('settings.css');
+@import url('overlays.css');
+@import url('responsive.css');
+@import url('admin.css');
+@import url('mfa-setup.css');
+@import url('whatsapp.css');
+@import url('portal.css');

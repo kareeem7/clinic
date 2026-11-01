@@ -1,0 +1,95 @@
+/*
+========================================
+portal.css
+الوظيفة: بوابة المريض (المراحل 14-17): هوية دافئة وخط كبير، بطاقة تسجيل القياس، التنقل السفلي، صفحة الخطة والمواعيد وصفحة التطور — مع media queries الخاصة بالبوابة في مكانها المتسلسل.
+الأقسام: theme-patient، p-field، pt-bottom، pt-nav، @media 560/520/681
+آخر تعديل: 2026-10-31 — تقسيم من index.html الموحد (القواعد منسوخة حرفياً وبلا أي تغيير، والترتيب محفوظ)
+========================================
+*/
+/* ===== المرحلة 14: بوابة المريض — هوية دافئة، خط كبير وواضح ===== */
+body.theme-patient{
+  --teal-900:#1e3a29; --teal-800:#2b5c3f; --teal-700:#287a4f; --teal-600:#16a34a; --teal-500:#22c55e;
+  --teal-100:#d4ecd9; --teal-50:#eef8f0; --bg:#faf7f2;
+  --font-size-root: 16.5px;
+}
+.portal-shell{min-height:100vh;min-height:100dvh;background:linear-gradient(180deg,#eaf6eb 0%,var(--bg) 40%);padding-bottom:40px}
+.portal-top{display:flex;align-items:center;justify-content:space-between;padding:16px 22px;max-width:680px;margin:0 auto;gap:12px}
+.portal-id{display:flex;align-items:center;gap:12px}
+.portal-logo{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#22c55e,#15803d);display:grid;place-items:center;color:#fff;font-size:19px;box-shadow:0 8px 20px rgba(21,128,61,.28);flex:none}
+.portal-id b{display:block;font-size:16px;font-weight:900}
+.portal-id small{font-size:12px;color:var(--muted);font-weight:700}
+.portal-main{max-width:680px;margin:0 auto;padding:6px 18px;display:flex;flex-direction:column;gap:16px}
+.p-hero h2{font-size:24px;font-weight:900;margin-bottom:2px}
+.p-card{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:22px;box-shadow:var(--shadow-sm);font-size:16.5px}
+.p-card> b{display:block;font-size:14px;font-weight:900;margin-bottom:10px;color:#2b5c3f}
+.p-next{background:linear-gradient(150deg,#2b5c3f,#16a34a);color:#fff;border:none}
+.p-next .p-title{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:800;color:#d4ecd9;margin-bottom:12px}
+.p-next .p-day{font-size:22px;font-weight:900;line-height:1.4}
+.p-next .p-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.p-next .chip{background:rgba(255,255,255,.16);color:#fff}
+.p-next .btn{padding:13px 20px;font-size:15px}
+.p-next .p-acts{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+.p-big{padding:14px 18px;font-size:15px;border-radius:14px}
+.p-num{font-size:30px;font-weight:900;line-height:1.1}
+.p-small{font-size:12.5px;color:var(--muted);font-weight:700}
+.p-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.p-tip{display:flex;gap:11px;align-items:flex-start;background:#fdfbf7;border:1.5px dashed #e5d8b8;border-radius:16px;padding:14px;color:#8a6d1d;font-size:13.5px;font-weight:600}
+.p-tip i{margin-top:3px}
+.p-progress{height:14px;border-radius:99px;background:#e5ede6;overflow:hidden;margin:10px 0}
+.p-progress>div{height:100%;border-radius:99px;background:linear-gradient(90deg,#22c55e,#15803d);transition:width .6s cubic-bezier(.34,1.3,.64,1)}
+.p-add-row{display:flex;gap:10px;align-items:flex-start}
+.p-add-row .input{padding:14px 16px;font-size:16.5px}
+.p-hero{display:flex;align-items:center;gap:13px}
+.p-avatar{width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,#22c55e,#15803d);display:grid;place-items:center;color:#fff;font-weight:900;font-size:18px;flex:none}
+.p-empty{text-align:center;padding:10px 14px 16px;color:#9db4a5}
+.p-empty i{font-size:28px;margin-bottom:8px}
+.p-empty b{display:block;font-size:15px;color:#48605d;font-weight:800}
+@media (max-width:560px){.p-grid{grid-template-columns:1fr}}
+
+/* ===== المرحلة 16: بطاقة تسجيل القياس ===== */
+.p-field{margin-bottom:14px}
+.p-field label{display:block;font-size:14px;font-weight:800;margin-bottom:6px;color:#2b5c3f}
+.stepper{display:flex;gap:9px;align-items:stretch}
+.stepper input{flex:1;text-align:center;font-size:20px;font-weight:900;padding:14px}
+.stepper button{width:54px;border-radius:14px;background:#eef4ee;color:#15803d;font-size:18px;transition:var(--tr);flex:none}
+.stepper button:active{transform:scale(.93);background:#d4ecd9}
+.p-opt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.p-opt-grid .input{text-align:center}
+.p-photo{display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px;border:2px dashed #c8dccc;border-radius:16px;background:#f6faf6;cursor:pointer;text-align:center;transition:var(--tr)}
+.p-photo:hover{border-color:#15803d}
+.p-photo i{font-size:24px;color:#16a34a}
+.p-photo img{width:100%;max-height:220px;object-fit:cover;border-radius:12px}
+.p-empty-note{background:var(--amber-soft);color:#92600a;border-radius:12px;padding:10px;font-size:13px;font-weight:700}
+@media (max-width:520px){.p-opt-grid{grid-template-columns:1fr 1fr 1fr;gap:7px}.p-field label{font-size:13px}}
+
+/* ===== المرحلة 17: البوابة السفلية + صفحة الخطة والمواعيد ===== */
+.pt-bottom{position:fixed;bottom:0;inset-inline:0;z-index:60;background:#ffffffd9;backdrop-filter:blur(16px);
+  border-top:1px solid var(--line);padding:8px 10px calc(10px + env(safe-area-inset-bottom));
+  display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.pt-bottom button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 6px;border-radius:13px;
+  color:#7a9491;font-size:12px;font-weight:800;transition:var(--tr)}
+.pt-bottom button i{font-size:18px}
+.pt-bottom button.active{background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;box-shadow:0 8px 20px rgba(21,128,61,.3)}
+.portal-main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+@media (min-width:681px){.pt-bottom{position:static;border-radius:18px;margin:14px auto 0;max-width:680px}}
+@media (min-width:681px){.portal-main{padding-bottom:30px}}
+
+/* ===== المرحلة 15: صفحة التطور داخل بوابة المريض ===== */
+.pt-nav{display:flex;gap:8px;background:#fff;border:1px solid var(--line);padding:6px;border-radius:16px;box-shadow:var(--shadow-sm)}
+.pt-nav button{flex:1;padding:13px;font-size:15px;font-weight:900;color:#5b7673;border-radius:11px;transition:var(--tr)}
+.pt-nav button.active{background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;box-shadow:0 6px 14px rgba(21,128,61,.28)}
+.psum-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:2px}
+.psum{background:#f6faf6;border:1.5px solid var(--line);border-radius:16px;padding:12px 14px;text-align:center}
+.psum small{display:block;font-size:11.5px;color:var(--muted);font-weight:800;margin-bottom:3px}
+.psum b{font-size:22px;font-weight:900}
+.psum b span{font-size:12.5px;color:var(--muted);font-weight:800}
+.psum.good{background:#ecf9f0;border-color:#b4e8cd}
+.psum.good b{color:#15803d}
+.p-motive{display:flex;gap:11px;align-items:flex-start;border-radius:16px;padding:13px 15px;margin-top:14px;font-size:14.5px;font-weight:800;line-height:1.7}
+.p-motive i{font-size:19px;margin-top:2px}
+.p-motive.ok{background:#e6f6ed;color:#15803d;border:1.5px dashed #b4e8cd}
+.p-motive.warn{background:var(--amber-soft);color:#92600a;border:1.5px dashed #f4d79a}
+.p-motive.bad{background:var(--rose-soft);color:#be123c;border:1.5px dashed #f3b2c1}
+.pt-ftabs{display:flex;gap:5px;background:#eef3f2;padding:4px;border-radius:11px}
+.pt-ftabs button{padding:8px 14px;font-size:12.5px;font-weight:800;border-radius:8px;color:#5b7673}
+.pt-ftabs button.active{background:#fff;color:#15803d;box-shadow:var(--shadow-sm)}

@@ -1,0 +1,92 @@
+/*
+========================================
+dashboard.css
+الوظيفة: لوحة التحكم وما جاورها في نفس النطاق: البطاقات العامة، KPI، الترحيب، صندوق الرسوم، الإجراءات السريعة، هياكل التحميل، القوائم المصغرة، ترقيم الصفحات، صندوق SQL، رقائق الأمراض المزمنة، بطاقات الملاحظات.
+الأقسام: البطاقات العامة، KPI، الترحيب، الرسوم، quick-grid، Skeletons، mini-list، Pagination، صندوق SQL، chk-grid، note-card
+آخر تعديل: 2026-10-31 — تقسيم من index.html الموحد (القواعد منسوخة حرفياً وبلا أي تغيير، والترتيب محفوظ)
+========================================
+*/
+/* ====== البطاقات العامة ====== */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);box-shadow:var(--shadow-sm);padding:20px}
+.card+.card,.grid-2+.grid-2,.card+.grid-2,.grid-2+.card{margin-top:18px}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.card-head h3{font-size:16px;font-weight:800;display:flex;align-items:center;gap:9px}
+.card-head h3 i{color:var(--teal-600);font-size:14px}
+.grid-2{display:grid;grid-template-columns:1.6fr 1fr;gap:18px}
+.grid-2.equal{grid-template-columns:1fr 1fr}
+
+/* ====== بطاقات المؤشرات KPI ====== */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:18px 0}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px;display:flex;gap:14px;
+  align-items:center;box-shadow:var(--shadow-sm);transition:var(--tr)}
+.kpi:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.kpi-icon{width:50px;height:50px;border-radius:15px;display:grid;place-items:center;font-size:19px;flex:none}
+.kpi-icon.teal{background:var(--teal-50);color:var(--teal-600)}
+.kpi-icon.blue{background:var(--blue-soft);color:var(--blue)}
+.kpi-icon.green{background:var(--green-soft);color:var(--green)}
+.kpi-icon.amber{background:var(--amber-soft);color:var(--amber)}
+.kpi-icon.rose{background:var(--rose-soft);color:var(--rose)}
+.kpi-icon.violet{background:var(--violet-soft);color:var(--violet)}
+.kpi b{font-size:23px;font-weight:900;display:block;line-height:1.2}
+.kpi small{color:var(--muted);font-size:12px;font-weight:700}
+.kpi .sub-ok{color:var(--green);font-weight:700}
+
+/* ====== الترحيب ====== */
+.greet h2{font-size:23px;font-weight:900}
+.greet p{font-size:13px}
+
+/* ====== صندوق الرسوم البيانية ====== */
+.chart-box{position:relative;height:290px}
+.chart-box.sm{height:250px}
+
+/* ====== الإجراءات السريعة ====== */
+.quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.quick-grid button{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:16px;border-radius:var(--r-lg);
+  background:#f7faf9;border:1.5px solid var(--line);transition:var(--tr);text-align:start}
+.quick-grid button:hover{border-color:var(--teal-500);background:var(--teal-50);transform:translateY(-2px)}
+.quick-grid i{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:15px}
+.quick-grid strong{font-size:13.5px;font-weight:800}
+.tip-card{margin-top:14px;padding:14px;border-radius:var(--r-lg);background:linear-gradient(135deg,var(--teal-50),#fff);
+  border:1px dashed var(--teal-100);display:flex;gap:11px;align-items:flex-start}
+.tip-card i{color:var(--teal-600);margin-top:3px}
+.tip-card p{font-size:13px;font-weight:600;color:#3d5654}
+/* ====== هياكل التحميل (Loading Skeletons) ====== */
+.skel{background:#e7efee;border-radius:10px;position:relative;overflow:hidden}
+.skel::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.75),transparent);animation:shimmer 1.15s infinite}
+@keyframes shimmer{from{transform:translateX(100%)}to{transform:translateX(-100%)}}
+/* ====== القوائم المصغرة (أحدث المرضى / نبضة الشهر) ====== */
+.mini-list{display:flex;flex-direction:column}
+.mini-row{display:flex;align-items:center;gap:12px;padding:10px 6px;border-bottom:1px dashed var(--line);border-radius:10px;transition:var(--tr)}
+.mini-row:last-child{border-bottom:none}
+button.mini-row:hover{background:#f6fbfa}
+.mini-row .grow{flex:1;min-width:0}
+.mini-row b{font-size:14px;font-weight:800;display:block}
+.mini-row small{color:var(--muted);font-size:11.5px;font-weight:600}
+/* ====== ترقيم الصفحات (Pagination) ====== */
+.pagi{display:flex;align-items:center;justify-content:center;gap:14px;padding:14px;border-top:1px solid var(--line)}
+.pagi:empty{display:none}
+.pagi span{font-size:13px;font-weight:800;color:#3d5654}
+.pagi button:disabled{opacity:.35;cursor:default}
+/* ===== صندوق كود SQL لإعداد Supabase ===== */
+/* ===== اختيار الأمراض المزمنة (مربعات اختيار على شكل رقائق) ===== */
+.chk-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.chk{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid var(--line);border-radius:var(--r-md);
+  background:#fbfdfd;font-size:13px;font-weight:700;cursor:pointer;transition:var(--tr)}
+.chk:hover{border-color:var(--teal-500);background:var(--teal-50)}
+.chk input{accent-color:var(--teal-600);width:16px;height:16px;cursor:pointer}
+.chk i{color:var(--teal-600);font-size:12px}
+.chk:has(input:checked){border-color:var(--teal-600);background:var(--teal-50);color:var(--teal-800)}
+/* ===== بطاقات ملاحظات الزيارات ===== */
+.note-card{border:1.5px solid var(--line);border-radius:var(--r-lg);padding:14px;background:#fff;margin-bottom:10px}
+.note-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.note-head b{font-size:13.5px;font-weight:800}
+.note-head .icon-btn{margin-inline-start:auto}
+.note-body{font-size:13.5px;font-weight:600;color:#3d5654;line-height:1.75}
+.note-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.vital{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:12px;font-weight:800}
+.vital.ok{background:var(--green-soft);color:var(--green)}
+.vital.warn{background:var(--amber-soft);color:var(--amber-ink)}
+.vital.bad{background:var(--rose-soft);color:var(--rose)}
+.sql-box{direction:ltr;text-align:left;background:#0d2625;color:#bff0ea;border-radius:14px;padding:16px;
+  font-size:11.5px;line-height:1.8;overflow:auto;white-space:pre;max-height:320px;margin-top:10px;
+  font-family:ui-monospace,'Cascadia Mono',Consolas,monospace}

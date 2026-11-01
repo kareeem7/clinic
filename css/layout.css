@@ -1,0 +1,49 @@
+/*
+========================================
+layout.css
+الوظيفة: هيكل التطبيق (المرحلة 1): الشريط الجانبي، المحتوى الرئيسي، الأقسام Views، وأنيميشن fadeUp.
+الأقسام: الشريط الجانبي، المحتوى الرئيسي، الأقسام (Views)
+آخر تعديل: 2026-10-31 — تقسيم من index.html الموحد (القواعد منسوخة حرفياً وبلا أي تغيير، والترتيب محفوظ)
+========================================
+*/
+/* ============================================================
+   ====== هيكل التطبيق (المرحلة 1) ======
+   ============================================================ */
+.app-shell{min-height:100vh}
+
+/* --- الشريط الجانبي --- */
+#sidebar{position:fixed;inset-block:0;inset-inline-start:0;width:var(--sidebar-w);z-index:60;display:flex;flex-direction:column;
+  background:linear-gradient(180deg,var(--teal-900),#0a403c 70%,var(--teal-800));color:#d8f3ef;padding:22px 16px;transition:transform .3s cubic-bezier(.4,0,.2,1)}
+.side-brand{display:flex;align-items:center;gap:12px;padding:4px 8px 20px;border-bottom:1px solid rgba(255,255,255,.09)}
+.side-logo{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,var(--teal-500),var(--teal-600));
+  display:grid;place-items:center;font-size:19px;color:#fff;box-shadow:0 8px 20px rgba(0,0,0,.25);flex:none}
+.side-brand strong{display:block;font-size:18px;font-weight:900;color:#fff}
+.side-brand small{font-size:11.5px;color:#8ecfc7;font-weight:600}
+.side-nav{display:flex;flex-direction:column;gap:5px;margin-top:18px;flex:1}
+.side-nav button{display:flex;align-items:center;gap:13px;padding:12.5px 14px;border-radius:13px;color:#a9d8d2;
+  font-weight:700;font-size:14.5px;transition:var(--tr);position:relative;text-align:start}
+.side-nav button i{width:20px;text-align:center;font-size:15px}
+.side-nav button:hover{background:rgba(255,255,255,.07);color:#fff}
+.side-nav button.active{background:linear-gradient(90deg,var(--teal-600),rgba(13,148,136,.55));color:#fff;box-shadow:0 8px 20px rgba(0,0,0,.22)}
+.side-nav button.active::before{content:"";position:absolute;inset-inline-start:-16px;top:20%;bottom:20%;width:4px;border-radius:99px;background:var(--teal-500)}
+.side-user{margin-top:16px;padding:13px 10px;border-radius:15px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);
+  display:flex;align-items:center;gap:11px}
+.side-user strong{display:block;font-size:13.5px;color:#fff;font-weight:800}
+.side-user small{font-size:11px;color:#8ecfc7}
+.side-user .icon-btn{margin-inline-start:auto;color:#9fd6cf}
+.side-user .icon-btn:hover{background:rgba(255,255,255,.12);color:#fff}
+.overlay{position:fixed;inset:0;background:rgba(8,40,38,.45);backdrop-filter:blur(3px);z-index:55;opacity:0;pointer-events:none;transition:.3s}
+
+/* --- المحتوى الرئيسي --- */
+.main{margin-inline-start:var(--sidebar-w);min-height:100vh;display:flex;flex-direction:column}
+#topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;padding:14px 26px;
+  background:rgba(242,246,246,.82);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.top-title h1{font-size:20px;font-weight:900}
+.top-title p{font-size:12px;margin-top:-2px}
+.top-actions{margin-inline-start:auto;display:flex;align-items:center;gap:10px}
+.content{padding:26px;max-width:1240px;width:100%;margin:0 auto;flex:1}
+
+/* --- الأقسام (Views) --- */
+.view{display:none}
+.view.active{display:block;animation:fadeUp .35s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}

@@ -1,0 +1,26 @@
+/*
+========================================
+whatsapp.css
+الوظيفة: ستايل رسائل الواتساب (المرحلة 13): شبكة النبرات، فقاعة المعاينة، تلميحات النبرة المخصصة.
+الأقسام: tone-grid، wa-bubble، custom-tone-hint
+آخر تعديل: 2026-10-31 — تقسيم من index.html الموحد (القواعد منسوخة حرفياً وبلا أي تغيير، والترتيب محفوظ)
+========================================
+*/
+/* ===== المرحلة 13: ستايل رسائل الواتساب ===== */
+.tone-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.tone-opt{display:flex;flex-direction:column;align-items:flex-start;gap:7px;padding:14px;border:1.5px solid var(--line);border-radius:var(--r-lg);background:#fbfdfd;cursor:pointer;transition:var(--tr);position:relative;text-align:start}
+.tone-opt i{font-size:17px;color:#5b7673}
+.tone-opt b{font-size:13.5px;font-weight:800}
+.tone-opt small{font-size:11.5px;color:var(--muted);font-weight:600;line-height:1.6}
+.tone-opt input{position:absolute;opacity:0;pointer-events:none}
+.tone-opt:hover{border-color:var(--teal-500)}
+.tone-opt:has(input:checked){border-color:var(--teal-600);background:var(--teal-50);box-shadow:var(--shadow-sm)}
+.tone-opt:has(input:checked) i{color:var(--teal-700)}
+.tone-toggle{display:flex;align-items:center;gap:10px;padding:11px 13px;border:1.5px solid var(--line);border-radius:var(--r-md);background:#fbfdfd;font-size:13px;font-weight:800;cursor:pointer;transition:var(--tr)}
+.tone-toggle input{accent-color:var(--teal-600);width:17px;height:17px;cursor:pointer}
+.tone-toggle:has(input:checked){border-color:var(--teal-500);background:var(--teal-50)}
+.wa-bubble{background:#e5f8ec;border:1px solid #b4e8cd;border-radius:16px 16px 4px 16px;padding:12px 14px;font-size:13.5px;font-weight:600;color:#1d3a2a;white-space:pre-wrap;line-height:1.8;position:relative;margin-bottom:12px}
+.wa-bubble::after{content:"";position:absolute;bottom:-1px;left:14px;width:14px;height:14px;background:#e5f8ec;border-left:1px solid #b4e8cd;border-bottom:1px solid #b4e8cd;transform:rotate(45deg);border-end-start-radius:6px;z-index:-1}
+.pv-title{font-size:13px;font-weight:800;color:var(--muted);margin:14px 0 8px;display:flex;align-items:center;gap:8px}
+.pv-title i{color:#128c4b}
+.custom-tone-hint{background:var(--amber-soft);border:1px dashed #f4d79a;color:#92600a;padding:11px 13px;border-radius:var(--r-md);font-size:12.5px;font-weight:700;margin-top:10px}

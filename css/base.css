@@ -1,0 +1,22 @@
+/*
+========================================
+base.css
+الوظيفة: التصفير الافتراضي (Reset) + أساسيات html/body + الطباعة + شريط التمرير + التحديد.
+الأقسام: تصفير افتراضي، html، body، scrollbar، selection
+آخر تعديل: 2026-10-31 — تقسيم من index.html الموحد (القواعد منسوخة حرفياً وبلا أي تغيير، والترتيب محفوظ)
+========================================
+*/
+/* ====== تصفير افتراضي ====== */
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+img{max-width:100%}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:#c3d4d2;border-radius:99px;border:2px solid var(--bg)}
+::selection{background:var(--teal-100)}
+
+.muted{color:var(--muted)}
+.hide{display:none!important}
+.ltr{direction:ltr}

@@ -1,0 +1,31 @@
+/*
+========================================
+patient-profile.css
+الوظيفة: ملف المريض التفصيلي (المرحلة 5): الرأس والبيانات التعريفية وجداول القياسات.
+الأقسام: ملف المريض (المرحلة 5)
+آخر تعديل: 2026-10-31 — تقسيم من index.html الموحد (القواعد منسوخة حرفياً وبلا أي تغيير، والترتيب محفوظ)
+========================================
+*/
+/* ============================================================
+   ====== ملف المريض (المرحلة 5) ======
+   ============================================================ */
+.back-btn{display:inline-flex;align-items:center;gap:8px;font-weight:800;color:#3d566e;color:#3d5654;font-size:13.5px;margin-bottom:14px}
+.back-btn:hover{color:var(--teal-700)}
+.pat-hero{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.pat-hero .who h2{font-size:21px;font-weight:900;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pat-hero .who small{color:var(--muted);font-weight:700}
+.pat-hero .acts{margin-inline-start:auto;display:flex;gap:8px;flex-wrap:wrap}
+.pat-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:18px}
+.meta-item{background:#f7faf9;border:1px solid var(--line);border-radius:var(--r-md);padding:10px 13px}
+.meta-item small{display:block;color:var(--muted);font-size:11px;font-weight:700}
+.meta-item b{font-size:13.5px;font-weight:800}
+.timeline{display:flex;flex-direction:column;gap:0}
+.tl-item{display:flex;gap:14px;position:relative;padding-bottom:18px}
+.tl-item::before{content:"";position:absolute;inset-inline-start:17px;top:36px;bottom:0;width:2px;background:#e3ebeb}
+.tl-item:last-child::before{display:none}
+.tl-dot{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;font-size:13px;flex:none;z-index:1}
+.tl-body{flex:1;background:#f8fbfa;border:1px solid var(--line);border-radius:var(--r-md);padding:10px 14px}
+.tl-body b{font-size:14px;font-weight:800}
+.tl-body small{color:var(--muted);font-size:11.5px;display:block}
+.tl-body p{font-size:13px;margin-top:2px}
+.tl-x{align-self:flex-start}

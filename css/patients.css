@@ -1,0 +1,46 @@
+/*
+========================================
+patients.css
+الوظيفة: صفحة المرضى (المرحلة 4) + تبويبات شاشة الدخول + بطاقات الموبايل (موجودة في نفس النطاق المتسلسل حفاظاً على ترتيب التتالي).
+الأقسام: صفحة المرضى، auth-tabs، cards-list/p-card
+آخر تعديل: 2026-10-31 — تقسيم من index.html الموحد (القواعد منسوخة حرفياً وبلا أي تغيير، والترتيب محفوظ)
+========================================
+*/
+/* ============================================================
+   ====== صفحة المرضى (المرحلة 4) ======
+   ============================================================ */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);box-shadow:var(--shadow-sm);overflow:hidden}
+.panel-head{display:flex;align-items:center;gap:14px;padding:16px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tabs{display:flex;gap:4px;background:#eef3f2;padding:4px;border-radius:12px}
+.tabs button{padding:8px 16px;border-radius:9px;font-weight:800;font-size:13px;color:#5b7673;transition:var(--tr)}
+.tabs button.active{background:#fff;color:var(--teal-700);box-shadow:var(--shadow-sm)}
+/* تبويبات شاشة الدخول (دخول / حساب جديد) */
+.auth-tabs{display:flex;gap:4px;background:#eef3f2;padding:4px;border-radius:12px;margin-bottom:2px}
+.auth-tabs button{flex:1;padding:10px;border-radius:9px;font-weight:800;font-size:14px;color:#5b7673;transition:var(--tr)}
+.auth-tabs button.active{background:#fff;color:var(--teal-700);box-shadow:var(--shadow-sm)}
+.auth-form{display:flex;flex-direction:column;gap:15px}
+.auth-form.hide{display:none!important}
+.search{flex:1;min-width:200px;max-width:340px;margin-inline-start:auto}
+.search input{padding-top:10px;padding-bottom:10px}
+.panel .count-note{padding:10px 18px 0;font-size:12.5px}
+.table-wrap{overflow-x:auto;padding:8px 18px 18px}
+table{width:100%;border-collapse:collapse;min-width:760px}
+thead th{font-size:11.5px;color:var(--muted);font-weight:800;text-align:start;padding:10px 12px;border-bottom:1.5px solid var(--line)}
+tbody td{padding:13px 12px;border-bottom:1px solid #eef3f2;font-size:13.5px;font-weight:600;vertical-align:middle}
+tbody tr{transition:background .15s}
+tbody tr:hover{background:#f8fbfa}
+tbody tr:last-child td{border-bottom:none}
+.cell-user{display:flex;align-items:center;gap:12px}
+.cell-user b{display:block;font-size:14px;font-weight:800}
+.cell-user small{color:var(--muted);font-size:11.5px}
+.cell-actions{display:flex;gap:4px;justify-content:flex-end}
+
+/* بطاقات الموبايل */
+.cards-list{display:none;padding:0 14px 16px;flex-direction:column;gap:10px}
+.p-card{border:1.5px solid var(--line);border-radius:var(--r-lg);padding:14px;display:flex;flex-direction:column;gap:10px;background:#fff}
+.p-card-top{display:flex;align-items:center;gap:11px}
+.p-card-top b{font-size:14.5px;font-weight:800;display:block}
+.p-card-top small{color:var(--muted);font-size:11.5px}
+.p-chips{display:flex;gap:6px;flex-wrap:wrap}
+.p-card-foot{display:flex;align-items:center;gap:8px;border-top:1px dashed var(--line);padding-top:10px}
+.p-card-foot .grow{flex:1;font-size:12px;font-weight:700;color:#3d5654;display:flex;align-items:center;gap:6px}

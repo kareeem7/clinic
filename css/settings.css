@@ -1,0 +1,17 @@
+/*
+========================================
+settings.css
+الوظيفة: شاشة إعدادات العيادة: شبكة الإعدادات وصفوف حالة النظام.
+الأقسام: الإعدادات (set-grid, sys-row)
+آخر تعديل: 2026-10-31 — تقسيم من index.html الموحد (القواعد منسوخة حرفياً وبلا أي تغيير، والترتيب محفوظ)
+========================================
+*/
+/* ====== الإعدادات ====== */
+.set-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:18px}
+.sys-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px dashed var(--line)}
+.sys-row:last-child{border-bottom:none}
+.sys-row i{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:15px;flex:none}
+.sys-row b{font-size:14px;font-weight:800;display:block}
+.sys-row small{color:var(--muted);font-size:12px}
+.steps-list{margin:10px 0 0;padding-inline-start:18px;font-size:13px;color:#3d5654;font-weight:600;display:flex;flex-direction:column;gap:6px}
+.steps-list li::marker{color:var(--teal-600);font-weight:800}

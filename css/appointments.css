@@ -1,0 +1,57 @@
+/*
+========================================
+appointments.css
+الوظيفة: المواعيد (المرحلة 6): التقويم الأسبوعي، قائمة اليوم، ألوان حالات الموعد + تبويبات ملف المريض (في نفس النطاق المتسلسل).
+الأقسام: المواعيد، ptabs، ألوان حالات المواعيد
+آخر تعديل: 2026-10-31 — تقسيم من index.html الموحد (القواعد منسوخة حرفياً وبلا أي تغيير، والترتيب محفوظ)
+========================================
+*/
+/* ============================================================
+   ====== المواعيد (المرحلة 6) ======
+   ============================================================ */
+.cal-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.cal-head h3{font-size:16px;font-weight:800;flex:1}
+.cal-nav{display:flex;align-items:center;gap:6px;background:#eef3f2;padding:4px;border-radius:12px}
+.week-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.day-cell{border:1.5px solid var(--line);border-radius:var(--r-lg);padding:11px 4px 9px;display:flex;flex-direction:column;
+  align-items:center;gap:2px;font-weight:800;transition:var(--tr);position:relative;background:#fff}
+.day-cell .d-name{font-size:11px;color:var(--muted);font-weight:700}
+.day-cell .d-num{font-size:16px;font-weight:900}
+.day-cell .d-dots{display:flex;gap:3px;height:6px}
+.day-cell .d-dots i{width:5px;height:5px;border-radius:99px;background:var(--teal-500)}
+.day-cell:hover{border-color:var(--teal-500)}
+.day-cell.is-today{border-color:var(--teal-500);background:var(--teal-50)}
+.day-cell.selected{background:linear-gradient(150deg,var(--teal-600),var(--teal-700));border-color:transparent;color:#fff;box-shadow:0 8px 18px rgba(13,148,136,.3)}
+.day-cell.selected .d-name{color:#c9f0ec}
+.day-cell.selected .d-dots i{background:#fff}
+/* ====== تبويبات ملف المريض ====== */
+.ptabs{display:flex;gap:6px;background:#fff;border:1px solid var(--line);padding:6px;border-radius:16px;margin-top:16px;box-shadow:var(--shadow-sm);overflow-x:auto}
+.ptabs button{display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:11px;font-weight:800;font-size:13.5px;color:#5b7673;transition:var(--tr);white-space:nowrap}
+.ptabs button i{font-size:13px}
+.ptabs button:hover{background:#f0f7f6;color:var(--teal-700)}
+.ptabs button.active{background:linear-gradient(135deg,var(--teal-600),var(--teal-700));color:#fff;box-shadow:0 6px 16px rgba(13,148,136,.28)}
+.ptab-panel{margin-top:16px;animation:fadeUp .3s ease both}
+
+.appt-list{display:flex;flex-direction:column;gap:10px}
+.appt{display:flex;align-items:center;gap:14px;border:1.5px solid var(--line);border-radius:var(--r-lg);padding:12px 14px;
+  background:#fff;transition:var(--tr)}
+.appt:hover{border-color:#cfe3e1}
+.appt.dim{opacity:.55}
+/* شريط جانبي ملوّن حسب حالة الموعد: مؤكد أخضر، ملغي أحمر، تمت رمادي، انتظار كهرماني */
+.appt.st-pending{border-inline-start:4px solid var(--amber)}
+.appt.st-confirmed{border-inline-start:4px solid var(--green)}
+.appt.st-done{border-inline-start:4px solid #b3c4c2}
+.appt.st-cancelled{border-inline-start:4px solid var(--rose)}
+.appt-time{display:flex;flex-direction:column;align-items:center;min-width:74px;padding:8px 10px;border-radius:var(--r-md);
+  background:var(--teal-50);color:var(--teal-800)}
+.appt-time strong{font-size:14.5px;font-weight:900}
+.appt-time small{font-size:10.5px;color:var(--teal-700);font-weight:700}
+.appt-info{flex:1;min-width:0}
+.link{font-weight:800;font-size:14.5px;color:var(--ink);text-align:start;padding:0}
+.link:hover{color:var(--teal-700);text-decoration:underline}
+.appt-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;font-size:12px;color:var(--muted);font-weight:700}
+.appt-acts{display:flex;gap:4px;flex:none}
+.empty{text-align:center;padding:38px 16px;color:var(--muted)}
+.empty i{font-size:34px;color:#cfe0de;margin-bottom:10px}
+.empty b{display:block;font-size:15px;color:#48605d;font-weight:800;margin-bottom:4px}
+.empty p{font-size:13px}

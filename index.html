@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>عيادتي — نظام إدارة العيادات</title>
+<meta name="description" content="نظام إدارة عيادات العلاج الطبيعي والسمنة والنحافة — شبين الكوم">
+<meta name="theme-color" content="#0d9488">
+<!-- (متوسط 3) سياسة أمن المحتوى CSP: تقفل مصادر التحميل على الـCDNs المستخدمة
+     فعلاً + مشروع Supabase، فأي حقن يحاول سحب سكربت من نطاق غريب يتبلوك.
+     'unsafe-inline' اضطراري لأن التطبيق ملف واحد فيه سكربت وستايل inline —
+     التخلص منه يحتاج فصل الـJS في ملفات خارجية + nonce من سيرفر الاستضافة.
+     ملاحظة: frame-ancestors ما ينفعش في meta — أضفها كـHTTP header في الاستضافة
+     (مع X-Content-Type-Options: nosniff) لمنع تضمين الموقع في iframes خبيثة. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%230d9488'/><text x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif'>✚</text></svg>">
+
+<!-- ====== الخطوط: Cairo للعربي ====== -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<!-- ====== Font Awesome (الأيقونات) ====== -->
+<!-- (متوسط 2) SRI: بصمة sha384 محسوبة من الملف الفعلي — لو تعدّل على الـCDN
+     المتصفح يرفض تحميله. (ملفات الخطوط اللي بيجيبها الـCSS نفسه مالهاش SRI —
+     قيود معروف في Font Awesome، والبصمة على الـCSS بتغطي التعديل الجوهري.) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha384-PPIZEGYM1v8zp5Py7UjFb79S58UeqCL9pYVnVPURKEqvioPROaVAJKKLzvH2rDnI" crossorigin="anonymous" referrerpolicy="no-referrer">
+
+<!-- ====== الستايل: ملف تجميع واحد يستورد 17 ملف CSS بالترتيب الأصلي (css/main.css) ====== -->
+<link rel="stylesheet" href="css/main.css">
+
+</head>
+<body>
+
+<!-- ============================================================
+     شاشة تسجيل الدخول — المرحلة 2
+     ============================================================ -->
+<section id="loginView" class="login-view">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="brand-inner">
+        <div class="brand-logo"><i class="fa-solid fa-heart-pulse"></i></div>
+        <h1>عيادتي</h1>
+        <p class="brand-sub">نظام متكامل لإدارة عيادات العلاج الطبيعي والسمنة والنحافة — مرضاك، مواعيدك، وخططك الغذائية في مكان واحد</p>
+        <ul class="brand-feats">
+          <li><i class="fa-solid fa-users"></i> ملفات مرضى كاملة مع منحنيات تطور الوزن والجلسات</li>
+          <li><i class="fa-solid fa-calendar-check"></i> حجز المواعيد وتأكيدها بضغطة واتساب</li>
+          <li><i class="fa-solid fa-utensils"></i> مكتبة خطط تغذية جاهزة للربط بالمرضى</li>
+          <li><i class="fa-solid fa-chart-line"></i> تقارير وإحصائيات شهرية عن العيادة</li>
+        </ul>
+        <div class="brand-loc"><i class="fa-solid fa-location-dot"></i> شبين الكوم — المنوفية</div>
+      </div>
+    </div>
+    <div class="login-form">
+      <!-- أخطاء الإعدادات تظهر في شاشة الإعداد المانعة #setupView (مش هنا) -->
+
+      <!-- التبديل بين الدخول وإنشاء حساب -->
+      <div class="auth-tabs">
+        <button type="button" id="tabLogin" class="active">تسجيل الدخول</button>
+        <button type="button" id="tabRegister">حساب جديد</button>
+      </div>
+
+      <!-- ====== نموذج تسجيل الدخول ====== -->
+      <form id="loginForm" class="auth-form" novalidate>
+        <div>
+          <h2>أهلاً بعودتك يا دكتور</h2>
+          <p class="muted">سجّل دخولك لإدارة عيادتك</p>
+        </div>
+        <div class="field">
+          <label for="loginEmail">البريد الإلكتروني</label>
+          <div class="in-wrap"><i class="fa-solid fa-envelope"></i>
+            <input id="loginEmail" type="email" required dir="ltr" placeholder="doctor@clinic.com" autocomplete="username">
+          </div>
+        </div>
+        <div class="field">
+          <label for="loginPass">كلمة المرور</label>
+          <div class="in-wrap"><i class="fa-solid fa-lock"></i>
+            <input id="loginPass" type="password" required dir="ltr" placeholder="••••••" autocomplete="current-password">
+          </div>
+        </div>
+        <button type="button" class="forgot-link" id="forgotBtn">نسيت كلمة المرور؟</button>
+        <div id="loginError" class="form-error"></div>
+        <button class="btn btn-primary block" id="loginBtn" type="submit">
+          <i class="fa-solid fa-right-to-bracket"></i><span>دخول</span>
+        </button>
+        <button type="button" class="forgot-link" id="adminLink" style="align-self:center;margin:2px auto 0">
+          <i class="fa-solid fa-shield-halved"></i> دخول إدارة النظام
+        </button>
+        <button type="button" class="forgot-link" id="patientLink" style="align-self:center;margin:0 auto;color:#16a34a;font-size:13px">
+          <i class="fa-solid fa-user"></i> أنت مريض؟ دخول بوابة المرضى
+        </button>
+      </form>
+
+      <!-- ====== بوابة المريض (المرحلة 14) — دخول مبسط، خط كبير ====== -->
+      <form id="ptLoginForm" class="auth-form hide" novalidate>
+        <div class="p-chips"><span class="chip chip-green"><i class="fa-solid fa-person-walking"></i> بوابة المرضى</span></div>
+        <div>
+          <h2>أهلاً بيك!</h2>
+          <p class="muted" style="font-size:14px">سجّل دخولك علشان تشوف موعدك القادم وتقدمك مع الدكتور</p>
+        </div>
+        <div class="field">
+          <label for="ptPhone" style="font-size:14px">رقم الموبايل (اللي الدكتور سجّله)</label>
+          <div class="in-wrap"><i class="fa-solid fa-mobile-screen"></i>
+            <input id="ptPhone" type="tel" inputmode="tel" required dir="ltr" placeholder="01xxxxxxxxx" style="font-size:17px;padding:14px 44px 14px 14px" autocomplete="username">
+          </div>
+        </div>
+        <div class="field">
+          <label for="ptBirth" style="font-size:14px">تاريخ ميلادك</label>
+          <div class="in-wrap"><i class="fa-solid fa-cake-candles"></i>
+            <input id="ptBirth" type="date" required dir="ltr" style="font-size:17px;padding:14px 44px 14px 14px">
+          </div>
+          <small class="muted" style="font-size:12px;font-weight:700">لو مش متأكد، اسأل العيادة تسجل تاريخ ميلادك في ملفك</small>
+        </div>
+        <div id="ptError" class="form-error"></div>
+        <button class="btn btn-primary block" id="ptBtn" type="submit" style="padding:15px;font-size:16px">
+          <i class="fa-solid fa-right-to-bracket"></i><span>دخول البوابة</span>
+        </button>
+        <button type="button" class="btn btn-ghost block" id="ptBack" style="font-size:14px">
+          <i class="fa-solid fa-arrow-right"></i> رجوع لتسجيل الدخول الرئيسي
+        </button>
+      </form>
+
+      <!-- ====== نموذج إنشاء حساب دكتور جديد ====== -->
+      <form id="registerForm" class="auth-form hide" novalidate>
+        <div>
+          <h2>إنشاء حساب دكتور</h2>
+          <p class="muted">حساب خاص بك — بيانات مرضاك لا يصل إليها أحد غيرك</p>
+        </div>
+        <div class="field">
+          <label for="regName">اسم الدكتور *</label>
+          <div class="in-wrap"><i class="fa-solid fa-user-doctor"></i>
+            <input id="regName" required placeholder="د. أحمد سامي" autocomplete="name">
+          </div>
+        </div>
+        <div class="field">
+          <label for="regSpec">التخصص</label>
+          <div class="in-wrap"><i class="fa-solid fa-stethoscope"></i>
+            <select id="regSpec">
+              <option value="علاج طبيعي وسمنة ونحافة">علاج طبيعي + سمنة ونحافة</option>
+              <option value="علاج طبيعي">علاج طبيعي فقط</option>
+              <option value="سمنة وتغذية علاجية">سمنة وتغذية علاجية فقط</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="regClinic">اسم العيادة</label>
+          <div class="in-wrap"><i class="fa-solid fa-hospital"></i>
+            <input id="regClinic" placeholder="مركز الشروق للعلاج الطبيعي والتخسيس">
+          </div>
+        </div>
+        <div class="field">
+          <label for="regEmail">البريد الإلكتروني *</label>
+          <div class="in-wrap"><i class="fa-solid fa-envelope"></i>
+            <input id="regEmail" type="email" required dir="ltr" placeholder="doctor@clinic.com" autocomplete="username">
+          </div>
+        </div>
+        <div class="field">
+          <label for="regPass">كلمة المرور * (8 أحرف على الأقل)</label>
+          <div class="in-wrap"><i class="fa-solid fa-lock"></i>
+            <input id="regPass" type="password" required dir="ltr" autocomplete="new-password">
+          </div>
+        </div>
+        <div class="field">
+          <label for="regPass2">تأكيد كلمة المرور *</label>
+          <div class="in-wrap"><i class="fa-solid fa-lock"></i>
+            <input id="regPass2" type="password" required dir="ltr" autocomplete="new-password">
+          </div>
+        </div>
+        <div id="regError" class="form-error"></div>
+        <button class="btn btn-primary block" id="regBtn" type="submit">
+          <i class="fa-solid fa-user-plus"></i><span>إنشاء الحساب</span>
+        </button>
+      </form>
+
+      <!-- ====== نموذج استعادة كلمة المرور (reset.html) ====== -->
+      <form id="resetForm" class="auth-form hide" novalidate>
+        <div>
+          <h2>استعادة كلمة المرور</h2>
+          <p class="muted">اكتب بريدك المسجّل وسيصلك رابط إعادة التعيين فوراً</p>
+        </div>
+        <div class="field">
+          <label for="resetEmail">البريد الإلكتروني المسجّل</label>
+          <div class="in-wrap"><i class="fa-solid fa-envelope"></i>
+            <input id="resetEmail" type="email" required dir="ltr" placeholder="doctor@clinic.com">
+          </div>
+        </div>
+        <div id="resetError" class="form-error"></div>
+        <div id="resetOk" class="demo-hint" style="display:none">
+          <i class="fa-solid fa-circle-check"></i><span></span>
+        </div>
+        <button class="btn btn-primary block" id="resetBtn" type="submit">
+          <i class="fa-solid fa-paper-plane"></i><span>إرسال رابط الاستعادة</span>
+        </button>
+        <button type="button" class="btn btn-ghost block" id="resetBack">
+          <i class="fa-solid fa-arrow-right"></i> رجوع لتسجيل الدخول
+        </button>
+      </form>
+
+      <!-- ====== بوابة دخول إدارة النظام (المرحلة 10) ====== -->
+      <form id="adminLoginForm" class="auth-form hide" novalidate>
+        <div class="p-chips"><span class="chip chip-rose"><i class="fa-solid fa-shield-halved"></i> مقصور على إدارة المنصة — كل عملية دخول مُسجَّلة</span></div>
+        <div>
+          <h2>دخول إدارة النظام</h2>
+          <p class="muted">هذه البوابة للمشغّل فقط، وتتطلب حساباً مسجلاً في جدول superadmins + تحقق بخطوتين</p>
+        </div>
+        <div class="field">
+          <label for="adEmail">البريد الإلكتروني للإدارة</label>
+          <div class="in-wrap"><i class="fa-solid fa-user-shield"></i>
+            <input id="adEmail" type="email" required dir="ltr" placeholder="admin@system.com" autocomplete="username">
+          </div>
+        </div>
+        <div class="field">
+          <label for="adPass">كلمة المرور</label>
+          <div class="in-wrap"><i class="fa-solid fa-lock"></i>
+            <input id="adPass" type="password" required dir="ltr" autocomplete="current-password">
+          </div>
+        </div>
+        <div id="adError" class="form-error"></div>
+        <button class="btn btn-primary block" id="adBtn" type="submit">
+          <i class="fa-solid fa-user-shield"></i><span>دخول الإدارة</span>
+        </button>
+        <button type="button" class="btn btn-ghost block" id="adBack">
+          <i class="fa-solid fa-arrow-right"></i> رجوع لتسجيل دخول الدكاترة
+        </button>
+      </form>
+
+      <!-- ====== التحقق بخطوتين (TOTP) — إلزامي للدكاترة والإدارة ====== -->
+      <div id="mfaPane" class="auth-form hide">
+        <div class="p-chips"><span class="chip chip-teal"><i class="fa-solid fa-shield-halved"></i> حماية حسابك بطبقة ثانية</span></div>
+        <div>
+          <h2 id="mfaTitle">التحقق بخطوتين</h2>
+          <p class="muted" id="mfaHint"></p>
+        </div>
+        <div id="mfaEnrollBox" class="hide">
+          <div class="mfa-qr"><img id="mfaQr" alt="رمز QR لربط تطبيق المصادقة"></div>
+          <div class="mfa-secret" id="mfaSecret"></div>
+          <p class="secret-note">الصق الرمز السري يدوياً إن تعذّر مسح الكود — Google Authenticator / Microsoft Authenticator / 1Password</p>
+        </div>
+        <div class="field">
+          <label for="mfaCode">كود التحقق (6 أرقام)</label>
+          <div class="in-wrap"><i class="fa-solid fa-key"></i>
+            <input id="mfaCode" dir="ltr" inputmode="numeric" maxlength="6" placeholder="123456" autocomplete="one-time-code">
+          </div>
+        </div>
+        <div id="mfaError" class="form-error"></div>
+        <button class="btn btn-primary block" id="mfaGo"><i class="fa-solid fa-check"></i><span>تأكيد ودخول</span></button>
+        <button class="btn btn-ghost block" id="mfaBack"><i class="fa-solid fa-arrow-right"></i> رجوع — إلغاء الدخول</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     شاشة الإعداد المانعة — تظهر فقط لو Supabase غير مربوط
+     (Phase 1: لا يوجد وضع تجريبي للبيانات الحقيقية)
+     ============================================================ -->
+<section id="setupView" class="login-view" hidden>
+  <div class="login-card" style="grid-template-columns:1fr;max-width:820px">
+    <div class="login-form">
+      <div class="brand-logo" style="background:var(--teal-50);color:var(--teal-700)"><i class="fa-solid fa-plug-circle-exclamation"></i></div>
+      <div>
+        <h2>خطوة واحدة قبل التشغيل: ربط Supabase</h2>
+        <p class="muted">هذا النظام لا يعمل ببيانات وهمية — بيانات المرضى لن تُحفظ محلياً إطلاقاً. اربط مشروع Supabase مرة واحدة فقط:</p>
+      </div>
+      <ol class="steps-list setup-steps">
+        <li>أنشئ مشروعاً مجانياً من <b>supabase.com</b></li>
+        <li>افتح <b>SQL Editor</b> والصق كود إنشاء الجداول بالأسفل ثم اضغط <b>Run</b> (يشمل العزل والتدقيق والحذف الناعم وجداول الإدارة)</li>
+        <li>من <b>Project Settings ← API</b>: انسخ Project URL و anon public key والصقهما في <code dir="ltr">supabaseConfig</code> أعلى هذا الملف</li>
+        <li>حدّث الصفحة — وسيدخل النظام فوراً</li>
+      </ol>
+      <div id="setupErr" class="form-error"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <b style="font-size:13px"><i class="fa-solid fa-database"></i> كود إنشاء الجداول والسياسات:</b>
+        <button class="btn btn-outline sm" data-action="copy-sql"><i class="fa-solid fa-copy"></i> نسخ الكود</button>
+      </div>
+      <pre class="sql-box" id="setupSql"></pre>
+      <button class="btn btn-primary block" data-action="refresh-setup"><i class="fa-solid fa-rotate"></i> ربطت المشروع — حدّث الصفحة</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     بوابة المريض (المرحلة 14) — منفصلة تماماً عن لوحة الدكتور
+     ============================================================ -->
+<section id="patientPortal" hidden>
+  <div class="portal-shell">
+    <header class="portal-top">
+      <div class="portal-id">
+        <div class="portal-logo"><i class="fa-solid fa-heart-pulse"></i></div>
+        <div><b id="ptClinicName"></b><small id="ptDoctorLine"></small></div>
+      </div>
+      <button class="btn btn-ghost sm" id="ptLogout" style="background:#fff;border:1px solid var(--line);color:#3d5654">
+        <i class="fa-solid fa-right-from-bracket"></i> <span>خروج</span>
+      </button>
+    </header>
+
+    <main class="portal-main">
+      <!-- ترحيب كبير -->
+      <div class="p-hero">
+        <div class="p-avatar" id="ptAvatar">م</div>
+        <div>
+          <h2 id="ptHello"></h2>
+          <p class="muted" id="ptWelcomeLine" style="font-size:14px"></p>
+        </div>
+      </div>
+
+      <div id="ptHomeMain">
+      <!-- موعدك القادم -->
+      <div class="p-card p-next" id="ptNextCard"></div>
+
+      <!-- آخر قياس + الخطة -->
+      <div class="p-grid">
+        <div class="p-card" id="ptMeasureCard"></div>
+        <div class="p-card" id="ptPlanCard"></div>
+      </div>
+
+      <!-- تقدمك -->
+      <div class="p-card" id="ptProgressCard"></div>
+
+      <!-- نصيحة يومية + تواصل -->
+      <div class="p-tip">
+        <i class="fa-solid fa-lightbulb"></i>
+        <p id="ptTipLine">اشرب كمية كافية من المية وتعود على نظامك — كل يوم التزام هو خطوة لهدفك!</p>
+      </div>
+      </div><!-- نهاية ptHomeMain -->
+
+      <!-- ===== المرحلة 16: تسجيل قياسات البيت — تبويب «سجّل قياسك» ===== -->
+      <div id="ptLogView" class="hide">
+      <div class="p-card" id="ptAddWeight">
+        <b><i class="fa-solid fa-pen-to-square"></i> سجّل قياساتك النهارده</b>
+
+        <!-- الوزن مع أزرار + / - -->
+        <div class="p-field">
+          <label>الوزن (كجم) *</label>
+          <div class="stepper">
+            <button type="button" id="lgDown" aria-label="إنقاص"><i class="fa-solid fa-minus"></i></button>
+            <input class="input ltr" id="lgWeight" type="number" step="0.1" min="30" max="250" placeholder="85.5" inputmode="decimal">
+            <button type="button" id="lgUp" aria-label="زيادة"><i class="fa-solid fa-plus"></i></button>
+          </div>
+          <small class="p-small">رقم بين 30 و 250 بخطوة 0.5 كجم</small>
+        </div>
+
+        <!-- محيطات اختيارية -->
+        <div class="p-opt-grid">
+          <div class="p-field"><label>محيط الخصر (سم)</label><input class="input ltr" id="lgWaist" type="number" step="0.5" min="30" max="200" placeholder="95" inputmode="decimal"></div>
+          <div class="p-field"><label>محيط الأرداف (سم)</label><input class="input ltr" id="lgHips" type="number" step="0.5" min="30" max="200" placeholder="110" inputmode="decimal"></div>
+          <div class="p-field"><label>محيط الذراع (سم)</label><input class="input ltr" id="lgArm" type="number" step="0.5" min="30" max="200" placeholder="32" inputmode="decimal"></div>
+        </div>
+
+        <!-- تاريخ وملاحظة -->
+        <div class="p-field">
+          <label>تاريخ القياس</label>
+          <input class="input" id="lgDate" type="date" max="2026-12-31">
+          <small class="p-small">الافتراضي: النهارده — ممكن ترجع لآخر أسبوع</small>
+        </div>
+        <div class="p-field">
+          <label>إحساسك النهاردة (اختياري)</label>
+          <textarea class="input" id="lgNote" rows="2" maxlength="500" placeholder="متغير/لا؟ في أي تغيير بالجوع أو النوم؟"></textarea>
+        </div>
+
+        <!-- صورة المتابعة (اختياري) -->
+        <div class="p-field">
+          <label>صورة للمتابعة (اختياري)</label>
+          <label class="p-photo" id="lgPhotoLabel">
+            <input type="file" id="lgPhoto" accept="image/jpeg,image/png,image/webp" capture="environment" hidden>
+            <i class="fa-solid fa-camera"></i><span id="lgPhotoTxt">اضغط للتصوير أو اختيار صورة (حتى 5MB)</span>
+            <img id="lgPhotoPrev" class="hide" alt="معاينة الصورة">
+          </label>
+          <small class="p-small">الصورة بتتخزن آمن في حساب العيادة — هيشوفها د. <span id="lgDocName"></span> بس</small>
+        </div>
+
+        <button class="btn btn-primary block p-big" id="lgSave"><i class="fa-solid fa-check"></i> حفظ القياس</button>
+        <div id="lgErr" class="form-error"></div>
+      </div>
+      </div><!-- نهاية ptLogView -->
+
+      <!-- ===== المرحلة 17: صفحة مواعيدك الكاملة ===== -->
+      <div id="ptAppointmentsView" class="hide"></div>
+
+      <!-- ===== صفحة التطور (المرحلة 15): تبويب منفصل جوا البوابة ===== -->
+      <div id="ptProgressView" class="hide">
+        <div style="display:flex;align-items:center;gap:11px;margin-bottom:2px">
+          <i class="fa-solid fa-fire" style="font-size:22px;color:#16a34a"></i>
+          <div><h2 style="font-size:21px;font-weight:900">تطورك معانا</h2><p class="p-small">منحنى الوزن والوجبات بشكل بسيط يفهمه أي حد</p></div>
+        </div>
+
+        <!-- ملخص الرحلة -->
+        <div class="psum-grid" id="ptSummary"></div>
+
+        <!-- منحنى الوزن -->
+        <div class="p-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+            <b style="font-size:15px;font-weight:900"><i class="fa-solid fa-weight-scale" style="color:#16a34a"></i> منحنى الوزن</b>
+            <div class="pt-ftabs" id="ptRangeTabs">
+              <button data-prange="1m">آخر شهر</button>
+              <button data-prange="3m">3 شهور</button>
+              <button class="active" data-prange="all">الكل</button>
+            </div>
+          </div>
+          <div class="chart-box sm" style="height:240px"><canvas id="ptwChart"></canvas></div>
+          <div id="ptMotive"></div>
+        </div>
+
+        <!-- محيط الخصر (يظهر لو فيه بيانات كفاية) -->
+        <div class="p-card hide" id="ptWaistCard">
+          <b style="font-size:15px;font-weight:900;display:block;margin-bottom:4px"><i class="fa-solid fa-ruler-horizontal" style="color:#0d9488"></i> محيط الخصر</b>
+          <div class="chart-box sm" style="height:220px"><canvas id="ptwWaist"></canvas></div>
+        </div>
+
+        <!-- سجل القياسات -->
+        <div class="p-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+            <b style="font-size:15px;font-weight:900"><i class="fa-solid fa-table-list" style="color:#2563eb"></i> سجل القياسات</b>
+            <button class="btn btn-ghost sm" id="ptAllRows" style="font-size:12.5px">شوف الكل</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="min-width:380px;width:100%;border-collapse:collapse">
+              <thead><tr><th style="font-size:12px">التاريخ</th><th style="font-size:12px">الوزن</th><th style="font-size:12px">الخصر</th><th style="font-size:12px">الملاحظة</th></tr></thead>
+              <tbody id="ptRows"></tbody>
+            </table>
+          </div>
+          <p class="p-small" id="ptRowsNote" style="margin-top:10px"></p>
+        </div>
+      </div>
+    </main>
+
+    <!-- ===== المرحلة 17: شريط التنقل السفلي للمريض — 4 أقسام واضحة وكبيرة ===== -->
+    <nav class="pt-bottom">
+      <button data-pview="home" class="active"><i class="fa-solid fa-house"></i><span>الرئيسية</span></button>
+      <button data-pview="progress"><i class="fa-solid fa-chart-line"></i><span>تطورك</span></button>
+      <button data-pview="log"><i class="fa-solid fa-pen-to-square"></i><span>سجّل قياس</span></button>
+      <button data-pview="appointments"><i class="fa-solid fa-calendar-check"></i><span>مواعيدك</span></button>
+    </nav>
+  </div>
+</section>
+
+<!-- ============================================================
+     هيكل التطبيق الرئيسي
+     ============================================================ -->
+<div id="appShell" class="app-shell" hidden>
+
+  <!-- الشريط الجانبي -->
+  <aside id="sidebar">
+    <div class="side-brand">
+      <div class="side-logo"><i class="fa-solid fa-heart-pulse"></i></div>
+      <div><strong>عيادتي</strong><small id="sideClinicName">مركز الشروق</small></div>
+    </div>
+    <nav class="side-nav" id="sideNav"></nav>
+    <div class="side-user">
+      <div class="avatar" id="sideAvatar" style="background:var(--teal-600)">د</div>
+      <div><strong id="sideDoctor">د. أحمد سامي</strong><small>حساب الدكتور</small></div>
+      <button class="icon-btn" id="btnLogout" title="تسجيل الخروج"><i class="fa-solid fa-right-from-bracket"></i></button>
+    </div>
+  </aside>
+  <div class="overlay" id="sidebarOverlay"></div>
+
+  <!-- المحتوى -->
+  <main class="main">
+    <header id="topbar">
+      <button class="icon-btn only-mobile" id="menuBtn"><i class="fa-solid fa-bars"></i></button>
+      <div class="top-title"><h1 id="topTitle">الرئيسية</h1><p id="topDate" class="muted"></p></div>
+      <div class="top-actions" id="topActions">
+        <span class="chip chip-rose" id="admBadge"><i class="fa-solid fa-shield-halved"></i> وضع الإدارة</span>
+        <button class="btn btn-primary sm" data-action="add-patient"><i class="fa-solid fa-plus"></i><span class="hide-sm">مريض جديد</span></button>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- ====== الرئيسية (Dashboard) ====== -->
+      <section id="view-dashboard" class="view">
+        <div class="greet"><h2 id="dashGreeting"></h2><p id="dashDate" class="muted"></p></div>
+        <div class="kpi-grid" id="kpiGrid"></div>
+        <!-- تنبيه القياسات من البيت (المرحلة 16) -->
+        <div id="portalFeed" class="hide" style="margin-bottom:16px"></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head"><h3><i class="fa-solid fa-chart-line"></i> الزيارات والجلسات — آخر 6 أشهر</h3></div>
+            <div class="chart-box"><canvas id="visitsChart"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3><i class="fa-solid fa-chart-pie"></i> توزيع المرضى</h3></div>
+            <div class="chart-box sm"><canvas id="distChart"></canvas></div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head">
+              <h3><i class="fa-solid fa-calendar-day"></i> مواعيد اليوم</h3>
+              <button class="btn btn-ghost sm" data-nav="appointments">كل المواعيد <i class="fa-solid fa-arrow-left"></i></button>
+            </div>
+            <div id="todayList" class="appt-list"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3><i class="fa-solid fa-bolt"></i> إجراءات سريعة</h3></div>
+            <div class="quick-grid">
+              <button data-action="add-patient"><i class="fa-solid fa-user-plus" style="background:var(--teal-50);color:var(--teal-700)"></i><strong>إضافة مريض</strong></button>
+              <button data-action="add-appt"><i class="fa-solid fa-calendar-plus" style="background:var(--blue-soft);color:var(--blue)"></i><strong>حجز موعد</strong></button>
+              <button data-action="add-plan"><i class="fa-solid fa-utensils" style="background:var(--amber-soft);color:var(--amber)"></i><strong>خطة تغذية</strong></button>
+              <button data-nav="patients"><i class="fa-solid fa-users" style="background:var(--violet-soft);color:var(--violet)"></i><strong>سجل المرضى</strong></button>
+            </div>
+            <div class="tip-card">
+              <i class="fa-solid fa-lightbulb"></i>
+              <p>نصيحة اليوم: استخدم زر واتساب بجانب كل موعد لإرسال تذكير للمريض قبل موعده بيوم — يقلل الغياب بنسبة كبيرة.</p>
+            </div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <!-- آخر المرضى المضافين -->
+          <div class="card">
+            <div class="card-head">
+              <h3><i class="fa-solid fa-user-clock"></i> أحدث المرضى</h3>
+              <button class="btn btn-ghost sm" data-nav="patients">كل المرضى <i class="fa-solid fa-arrow-left"></i></button>
+            </div>
+            <div id="recentList" class="mini-list"></div>
+          </div>
+          <!-- نبضة الشهر: ملخص أداء -->
+          <div class="card">
+            <div class="card-head"><h3><i class="fa-solid fa-heart-pulse"></i> نبضة الشهر</h3></div>
+            <div id="monthPulse"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====== المرضى ====== -->
+      <section id="view-patients" class="view">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="tabs" id="filterTabs">
+              <button class="active" data-filter="all">الكل</button>
+              <button data-filter="pt">علاج طبيعي</button>
+              <button data-filter="nutrition">سمنة ونحافة</button>
+            </div>
+            <div class="in-wrap search"><i class="fa-solid fa-magnifying-glass"></i>
+              <input id="patientSearch" placeholder="ابحث بالاسم أو رقم الموبايل...">
+            </div>
+          </div>
+          <div class="count-note muted" id="patientsCount"></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>المريض</th><th>التخصص</th><th>التشخيص / الهدف</th><th>آخر متابعة</th><th>الإجراءات</th>
+              </tr></thead>
+              <tbody id="patientsTbody"></tbody>
+            </table>
+          </div>
+          <div class="cards-list" id="patientsCards"></div>
+          <!-- ترقيم الصفحات — يظهر فقط عندما يتجاوز العدد 10 مرضى -->
+          <div class="pagi" id="patientsPagi"></div>
+        </div>
+      </section>
+
+      <!-- ====== ملف المريض التفصيلي ====== -->
+      <section id="view-patient" class="view">
+        <button class="back-btn" data-nav="patients"><i class="fa-solid fa-arrow-right"></i> رجوع لقائمة المرضى</button>
+        <div class="card">
+          <div class="pat-hero" id="patHeader"></div>
+          <div class="pat-meta" id="patMeta"></div>
+        </div>
+        <div class="kpi-grid" id="patKpis"></div>
+        <!-- تبويبات ملف المريض (المرحلة 5) -->
+        <div class="ptabs" id="patTabs">
+          <button class="active" data-ptab="measure"><i class="fa-solid fa-weight-scale"></i> القياسات</button>
+          <button data-ptab="visits"><i class="fa-solid fa-clipboard-check"></i> الزيارات</button>
+          <button data-ptab="notes"><i class="fa-solid fa-notes-medical"></i> الملاحظات والأمراض المزمنة</button>
+          <button data-ptab="plan"><i class="fa-solid fa-utensils"></i> الخطة الغذائية</button>
+          <button data-ptab="appts"><i class="fa-solid fa-calendar-check"></i> المواعيد</button>
+        </div>
+
+        <!-- تبويب: القياسات (منحنى التطور + سجل القياسات) -->
+        <div id="ptab-measure" class="ptab-panel">
+          <div class="card">
+            <div class="card-head">
+              <h3 id="patChartTitle"><i class="fa-solid fa-chart-line"></i> منحنى التطور</h3>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <!-- فلتر الفترة الزمنية للمنحنى -->
+                <div class="tabs" id="rangeTabs">
+                  <button data-range="1m">شهر</button>
+                  <button data-range="3m">3 شهور</button>
+                  <button class="active" data-range="all">الكل</button>
+                </div>
+                <button class="btn btn-primary sm" data-action="add-measure"><i class="fa-solid fa-plus"></i> إضافة قياس</button>
+              </div>
+            </div>
+            <div class="chart-box"><canvas id="patChart"></canvas></div>
+            <div class="timeline" id="patMeasureList" style="margin-top:18px"></div>
+          </div>
+        </div>
+
+        <!-- تبويب: الزيارات المكتملة -->
+        <div id="ptab-visits" class="ptab-panel hide">
+          <div class="card">
+            <div class="card-head"><h3><i class="fa-solid fa-clipboard-check"></i> سجل الزيارات المكتملة</h3></div>
+            <div class="timeline" id="patVisits"></div>
+          </div>
+        </div>
+
+        <!-- تبويب: ملاحظات الزيارات ومتابعة الأمراض المزمنة -->
+        <div id="ptab-notes" class="ptab-panel hide">
+          <div class="card">
+            <div class="card-head">
+              <h3><i class="fa-solid fa-notes-medical"></i> ملاحظات الزيارات ومتابعة الحالة</h3>
+              <button class="btn btn-primary sm" data-action="add-note"><i class="fa-solid fa-plus"></i> ملاحظة زيارة</button>
+            </div>
+            <div id="chronicBar"></div>
+            <div id="chronicChartWrap" class="hide" style="margin-top:14px">
+              <div class="chart-box sm"><canvas id="chronicChart"></canvas></div>
+            </div>
+            <div id="notesList" style="margin-top:16px"></div>
+          </div>
+        </div>
+
+        <!-- تبويب: الخطة الغذائية -->
+        <div id="ptab-plan" class="ptab-panel hide">
+          <div class="card" id="patPlan"></div>
+          <div class="card" id="patNotes"></div>
+        </div>
+
+        <!-- تبويب: المواعيد -->
+        <div id="ptab-appts" class="ptab-panel hide">
+          <div class="card">
+            <div class="card-head">
+              <h3><i class="fa-solid fa-calendar-check"></i> مواعيد المريض</h3>
+              <button class="btn btn-primary sm" data-action="appt-for-patient"><i class="fa-solid fa-plus"></i> حجز موعد</button>
+            </div>
+            <div class="appt-list" id="patAppts"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====== المواعيد ====== -->
+      <section id="view-appointments" class="view">
+        <div class="card">
+          <div class="cal-head">
+            <div class="cal-nav">
+              <button class="icon-btn" id="calPrev" title="الأسبوع السابق" aria-label="الأسبوع السابق"><i class="fa-solid fa-chevron-right"></i></button>
+              <button class="btn btn-ghost sm" id="calToday">اليوم</button>
+              <button class="icon-btn" id="calNext" title="الأسبوع التالي" aria-label="الأسبوع التالي"><i class="fa-solid fa-chevron-left"></i></button>
+            </div>
+            <h3 id="calWeekLabel"></h3>
+            <button class="btn btn-primary sm" data-action="add-appt"><i class="fa-solid fa-plus"></i> حجز موعد</button>
+          </div>
+          <div class="week-strip" id="weekStrip"></div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h3 id="dayLabel"></h3>
+            <span class="chip chip-teal" id="dayCount"></span>
+          </div>
+          <div id="dayList" class="appt-list"></div>
+        </div>
+      </section>
+
+      <!-- ====== خطط التغذية ====== -->
+      <section id="view-plans" class="view">
+        <div class="card">
+          <div class="card-head" style="margin-bottom:6px">
+            <div>
+              <h3 style="font-size:20px"><i class="fa-solid fa-utensils"></i> مكتبة خطط التغذية</h3>
+              <p class="muted" style="font-size:13px;margin-top:4px">أنشئ خططك الغذائية مرة واحدة واربطها بأي مريض بضغطة واحدة</p>
+            </div>
+            <button class="btn btn-primary sm" data-action="add-plan"><i class="fa-solid fa-plus"></i> خطة جديدة</button>
+          </div>
+        </div>
+        <div class="plans-grid" id="plansGrid" style="margin-top:16px"></div>
+      </section>
+
+      <!-- ====== المرحلة 10: لوحة تحكم الإدارة — الأقسام الأربعة ====== -->
+      <section id="view-admin-dashboard" class="view">
+        <div class="greet"><h2>لوحة تحكم المنصة</h2><p class="muted">نظرة عامة على كل العيادات المسجّلة — البيانات السريرية غير متاحة هنا بالتصميم</p></div>
+        <div class="kpi-grid" id="admKpis" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))"></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head"><h3><i class="fa-solid fa-chart-column"></i> تسجيلات الدكاترة — آخر 6 أشهر</h3></div>
+            <div class="chart-box"><canvas id="admGrowth"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3><i class="fa-solid fa-chart-pie"></i> توزيع التخصصات</h3></div>
+            <div class="chart-box sm"><canvas id="admSpecs"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3><i class="fa-solid fa-user-clock"></i> أحدث الحسابات المسجّلة</h3></div>
+          <div class="mini-list" id="admLatest"></div>
+        </div>
+      </section>
+
+      <section id="view-admin-doctors" class="view">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="tabs" id="admTabs">
+              <button class="active" data-ast="all">الكل</button>
+              <button data-ast="active">نشط</button>
+              <button data-ast="trial">تجريبي</button>
+              <button data-ast="expired">منتهي</button>
+              <button data-ast="suspended">معلّق</button>
+              <button data-ast="deleted">محذوف</button>
+            </div>
+            <select class="input" id="admSpecFilter" style="max-width:190px">
+              <option value="all">كل التخصصات</option>
+              <option value="مشترك">مشترك (علاج طبيعي + سمنة)</option>
+              <option value="علاج طبيعي">علاج طبيعي فقط</option>
+              <option value="سمنة">سمنة وتغذية</option>
+            </select>
+            <div class="in-wrap search"><i class="fa-solid fa-magnifying-glass"></i>
+              <input id="admSearch" placeholder="بحث بالاسم أو العيادة أو البريد...">
+            </div>
+          </div>
+          <div class="count-note muted" id="admCount"></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>الدكتور</th><th>العيادة</th><th>التخصص</th><th>التسجيل</th>
+                <th>الاشتراك</th><th>المرضى</th><th>آخر نشاط</th><th>الإجراءات</th>
+              </tr></thead>
+              <tbody id="admTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-admin-doctor" class="view">
+        <button class="back-btn" data-nav="admin-doctors"><i class="fa-solid fa-arrow-right"></i> رجوع لقائمة الدكاترة</button>
+        <div class="card" id="admDocHero"></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head"><h3><i class="fa-solid fa-chart-simple"></i> إحصاءات العيادة</h3></div>
+            <div id="admDocStats"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3><i class="fa-solid fa-credit-card"></i> الاشتراك</h3></div>
+            <div id="admDocSub"></div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head"><h3><i class="fa-solid fa-clock-rotate-left"></i> آخر 10 عمليات (سجل التدقيق)</h3></div>
+            <div id="admDocLog" class="mini-list"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3><i class="fa-solid fa-note-sticky"></i> ملاحظات الإدارة</h3></div>
+            <form id="admNoteForm" style="display:flex;gap:8px;margin-bottom:12px">
+              <input class="input" id="admNoteTxt" maxlength="1000" placeholder="مثال: مدد الاشتراك يدوي حتى نهاية الشهر" style="flex:1">
+              <button class="btn btn-primary sm"><i class="fa-solid fa-plus"></i></button>
+            </form>
+            <div id="admNoteList" class="mini-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-admin-settings" class="view">
+        <div class="set-grid">
+          <div class="card">
+            <div class="card-head"><h3><i class="fa-solid fa-gears"></i> إعدادات المنصة العامة</h3></div>
+            <form id="sysForm" class="form-grid sys-form">
+              <div class="field"><label>مدة التجربة المجانية (يوم)</label><input class="input ltr" id="sysTrial" type="number" min="1" max="90" required></div>
+              <div class="field"><label>سعر الاشتراك الشهري (ج.م)</label><input class="input ltr" id="sysMonthly" type="number" min="0" required></div>
+              <div class="field"><label>سعر الاشتراك السنوي (ج.م)</label><input class="input ltr" id="sysYearly" type="number" min="0" required></div>
+              <div class="field full"><label>رسالة الترحيب الافتراضية للحسابات الجديدة</label><textarea class="input" id="sysWelcome" rows="2"></textarea></div>
+              <div class="full"><button class="btn btn-primary block"><i class="fa-solid fa-check"></i> حفظ الإعدادات</button></div>
+            </form>
+          </div>
+          <div>
+            <div class="card">
+              <div class="card-head"><h3><i class="fa-solid fa-file-arrow-down"></i> تصدير بيانات المنصة</h3></div>
+              <p class="muted" style="font-size:13px;font-weight:600;margin-bottom:12px">التصدير يشمل بيانات العيادات والإحصاءات فقط — <b>بدون أي بيانات مرضى</b> (بالتصميم).</p>
+              <button class="btn btn-outline block" data-action="adm-export"><i class="fa-solid fa-download"></i> تنزيل ملف JSON</button>
+            </div>
+            <div class="card">
+              <div class="card-head"><h3><i class="fa-solid fa-bug"></i> سجل الأخطاء المركزي</h3></div>
+              <div class="tip-card">
+                <i class="fa-solid fa-circle-info"></i>
+                <p>يتفعّل في المرحلة 12 مع Edge Functions: أخطاء العملاء تُجمع مركزياً بمعرّف طلب (بدون أي بيانات مرضى).</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====== الإعدادات ====== -->
+      <section id="view-settings" class="view">
+        <div class="set-grid">
+          <div class="card">
+            <div class="card-head"><h3><i class="fa-solid fa-hospital"></i> بيانات العيادة</h3></div>
+            <form id="settingsForm" class="form-grid">
+              <div class="field"><label>اسم العيادة</label><input class="input" id="setClinic" required></div>
+              <div class="field"><label>اسم الدكتور</label><input class="input" id="setDoctor" required></div>
+              <div class="field"><label>رقم واتساب العيادة</label><input class="input ltr" id="setPhone" inputmode="tel"></div>
+              <div class="field"><label>سعر الجلسة / الكشف (ج.م)</label><input class="input ltr" id="setPrice" type="number" min="0"></div>
+              <div class="field full"><label>العنوان</label><input class="input" id="setAddress"></div>
+              <div class="full"><button class="btn btn-primary block"><i class="fa-solid fa-check"></i> حفظ البيانات</button></div>
+            </form>
+          </div>
+          <div>
+            <div class="card">
+              <div class="card-head"><h3><i class="fa-solid fa-database"></i> حالة النظام</h3></div>
+              <div id="fbStatus"></div>
+            </div>
+            <!-- دليل الاستخدام البسيط للدكتور — بالعربي العامي -->
+            <div class="card">
+              <div class="card-head"><h3><i class="fa-solid fa-book-open"></i> دليل الدكتور — خطوة بخطوة</h3></div>
+              <div class="steps-list" style="gap:14px">
+                <div>
+                  <b style="color:var(--teal-700)">١ — أعمل حسابك الأول مرة:</b>
+                  افتح الموقع ← اضغط «حساب جديد» ← اكتب اسمك والتخصص والعيادة ← اضغط «إنشاء الحساب». لو نسيت الباسورد في أي وقت، «نسيت الباسورد» هتبعتك لينك على إيميلك.
+                </div>
+                <div>
+                  <b style="color:var(--teal-700)">٢ — أضف أول مريض:</b>
+                  من أي صفحة اضغط «مريض جديد» فوق، أو روح «المرضى». اكتب الاسم والموبايل والسن، اختار التخصص (علاج طبيعي / سمنة)، ولو مريض تخسيس اكتب وزنه الحالي وهدفه. اضغط «إضافة» — هيظهر فوراً في الجدول وفي لوحة التحكم.
+                </div>
+                <div>
+                  <b style="color:var(--teal-700)">٣ — سجّل قياس:</b>
+                  افتح ملف المريض ← تبويب «القياسات» ← «إضافة قياس». لمريض السمنة اكتب الوزن (والخصر والأرداف والدهون لو حابب). لمريض العلاج الطبيعي اختار رقم الجلسة ودرجة الألم. المنحنى هيتحدث لوالوحده.
+                </div>
+                <div>
+                  <b style="color:var(--teal-700)">٤ — احجز موعد:</b>
+                  من «المواعيد» اضغط «حجز موعد» ← اكتب اسم المريض في البحث ← اختار اليوم والفترة (مثلاً 5م—6م) ← «تأكيد الحجز». لو فيه موعد تاني بنفس الوقت النظام هيرفض ويقولك مع مين. بعد الحجز اضغط زر الواتساب الأخضر عشان تبعت تذكير للمريض برسالة جاهزة.
+                </div>
+                <div>
+                  <b style="color:var(--teal-700)">٥ — اربط خطة تغذية:</b>
+                  روح «الخطط» واختار من المكتبة (فيها 10 خطط جاهزة: من 1200 سعر لحد بناء عضلات) أو اعمل خطة جديدة. اضغط «ربط بمريض» ← اختار المريض وتاريخ البدء والانتهاء. الخطة هتظهر في ملف المريض، وتقدر تبعتها له واتساب كاملة بضغطة.
+                </div>
+                <div>
+                  <b style="color:var(--teal-700)">٦ — نسخة احتياطية:</b>
+                  من «الإعدادات» ← «تصدير» كل أسبوع — هينزل ملف JSON <b>مشفّر بكلمة سر</b> (AES-256) فيه كل بيانات العيادة، وزر القفل المفتوح جنبه لفك التشفير وقت الحاجة. احفظ كلمة السر في مكان منفصل — بدونها النسخة مش هتترجع.
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h3><i class="fa-solid fa-shield-halved"></i> البيانات</h3></div>
+              <div class="sys-row">
+                <i style="background:var(--teal-50);color:var(--teal-700)" class="fa-solid fa-box-archive"></i>
+                <div style="flex:1"><b>الأرشيف</b><small>مرضى ومواعيد وقياسات محذوفة — استعادة خلال 30 يوماً ثم مسح نهائي تلقائي</small></div>
+                <button class="btn btn-outline sm" data-action="view-archive"><i class="fa-solid fa-box-open"></i> عرض</button>
+              </div>
+              <div class="sys-row">
+                <i style="background:var(--blue-soft);color:var(--blue)" class="fa-solid fa-file-arrow-down"></i>
+                <div style="flex:1"><b>نسخة احتياطية</b><small>تصدير كل بيانات العيادة في ملف JSON مشفّر بكلمة سر (AES-256)</small></div>
+                <button class="btn btn-outline sm" data-action="export"><i class="fa-solid fa-download"></i> تصدير</button>
+                <button class="btn btn-ghost sm" data-action="decrypt-backup" title="فك تشفير نسخة احتياطية"><i class="fa-solid fa-lock-open"></i></button>
+              </div>
+              <div class="sys-row">
+                <i style="background:var(--rose-soft);color:var(--rose)" class="fa-solid fa-right-from-bracket"></i>
+                <div style="flex:1"><b>تسجيل الخروج</b><small>الخروج من حساب الدكتور</small></div>
+                <button class="btn btn-ghost sm" data-action="logout">خروج</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- شريط التنقل السفلي للموبايل -->
+  <nav id="bottomNav"><div class="in" id="bottomNavIn"></div></nav>
+</div>
+
+<!-- جذر المودالات والتنبيهات -->
+<div id="modalRoot"></div>
+<div id="toastRoot" role="status" aria-live="polite"></div>
+
+<!-- ====== المكتبات الخارجية ====== -->
+<!-- (متوسط 2) SRI + تثبيت إصدارات: التاج العائم @2 بتاع Supabase ما ينفعش
+     معاه بصمة (محتواه بيتغير مع كل إصدار جديد) — ثبّتّنا 2.118.0 (النسخة
+     اللي كان @2 بيشاور عليها وقت الإصلاح) والبصمات محسوبة من الملفات نفسها -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<!-- مكتبة Supabase الرسمية — تغطي Auth + قاعدة البيانات في عميل واحد -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+
+<!-- ====== سكربتات التطبيق — classic scripts بالترتيب الأصلي نفسه (بدون bundler) ======
+     الترتيب إلزامي: كل ملف بيعتمد على الـGlobals اللي اتعرفت قبله، وmain.js آخر حاجة -->
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/defaults.js"></script>
+<script src="js/db.js"></script>
+<script src="js/state.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/patients.js"></script>
+<script src="js/patient.js"></script>
+<script src="js/notes.js"></script>
+<script src="js/appointments.js"></script>
+<script src="js/message-style.js"></script>
+<script src="js/whatsapp.js"></script>
+<script src="js/plans.js"></script>
+<script src="js/patient-portal.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/archive.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/export.js"></script>
+<!-- ملاحظة ترتيب: app.js (خرائط ROUTES/RENDERERS) بتشير لدوال العرض وقت التقييم،
+     ففي الملف الموحد كان الـhoisting بيغطيها — هنا لازم تتحمل بعد كل ملفات العرض
+     وقبل main.js مباشرة (نفس السلوك بالظبط، ترتيب التحميل بس اللي اتظبط) -->
+<script src="js/app.js"></script>
+<script src="js/main.js"></script>
+
+</body>
+</html>
