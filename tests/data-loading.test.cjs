@@ -125,7 +125,7 @@ function authContext({ step = 'ready', failureAt = 'loadAll', accountError = nul
     document: { addEventListener() {}, querySelector: $, body: { classList: cls() } },
     window: {}, $, $$: () => [], DB, State: state, Cal: {}, Charts: {}, Portal: { token: null },
     sessionStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
-    showScreen(name) { screens.push(name); }, go() {}, syncShellIdentity() {},
+    showScreen(name) { screens.push(name); }, go() {}, buildNav() {}, syncShellIdentity() {},
     explainError(e) { return 'safe: ' + e.code; }, esc: x => x,
     logError() {}, toast() {}, leaveAdmin() {}, closeModal() {},
     setTimeout() {}, clearTimeout() {}, console

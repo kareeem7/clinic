@@ -155,6 +155,7 @@ async function routeAfterAuth(step, access) {
     return;
   }
   // doctor
+  buildNav(); // initialize both navigation rails on fresh login and session restore
   State.loaded = false; showScreen('app'); go('dashboard'); // skeletons first
   // بوابة الاشتراك قبل أي تحميل: الحساب الموقوف/المنتهي لازم ما يسحبش أي
   // بيانات مرضى للذاكرة أصلاً — والفحص بقى مدعوماً من السيرفر كمان لأن

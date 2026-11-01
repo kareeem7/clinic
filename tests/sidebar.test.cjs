@@ -101,3 +101,89 @@ test('menu button opens sidebar, overlay closes it, and navigation closes it', a
   assert.equal(sidebar.classList.contains('open'), false);
   assert.equal(overlay.classList.contains('show'), false);
 });
+
+// Exercise the real navigation builder through the post-auth router using fake
+// DOM and Supabase objects. This catches empty navigation after a fresh login.
+function navAuthContext({ admin = false } = {}) {
+  const elements = new Map();
+  let authListener;
+  function element() {
+    const classes = new Set();
+    return {
+      innerHTML: '', textContent: '', value: '', style: {}, dataset: {}, hidden: false,
+      classList: {
+        add(c) { classes.add(c); }, remove(c) { classes.delete(c); },
+        contains(c) { return classes.has(c); },
+        toggle(c, on) { if (on === undefined) on = !classes.has(c); on ? classes.add(c) : classes.delete(c); }
+      },
+      addEventListener() {}, querySelector() { return element(); }, focus() {}
+    };
+  }
+  const $ = selector => { if (!elements.has(selector)) elements.set(selector, element()); return elements.get(selector); };
+  const noop = () => {};
+  const DB = {
+    uid: null,
+    async init() { return true; }, async signIn() { this.uid = 'test-doctor'; return 'ready'; },
+    async mfaGate() { return 'ready'; }, async isSuperAdmin() { return admin; },
+    async loadSettingsRow() {}, assertActive() {}, async loadAll() {},
+    sb: { auth: { onAuthStateChange(fn) { authListener = fn; } } }
+  };
+  const context = vm.createContext({
+    document: { addEventListener() {}, querySelector: $, body: element() },
+    window: { scrollTo() {} }, $, $$: () => [], DB,
+    State: { isAdmin: false, settings: {} }, Cal: {}, Charts: {}, Portal: { token: null },
+    sessionStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
+    longDate: () => '', toast: noop, logError: noop, explainError: () => 'error', esc: x => x,
+    renderDashboard: noop, renderPatients: noop, renderPatientDetail: noop,
+    renderAppointments: noop, renderPlans: noop, renderSettings: noop,
+    Admin: { async load() {}, renderDashboard: noop }, setTimeout, clearTimeout, console
+  });
+  vm.runInContext(appSource, context, { filename: 'app.js' });
+  vm.runInContext(fs.readFileSync(path.join(root, 'js/archive.js'), 'utf8'), context, { filename: 'archive.js' });
+  vm.runInContext(mainSource, context, { filename: 'main.js' });
+  return {
+    $, DB,
+    boot: () => vm.runInContext('boot()', context),
+    restore: () => authListener('INITIAL_SESSION', { user: { id: 'test-doctor' } }),
+    signOut: () => authListener('SIGNED_OUT', null)
+  };
+}
+
+function assertDoctorNavigation(ui) {
+  for (const selector of ['#sideNav', '#bottomNavIn']) {
+    const markup = ui.$(selector).innerHTML;
+    for (const route of ['dashboard', 'patients', 'appointments', 'plans', 'settings']) {
+      assert.match(markup, new RegExp('data-route="' + route + '"'));
+    }
+    assert.doesNotMatch(markup, /data-route="admin-/);
+  }
+}
+
+test('fresh doctor login builds sidebar and bottom navigation', async () => {
+  const ui = navAuthContext();
+  await ui.boot();
+  await ui.$('#loginForm').onsubmit({ preventDefault() {} });
+  assert.equal(ui.$('#appShell').hidden, false);
+  assertDoctorNavigation(ui);
+});
+
+test('restored doctor session builds sidebar and bottom navigation', async () => {
+  const ui = navAuthContext();
+  await ui.boot();
+  await ui.restore();
+  assert.equal(ui.$('#appShell').hidden, false);
+  assertDoctorNavigation(ui);
+});
+
+test('administrator keeps administrator navigation and sign-out restores doctor navigation', async () => {
+  const ui = navAuthContext({ admin: true });
+  await ui.boot();
+  await ui.restore();
+  for (const selector of ['#sideNav', '#bottomNavIn']) {
+    assert.match(ui.$(selector).innerHTML, /data-route="admin-doctors"/);
+    assert.doesNotMatch(ui.$(selector).innerHTML, /data-route="patients"/);
+  }
+  await ui.signOut();
+  await ui.$('#loginForm').onsubmit({ preventDefault() {} });
+  assertDoctorNavigation(ui);
+});
