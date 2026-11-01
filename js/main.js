@@ -151,15 +151,21 @@ async function routeAfterAuth(step, access) {
   // بوابة الاشتراك قبل أي تحميل: الحساب الموقوف/المنتهي لازم ما يسحبش أي
   // بيانات مرضى للذاكرة أصلاً — والفحص بقى مدعوماً من السيرفر كمان لأن
   // clinic_active() جزء من سياسات RLS على كل الجداول الطبية.
-  await DB.loadSettingsRow();
   try {
-    DB.assertActive(); // subscription / suspension / expiry gate
+    await DB.loadSettingsRow();
+    try {
+      DB.assertActive(); // subscription / suspension / expiry gate
+    } catch (e) {
+      await DB.signOut(); // a blocked account must never stay inside the app
+      throw e;
+    }
+    await DB.loadAll();
   } catch (e) {
-    await DB.signOut(); // a blocked account must never stay inside the app
+    // The login/MFA form owns the error message; do not leave it hidden behind
+    // a dashboard that will otherwise stay in the loading state forever.
     showScreen('login');
     throw e;
   }
-  await DB.loadAll();
   cacheDoctor();
   syncShellIdentity();
   go('dashboard');
@@ -430,6 +436,9 @@ async function boot() {
         await routeAfterAuth(step, 'auto'); // role detection is the router's job
       } catch (ex) {
         logError(ex, 'session.restore');
+        switchAuthTab('login');
+        $('#loginError').textContent = explainError(ex);
+        $('#loginError').classList.add('show');
         showScreen('login');
       }
     }
