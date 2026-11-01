@@ -24,7 +24,15 @@ function switchPTab(t) {
 // موزّع الأوامر المركزي: كل زر له data-action يمر من هنا
 const Actions = {
   'add-patient':   () => openPatientModal(),
-  'edit-patient':  ds => openPatientModal(getPatient(ds.id)),
+  'edit-patient': async ds => {
+    let p = getPatient(ds.id);
+    if (p && !p._full) {
+      try { p = await DB.loadPatientFull(ds.id); }
+      catch (e) { logError(e, 'patient.edit'); toast('تعذّر تحميل بيانات المريض للتعديل — ' + explainError(e), 'error'); return; }
+    }
+    if (!p) { toast('تعذّر العثور على بيانات المريض للتعديل', 'error'); return; }
+    openPatientModal(p);
+  },
   'del-patient':   ds => deletePatient(ds.id),
   'view-patient':  ds => go('patient', ds.id),
   'wa-patient':    ds => waPatient(ds.id),

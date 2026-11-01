@@ -12,7 +12,6 @@ responsive.css
 }
 @media (max-width:992px){
   #sidebar{transform:translateX(100%);box-shadow:var(--shadow-lg)}
-  html[dir="rtl"] #sidebar{transform:translateX(100%)}
   #sidebar.open{transform:none}
   .overlay.show{opacity:1;pointer-events:auto}
   .main{margin-inline-start:0}
