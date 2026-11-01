@@ -783,21 +783,24 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
           array['image/jpeg', 'image/png', 'image/webp'])
   on conflict (id) do nothing;
 
--- (بند 10) التوكن بقى خارج مسار الصورة نهائياً. المسار الجديد:
--- doctorId/patientId/randomUUID.ext — لأن photo_path بيتخزن في القاعدة
--- (ويظهر في أي backup أو log أو شاشة دكتور)، فكان التوكن بيتسرب معاه.
--- الرفع لسه مربوط بجلسة حية مطابقة لنفس العيادة + نفس المريض في المسار.
+-- Authorize photo uploads only through the server-side Edge Function.
+-- Deploy the function first; coordinate this migration with the compatible app release.
+-- Review existing policies and test the complete flow in isolation before production.
+
 drop policy if exists portal_photo_insert on storage.objects;
-create policy portal_photo_insert on storage.objects for insert to anon, authenticated
-with check (
-  bucket_id = 'patient-photos'
-  and exists (
-    select 1 from public.patient_sessions s
-    where s.expires_at > now()
-      and s.doctor_id::text  = split_part(name, '/', 1)
-      and s.patient_id::text = split_part(name, '/', 2)
-  )
-);
+
+create or replace function public.patient_portal_photo_authorize(p_token uuid)
+returns table (doctor_id uuid, patient_id uuid)
+language sql stable security definer set search_path = public as $$
+  select s.doctor_id, s.patient_id
+  from public.patient_sessions s
+  join public.patients p on p.id = s.patient_id and p.doctor_id = s.doctor_id
+  where s.token = p_token and s.expires_at > now()
+    and p.deleted_at is null and public.clinic_active(s.doctor_id)
+$$;
+revoke all on function public.patient_portal_photo_authorize(uuid) from public, anon, authenticated;
+grant execute on function public.patient_portal_photo_authorize(uuid) to service_role;
+
 
 -- (بند 10) القراءة للدكتور المعالج فقط — واجهة البوابة ما بتعرضش صور أصلاً،
 -- فمفيش سبب إن أي حامل توكن يقرأ من Storage. الفرع التاني للتوافق مع

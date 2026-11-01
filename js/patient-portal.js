@@ -188,22 +188,16 @@ const Portal = {
 
 /* ===== js/patient-log.js — المرحلة 16: تسجيل قياسات المريض من البيت ===== */
 
-// Upload a progress photo using the portal path-binding policy:
-// {token}/{doctorId}/{patientId}/{ts}.{ext} — identity is enforced server-side.
-async function portalUploadPhoto(file) {
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw { message: 'اختار صورة بصيغة JPG أو PNG' };
+// Upload through the Edge Function; the server validates the patient token,
+// derives the path and enforces its own file type and size limits.
+async function portalUploadPhoto(file, token) {
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw { message: 'اختار صورة بصيغة JPG أو PNG أو WebP' };
   if (file.size > 5 * 1024 * 1024) throw { message: 'الصورة كبيرة قوي — اختار صورة أصغر (حتى 5MB)' };
-  const p = Portal.data.patient;
-  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z]/g, 'jpg');
-  // (بند 10) التوكن مش جزء من المسار خالص — المسار: doctorId/patientId/uuid.ext
-  // فـphoto_path المتخزن في القاعدة (واللي يظهر في backups وشاشات الدكتور)
-  // مابقاش يحمل الـbearer secret بتاع جلسة البوابة
-  const rand = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
-    : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
-  const path = p.doctorId + '/' + p.id + '/' + rand + '.' + ext;
-  const { error } = await DB.sb.storage.from('patient-photos').upload(path, file, { cacheControl: '3600', upsert: false });
-  if (error) throw error;
-  return path;
+  const { data, error } = await DB.sb.functions.invoke('portal-photo-upload', {
+    headers: { 'x-patient-token': token, 'Content-Type': file.type }, body: file
+  });
+  if (error || !data || typeof data.path !== 'string' || !data.path) throw { message: 'تعذّر رفع الصورة' };
+  return data.path;
 }
 // Signed read URL (valid 60 min) — works for both sides by RLS rules
 async function storagePhotoUrl(path) {
@@ -214,7 +208,8 @@ async function storagePhotoUrl(path) {
 
 // Patient portal tester: one-shot validation + save + motivational feedback
 async function portalSubmitMeasurement() {
-  const p = Portal.data.patient;
+  const token = Portal.token;
+  if (!token || !Portal.data || !Portal.data.patient) return;
   const w = +$('#lgWeight').value;
   const err = $('#lgErr'); err.classList.remove('show');
 
@@ -237,9 +232,10 @@ async function portalSubmitMeasurement() {
     const ok = await confirmDlg('فرق وزن كبير',
       'آخر قياس عندك كان ' + lastW + ' كجم، والنهارده كتبت ' + w + ' كجم — يعني فرق ' + Math.abs(w - lastW).toFixed(1) + ' كجم. متأكد إن الرقم صح؟',
       'نعم، الرقم صح');
-    if (!ok) return;
+    if (!ok || token !== Portal.token) return;
   }
 
+  if (token !== Portal.token) return;
   const btn = $('#lgSave'); btn.disabled = true;
   btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>جارٍ الحفظ...</span>';
 
@@ -248,16 +244,21 @@ async function portalSubmitMeasurement() {
     let photoPath = null;
     const file = $('#lgPhoto').files && $('#lgPhoto').files[0];
     if (file) {
-      try { photoPath = await portalUploadPhoto(file); }
-      catch (pe) { toast('الصورة ماترفعتش — القياس هيتحفظ بدونها: ' + (pe.message || ''), 'info'); }
+      try { photoPath = await portalUploadPhoto(file, token); }
+      catch (pe) {
+        if (token !== Portal.token) return;
+        toast('الصورة ماترفعتش — القياس هيتحفظ بدونها: ' + (pe.message || ''), 'info');
+      }
     }
 
+    if (token !== Portal.token) return;
     const payload = {
-      p_token: Portal.token, p_weight: w,
+      p_token: token, p_weight: w,
       p_waist: wa || null, p_hips: hips || null, p_arm: arm || null,
       p_note: note, p_date: date, p_photo_path: photoPath
     };
     const { data: r, error } = await DB.sb.rpc('patient_portal_add_measurement', payload);
+    if (token !== Portal.token) return;
     if (error) throw error;
     if (!r || !r.ok) { err.textContent = r && r.error ? r.error : 'تعذّر الحفظ'; err.classList.add('show'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check"></i> حفظ القياس'; return; }
 
@@ -272,6 +273,7 @@ async function portalSubmitMeasurement() {
     let refreshed = true;
     try { await Portal.load(); }
     catch (refreshError) { refreshed = false; }
+    if (token !== Portal.token) return;
     if (!refreshed) {
       toast('تم حفظ القياس، لكن تعذّر تحديث البيانات — حدّث الصفحة لاحقاً', 'info');
     } else if (Portal.token) {
@@ -286,6 +288,7 @@ async function portalSubmitMeasurement() {
       if (!$('#ptProgressView').classList.contains('hide')) portalRenderProgress(); // منحنى التطور يتحدث فوراً
     }
   } catch (ex2) {
+    if (token !== Portal.token) return;
     err.textContent = 'تعذّر الحفظ — تحقق من الإنترنت وحاول تاني';
     err.classList.add('show');
   }
@@ -308,6 +311,8 @@ function resetPortalSessionState() {
   $('#lgPhotoPrev').removeAttribute('src');
   $('#lgPhotoTxt').textContent = 'اضغط للتصوير أو اختيار صورة (حتى 5MB)';
   $('#lgErr').classList.remove('show');
+  $('#lgSave').disabled = false;
+  $('#lgSave').innerHTML = '<i class="fa-solid fa-check"></i> حفظ القياس';
   ['ptSummary', 'ptRows', 'ptRowsNote', 'ptMotive', 'ptAppointmentsView'].forEach(id => { $('#' + id).innerHTML = ''; });
   ['pw1', 'pw2'].forEach(key => { if (Charts[key]) { Charts[key].destroy(); delete Charts[key]; } });
   $('#ptHomeMain').classList.remove('hide');
