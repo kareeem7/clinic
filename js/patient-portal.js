@@ -633,6 +633,8 @@ async function portalRenderAppointments() {
     // حالات واضحة للمريض
     const stShort = { pending: 'بانتظار تأكيد', confirmed: 'مؤكد', done: 'تمت', cancelled: 'ملغي' };
     const stCls = { pending: 'amber', confirmed: 'teal', done: 'green', cancelled: 'rose' };
+    const statusClass = status => Object.prototype.hasOwnProperty.call(stCls, status) ? stCls[status] : 'gray';
+    const statusLabel = status => esc(Object.prototype.hasOwnProperty.call(stShort, status) ? stShort[status] : status);
 
     view.innerHTML =
       '<div class="p-hero" style="align-items:flex-start;gap:11px;margin-bottom:2px">' +
@@ -646,7 +648,7 @@ async function portalRenderAppointments() {
             '<div style="flex:1;min-width:140px">' +
               '<b style="font-size:16.5px;display:block">' + relDay(a.date) + '</b>' +
               '<div class="p-chips" style="margin-top:7px">' +
-                '<span class="chip chip-' + stCls[a.status] + '">' + (stShort[a.status] || a.status) + '</span>' +
+                '<span class="chip chip-' + statusClass(a.status) + '">' + statusLabel(a.status) + '</span>' +
                 '<span class="chip chip-gray"><i class="fa-solid fa-clock"></i> ' + fmtTime(a.time) + '</span>' +
                 '<span class="chip chip-gray"><i class="fa-solid fa-hourglass-half"></i> ' + (a.duration || 30) + ' دقيقة</span>' +
               '</div>' +
@@ -670,7 +672,7 @@ async function portalRenderAppointments() {
             '<div class="p-card" style="padding:13px 16px;margin-bottom:10px">' +
               '<div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap">' +
                 '<b style="font-size:14px;flex:1">' + esc(a.type || 'زيارة') + '</b>' +
-                '<span class="chip chip-' + stCls[a.status] + '" style="font-size:11.5px">' + (stShort[a.status] || a.status) + '</span>' +
+                '<span class="chip chip-' + statusClass(a.status) + '" style="font-size:11.5px">' + statusLabel(a.status) + '</span>' +
                 '<small class="muted" style="font-weight:700">' + humanDate(a.date) + ' — ' + fmtTime(a.time) + '</small>' +
               '</div>' +
               (a.note ? '<p style="font-size:13px;color:#3d5654;font-weight:600;margin-top:7px;line-height:1.7;background:#f6faf6;padding:9px 11px;border-radius:11px">' + esc(a.note) + '</p>' : '') +

@@ -11,6 +11,8 @@ const vm = require('node:vm');
 const root = path.join(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'js/patient-portal.js'), 'utf8');
 const config = fs.readFileSync(path.join(root, 'js/config.js'), 'utf8');
+const utils = fs.readFileSync(path.join(root, 'js/utils.js'), 'utf8');
+const escapeHtml = vm.runInNewContext(utils.match(/^const esc = .*$/m)[0] + '\nesc');
 
 function deferred() {
   let resolve;
@@ -50,7 +52,7 @@ function harness() {
     },
     document: { body: { classList: { add() {}, remove() {} } }, querySelector: $ },
     window: {}, $, $$: () => [], Charts: charts,
-    todayISO: () => '2026-11-01', humanDate: date => date, esc: value => String(value ?? ''),
+    todayISO: () => '2026-11-01', humanDate: date => date, relDay: date => date, fmtTime: time => time, esc: escapeHtml,
     toast(message, type) { toasts.push({ message, type }); }, switchAuthTab() {}, showScreen(name) { screens.push(name); },
     DB: { sb: { rpc(name, args) { calls.push({ name, args }); return rpc(name, args); } } }
   });
@@ -234,4 +236,40 @@ test('SQL source restricts portal cancellation to today or later in Cairo', () =
   const end = config.indexOf('end; $$;', start);
   const body = config.slice(start, end);
   assert.match(body, /where id = p_appt and patient_id = v_s\.patient_id and doctor_id = v_s\.doctor_id\s+and deleted_at is null and status <> 'done'\s+and date >= \(now\(\) at time zone 'Africa\/Cairo'\)::date/);
+});
+
+
+test('appointment statuses are escaped in upcoming and past markup', async () => {
+  const app = harness();
+  await app.run("Portal.login('A', '2000-01-01')");
+  const payload = '<img src=x onerror=alert(1)>';
+  app.setRpc(async () => ({ data: { ok: true,
+    upcoming: [{ id: 'up', date: '2026-11-01', time: '10:00', status: payload },
+               { id: 'normal', date: '2026-11-01', time: '11:00', status: 'confirmed' }],
+    past: [{ id: 'past', date: '2026-10-31', time: '10:00', status: payload },
+           { id: 'prototype', date: '2026-10-30', time: '10:00', status: '__proto__' }]
+  } }));
+  await app.run('portalRenderAppointments()');
+  const markup = app.$('#ptAppointmentsView').innerHTML;
+  assert.equal(markup.split('&lt;img src=x onerror=alert(1)&gt;').length - 1, 2);
+  assert.doesNotMatch(markup, /<img src=x/);
+  assert.match(markup, /chip-teal[^>]*>مؤكد/);
+  assert.match(markup, /chip-gray[^>]*>__proto__/);
+});
+
+test('photo path validation is shared by setup SQL and standalone migration', () => {
+  // Structural regression check; PostgreSQL/RLS behavior requires an integration test.
+  const migration = fs.readFileSync(path.join(root, 'sql/migrations/20261101_validate_patient_photo_path.sql'), 'utf8');
+  const start = config.indexOf('create or replace function public.patient_portal_add_measurement(');
+  const end = config.indexOf('end; $$;', start);
+  assert.notEqual(start, -1);
+  assert.notEqual(end, -1);
+  const body = config.slice(start, end + 'end; $$;'.length);
+  assert.ok(migration.includes(body));
+  assert.match(body, /if coalesce\(p_photo_path, ''\) <> '' and \(/);
+  assert.match(body, /split_part\(p_photo_path, '\/', 1\) <> v_s\.doctor_id::text/);
+  assert.match(body, /split_part\(p_photo_path, '\/', 2\) <> v_s\.patient_id::text/);
+  assert.match(body, /split_part\(p_photo_path, '\/', 3\) = ''/);
+  assert.match(body, /from storage\.objects o\s+where o\.bucket_id = 'patient-photos' and o\.name = p_photo_path/);
+  assert.ok(body.indexOf('if coalesce(p_photo_path') < body.indexOf('insert into public.patient_records'));
 });
