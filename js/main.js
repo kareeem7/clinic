@@ -168,6 +168,31 @@ async function routeAfterAuth(step, access) {
 
 // The rest is inside the boot to keep all bindings together
 async function boot() {
+  // Central action dispatcher + navigation + modal close (also needed on the setup screen)
+  document.addEventListener('click', e => {
+    const ac = e.target.closest('[data-action]');
+    if (ac) { const fn = Actions[ac.dataset.action]; if (fn) fn(ac.dataset); return; }
+    const tb = e.target.closest('[data-ptab]');
+    if (tb) { switchPTab(tb.dataset.ptab); return; }
+    const rg = e.target.closest('[data-range]');
+    if (rg) {
+      State.pRange = rg.dataset.range;
+      $$('#rangeTabs button').forEach(x => x.classList.toggle('active', x === rg));
+      const pp = getPatient(State.param);
+      if (pp) drawPatientChart(pp);
+      return;
+    }
+    const nv = e.target.closest('[data-nav]');
+    if (nv) { go(nv.dataset.nav); return; }
+    const rt = e.target.closest('[data-route]');
+    if (rt) { go(rt.dataset.route); return; }
+    if (e.target.closest('[data-close]')) { closeModal(); return; }
+    if (e.target.classList && e.target.classList.contains('modal-overlay')) closeModal();
+  });
+
+  // Close modals with Escape
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
   // 1) HARD GATE: no Supabase = no app. Patient data must never touch localStorage.
   const ok = await DB.init();
   if (!ok) {
@@ -350,28 +375,6 @@ async function boot() {
   // Enter in the 2FA code box submits like the button (mobile + desktop convenience)
   $('#mfaCode').addEventListener('keydown', ev => { if (ev.key === 'Enter') $('#mfaGo').click(); });
 
-  // 9) Patient portal: restore session first if a patient token exists on this device
-  const ptSaved = sessionStorage.getItem('clinic_patient_token');
-  if (ptSaved) {
-    Portal.token = ptSaved;
-    try { await Portal.load(true); return; } catch (e) { Portal.token = null; sessionStorage.removeItem('clinic_patient_token'); }
-  }
-
-  // 10) Session restore: renewed pages re-run the same gates (auth + 2FA + role)
-  DB.sb.auth.onAuthStateChange(async (_evt, session) => {
-    if (_evt === 'INITIAL_SESSION' && session && session.user && !DB.uid) {
-      DB.uid = session.user.id;
-      try {
-        const step = await DB.mfaGate(); // may be ready / mfa-verify / mfa-enroll
-        await routeAfterAuth(step, 'auto'); // role detection is the router's job
-      } catch (ex) {
-        logError(ex, 'session.restore');
-        showScreen('login');
-      }
-    }
-    if (_evt === 'SIGNED_OUT') { leaveAdmin(); showScreen('login'); }
-  });
-
   // 10) Leave handlers
   $('#btnLogout').onclick = doLogout;
   $('#menuBtn').onclick = () => { $('#sidebar').classList.add('open'); $('#sidebarOverlay').classList.add('show'); };
@@ -407,30 +410,31 @@ async function boot() {
     toast('تم حفظ بيانات العيادة');
   };
 
-  // 14) Central action dispatcher + navigation + modal close (unchanged, Phases 3-8)
-  document.addEventListener('click', e => {
-    const ac = e.target.closest('[data-action]');
-    if (ac) { const fn = Actions[ac.dataset.action]; if (fn) fn(ac.dataset); return; }
-    const tb = e.target.closest('[data-ptab]');
-    if (tb) { switchPTab(tb.dataset.ptab); return; }
-    const rg = e.target.closest('[data-range]');
-    if (rg) {
-      State.pRange = rg.dataset.range;
-      $$('#rangeTabs button').forEach(x => x.classList.toggle('active', x === rg));
-      const pp = getPatient(State.param);
-      if (pp) drawPatientChart(pp);
-      return;
-    }
-    const nv = e.target.closest('[data-nav]');
-    if (nv) { go(nv.dataset.nav); return; }
-    const rt = e.target.closest('[data-route]');
-    if (rt) { go(rt.dataset.route); return; }
-    if (e.target.closest('[data-close]')) { closeModal(); return; }
-    if (e.target.classList && e.target.classList.contains('modal-overlay')) closeModal();
-  });
+  // Restore the patient portal only after all UI handlers are bound. A rejected
+  // token is cleared by Portal.load and must not prevent doctor session restore.
+  const ptSaved = sessionStorage.getItem('clinic_patient_token');
+  if (ptSaved) {
+    Portal.token = ptSaved;
+    try { await Portal.load(true); }
+    catch (e) { Portal.token = null; sessionStorage.removeItem('clinic_patient_token'); }
+  }
 
-  // 15) Close modals with Escape
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+  // Keep the patient portal in front of an existing doctor session, but always
+  // register the listener so it remains available after the patient logs out.
+  DB.sb.auth.onAuthStateChange(async (_evt, session) => {
+    if (Portal.token) return;
+    if (_evt === 'INITIAL_SESSION' && session && session.user && !DB.uid) {
+      DB.uid = session.user.id;
+      try {
+        const step = await DB.mfaGate(); // may be ready / mfa-verify / mfa-enroll
+        await routeAfterAuth(step, 'auto'); // role detection is the router's job
+      } catch (ex) {
+        logError(ex, 'session.restore');
+        showScreen('login');
+      }
+    }
+    if (_evt === 'SIGNED_OUT') { leaveAdmin(); showScreen('login'); }
+  });
 }
 
 document.addEventListener('DOMContentLoaded', boot);

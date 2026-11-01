@@ -24,17 +24,21 @@ const Portal = {
     const { data, error } = await DB.sb.rpc('patient_portal_login', { p_phone: phone, p_birth: birth });
     if (error) throw error;
     if (!data || !data.ok) throw { message: (data && data.error) || 'تعذّر تسجيل الدخول' };
+    resetPortalSessionState();
     sessionStorage.setItem('clinic_patient_token', data.token);
     this.token = data.token;
     await this.load(); // pulls the first portal payload right after login
   },
 
   async load(silentFail) {
-    const { data, error } = await DB.sb.rpc('patient_portal_data', { p_token: this.token });
+    const token = this.token;
+    const { data, error } = await DB.sb.rpc('patient_portal_data', { p_token: token });
+    if (token !== this.token) return; // an older session must not update the current UI
     if (error) throw error;
     if (!data.ok) {
-      this.token = null;
+      this.token = null; this.data = null;
       sessionStorage.removeItem('clinic_patient_token');
+      resetPortalSessionState();
       if (!silentFail) toast(data.error || 'انتهت جلستك', 'error');
       switchAuthTab('patient'); showScreen('login');
       return;
@@ -46,12 +50,14 @@ const Portal = {
   },
 
   async logout() {
-    if (this.token) { try { await DB.sb.rpc('patient_portal_logout', { p_token: this.token }); } catch (e) { /* networkless shutdown is fine */ } }
+    const token = this.token;
     this.token = null; this.data = null;
     sessionStorage.removeItem('clinic_patient_token');
+    resetPortalSessionState();
     document.body.classList.remove('theme-patient');
     toast('تم تسجيل خروجك — بالسلامة!', 'info');
     switchAuthTab('patient'); showScreen('login');
+    if (token) { try { await DB.sb.rpc('patient_portal_logout', { p_token: token }); } catch (e) { /* networkless shutdown is fine */ } }
   },
 
   // ---- الواجهة ----
@@ -168,8 +174,9 @@ const Portal = {
       const f = e.target.files && e.target.files[0];
       if (!f) { $('#lgPhotoPrev').classList.add('hide'); $('#lgPhotoTxt').textContent = 'اضغط للتصوير أو اختيار صورة (حتى 5MB)'; return; }
       if (f.size > 5 * 1024 * 1024) { $('#lgPhoto').value = ''; toast('الصورة كبيرة قوي (أكتر من 5MB) — اختار أصغر', 'error'); return; }
+      const token = this.token;
       const fr = new FileReader();
-      fr.onload = ev => { $('#lgPhotoPrev').src = ev.target.result; $('#lgPhotoPrev').classList.remove('hide'); };
+      fr.onload = ev => { if (token !== this.token) return; $('#lgPhotoPrev').src = ev.target.result; $('#lgPhotoPrev').classList.remove('hide'); };
       fr.readAsDataURL(f);
       $('#lgPhotoTxt').textContent = f.name;
     };
@@ -254,26 +261,30 @@ async function portalSubmitMeasurement() {
     if (error) throw error;
     if (!r || !r.ok) { err.textContent = r && r.error ? r.error : 'تعذّر الحفظ'; err.classList.add('show'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check"></i> حفظ القياس'; return; }
 
-    // بعد الحفظ: refresh الفوري + رسالة تحفيزية بالفرق (Phase 16 rule)
-    const beforeLast = lastW;
-    await Portal.load();
-    portalRecordsCache = null; // expire progress cache so منحنى التطور يتحدث فوراً
-
-    let msg;
-    if (beforeLast != null) {
-      const d = w - beforeLast;
-      if (d < 0) msg = 'مبروك! نزلت ' + Math.abs(d).toFixed(1) + ' كجم عن آخر قياس 🔥'.replace('🔥','');
-      else if (d === 0) msg = 'وزنك ثابت — وده تمام في مرحلة الثبات، كمّل';
-      else msg = 'الوزن طلع ' + d.toFixed(1) + ' كجم من آخر مرة — هنراجعها مع الدكتور في الزيارة الجاية';
-    } else msg = 'أول قياس مسجّل لك — أهلاً ببدايتك!';
-
-    toast(msg);
-    // clear the form gently
+    // The write has succeeded. Invalidate the cache and clear the form even if
+    // the subsequent refresh fails, so the patient does not retry a saved entry.
+    portalRecordsCache = null;
     ['lgWeight', 'lgWaist', 'lgHips', 'lgArm', 'lgNote'].forEach(id => { $('#' + id).value = ''; });
     $('#lgPhoto').value = '';
     $('#lgPhotoPrev').classList.add('hide');
     $('#lgPhotoTxt').textContent = 'اضغط للتصوير أو اختيار صورة (حتى 5MB)';
-    if (!$('#ptProgressView').classList.contains('hide')) portalRenderProgress(); // منحنى التطور يتحدث فوراً
+
+    let refreshed = true;
+    try { await Portal.load(); }
+    catch (refreshError) { refreshed = false; }
+    if (!refreshed) {
+      toast('تم حفظ القياس، لكن تعذّر تحديث البيانات — حدّث الصفحة لاحقاً', 'info');
+    } else if (Portal.token) {
+      let msg;
+      if (lastW != null) {
+        const d = w - lastW;
+        if (d < 0) msg = 'مبروك! نزلت ' + Math.abs(d).toFixed(1) + ' كجم عن آخر قياس 🔥'.replace('🔥','');
+        else if (d === 0) msg = 'وزنك ثابت — وده تمام في مرحلة الثبات، كمّل';
+        else msg = 'الوزن طلع ' + d.toFixed(1) + ' كجم من آخر مرة — هنراجعها مع الدكتور في الزيارة الجاية';
+      } else msg = 'أول قياس مسجّل لك — أهلاً ببدايتك!';
+      toast(msg);
+      if (!$('#ptProgressView').classList.contains('hide')) portalRenderProgress(); // منحنى التطور يتحدث فوراً
+    }
   } catch (ex2) {
     err.textContent = 'تعذّر الحفظ — تحقق من الإنترنت وحاول تاني';
     err.classList.add('show');
@@ -284,12 +295,33 @@ async function portalSubmitMeasurement() {
 
 /* ===== js/patient-progress.js — المرحلة 15: منحنى تطور المريض ===== */
 let portalRecordsCache = null;   // measurements fetched once per session, refetched after adding one
+let portalRecordsToken = null;
 let portalRange = 'all';          // فترة المنحنى: 1m | 3m | all
 let portalTableExpanded = false;
 
+// Clear patient-specific state and visible remnants before another session starts.
+function resetPortalSessionState() {
+  portalRecordsCache = null; portalRecordsToken = null;
+  portalRange = 'all'; portalTableExpanded = false;
+  ['lgWeight', 'lgWaist', 'lgHips', 'lgArm', 'lgNote', 'lgPhoto'].forEach(id => { $('#' + id).value = ''; });
+  $('#lgPhotoPrev').classList.add('hide');
+  $('#lgPhotoPrev').removeAttribute('src');
+  $('#lgPhotoTxt').textContent = 'اضغط للتصوير أو اختيار صورة (حتى 5MB)';
+  $('#lgErr').classList.remove('show');
+  ['ptSummary', 'ptRows', 'ptRowsNote', 'ptMotive', 'ptAppointmentsView'].forEach(id => { $('#' + id).innerHTML = ''; });
+  ['pw1', 'pw2'].forEach(key => { if (Charts[key]) { Charts[key].destroy(); delete Charts[key]; } });
+  $('#ptHomeMain').classList.remove('hide');
+  ['ptProgressView', 'ptLogView', 'ptAppointmentsView'].forEach(id => { $('#' + id).classList.add('hide'); });
+  $$('#patientPortal .pt-bottom button').forEach(b => b.classList.toggle('active', b.dataset.pview === 'home'));
+  $$('#ptRangeTabs button').forEach(b => b.classList.toggle('active', b.dataset.prange === 'all'));
+}
+
 async function portalLoadRecords(force) {
-  if (portalRecordsCache && !force) return portalRecordsCache;
-  const { data, error } = await DB.sb.rpc('patient_portal_records', { p_token: Portal.token });
+  const token = Portal.token;
+  if (!token) return null;
+  if (portalRecordsCache && portalRecordsToken === token && !force) return portalRecordsCache;
+  const { data, error } = await DB.sb.rpc('patient_portal_records', { p_token: token });
+  if (token !== Portal.token) return null;
   if (error) throw error;
   if (!data.ok) {
     portalRecordsCache = null;
@@ -298,6 +330,7 @@ async function portalLoadRecords(force) {
     return null;
   }
   portalRecordsCache = data.records || [];
+  portalRecordsToken = token;
   return portalRecordsCache;
 }
 
@@ -314,10 +347,11 @@ function portalGo(view) {
 }
 
 async function portalRenderProgress() {
+  const token = Portal.token;
   const sum = $('#ptSummary');
   sum.innerHTML = '<div class="skel" style="height:78px"></div>'.repeat(3);
-  const rows = await portalLoadRecords().catch(() => { toast('تعذّر تحميل سجل القياسات', 'error'); return null; });
-  if (!rows) return;
+  const rows = await portalLoadRecords().catch(() => { if (token === Portal.token) toast('تعذّر تحميل سجل القياسات', 'error'); return null; });
+  if (!rows || token !== Portal.token || !Portal.data) return;
   const p = Portal.data.patient;
 
   // Empty state — المريض لسه مفيش عنده قياسات
@@ -343,6 +377,15 @@ async function portalRenderProgress() {
   const withWaist = rows.filter(r => r.waist != null);
   const sessions = rows.filter(r => r.session != null);
 
+  if (p.type === 'nutrition' && !withWeight.length) {
+    sum.innerHTML = '';
+    if (Charts.pw1) { Charts.pw1.destroy(); delete Charts.pw1; }
+    document.querySelector('#ptProgressView .chart-box').style.display = 'none';
+    $('#ptMotive').innerHTML = '<div class="p-empty"><b>لسه مفيش قياسات وزن</b></div>';
+    drawWaistChart(withWaist);
+    renderMeasTable(rows);
+    return;
+  }
   if (p.type === 'nutrition') renderWeightStory(withWeight, withWaist, p);
   else renderPainStory(sessions, p);
 }
@@ -573,11 +616,13 @@ function portalPlanSheet() {
 
 // صفحة مواعيدك: قادمة + آخر 5 زيارات
 async function portalRenderAppointments() {
+  const token = Portal.token;
   const view = $('#ptAppointmentsView');
   view.innerHTML = '<div class="p-card">' + '<div class="skel" style="height:120px"></div>'.repeat(3) + '</div>';
   let apptsData = null; // يفضل متاح خارج try عشان handlers بتستخدمه
   try {
-    const { data, error } = await DB.sb.rpc('patient_portal_appointments', { p_token: Portal.token });
+    const { data, error } = await DB.sb.rpc('patient_portal_appointments', { p_token: token });
+    if (token !== Portal.token) return;
     if (error) throw error;
     if (!data.ok) { toast(data.error || 'تعذّر تحميل المواعيد', 'error'); return; }
     apptsData = data;
@@ -633,6 +678,7 @@ async function portalRenderAppointments() {
             '</div>').join('')
         : '<p class="p-small" style="margin-top:14px;text-align:center">لسه مفيش زيارات سابقة مسجّلة — الزيارات بتتجمع هنا بمجرد ما تخلص كل جلسة</p>');
   } catch (e2) {
+    if (token !== Portal.token) return;
     view.innerHTML = '<div class="p-card"><div class="p-empty"><b>تعذّر تحميل المواعيد</b><p class="p-small">حدّث الصفحة أو اسأل العيادة</p></div></div>';
   }
 

@@ -574,6 +574,13 @@ declare v_s record; v_p record; v_appt record; v_last record; v_prev record; v_f
 begin
   select * into v_s from public.patient_sessions where token = p_token and expires_at > now();
   if not found then return jsonb_build_object('ok', false, 'error', 'انتهت جلستك — سجّل دخولك من جديد'); end if;
+  -- Existing tokens must not bypass a suspended clinic or a soft-deleted patient.
+  if not public.clinic_active(v_s.doctor_id) or not exists (
+    select 1 from public.patients p
+    where p.id = v_s.patient_id and p.doctor_id = v_s.doctor_id and p.deleted_at is null
+  ) then
+    return jsonb_build_object('ok', false, 'error', 'العيادة أو ملفك غير متاح حالياً — تواصل مع العيادة');
+  end if;
   select * into v_p from public.patients where id = v_s.patient_id and deleted_at is null;
   if not found then return jsonb_build_object('ok', false, 'error', 'تعذّر تحميل ملفك'); end if;
 
@@ -659,6 +666,13 @@ declare v_s record;
 begin
   select * into v_s from public.patient_sessions where token = p_token and expires_at > now();
   if not found then return jsonb_build_object('ok', false, 'error', 'انتهت جلستك — سجّل دخولك من جديد'); end if;
+  -- Existing tokens must not bypass a suspended clinic or a soft-deleted patient.
+  if not public.clinic_active(v_s.doctor_id) or not exists (
+    select 1 from public.patients p
+    where p.id = v_s.patient_id and p.doctor_id = v_s.doctor_id and p.deleted_at is null
+  ) then
+    return jsonb_build_object('ok', false, 'error', 'العيادة أو ملفك غير متاح حالياً — تواصل مع العيادة');
+  end if;
 
   -- audit the portal read (ids and scope only — never PHI)
   insert into public.audit_logs (actor_id, action, entity, entity_id, meta)
@@ -709,6 +723,13 @@ declare v_s record; v_date date;
 begin
   select * into v_s from public.patient_sessions where token = p_token and expires_at > now();
   if not found then return jsonb_build_object('ok', false, 'error', 'انتهت جلستك — سجّل دخولك من جديد'); end if;
+  -- Existing tokens must not bypass a suspended clinic or a soft-deleted patient.
+  if not public.clinic_active(v_s.doctor_id) or not exists (
+    select 1 from public.patients p
+    where p.id = v_s.patient_id and p.doctor_id = v_s.doctor_id and p.deleted_at is null
+  ) then
+    return jsonb_build_object('ok', false, 'error', 'العيادة أو ملفك غير متاح حالياً — تواصل مع العيادة');
+  end if;
 
   -- server-side validation (matches the phase rules)
   if p_weight is null or p_weight < 30 or p_weight > 250 then
@@ -800,6 +821,13 @@ declare v_s record;
 begin
   select * into v_s from public.patient_sessions where token = p_token and expires_at > now();
   if not found then return jsonb_build_object('ok', false, 'error', 'انتهت جلستك — سجّل دخولك من جديد'); end if;
+  -- Existing tokens must not bypass a suspended clinic or a soft-deleted patient.
+  if not public.clinic_active(v_s.doctor_id) or not exists (
+    select 1 from public.patients p
+    where p.id = v_s.patient_id and p.doctor_id = v_s.doctor_id and p.deleted_at is null
+  ) then
+    return jsonb_build_object('ok', false, 'error', 'العيادة أو ملفك غير متاح حالياً — تواصل مع العيادة');
+  end if;
 
   insert into public.audit_logs (actor_id, action, entity, entity_id, meta)
     values (v_s.doctor_id, 'patient-view', 'appointments', null, jsonb_build_object('via', 'portal', 'scope', 'appointments-page'));
@@ -837,13 +865,21 @@ declare v_s record;
 begin
   select * into v_s from public.patient_sessions where token = p_token and expires_at > now();
   if not found then return jsonb_build_object('ok', false, 'error', 'انتهت جلستك'); end if;
+  -- Existing tokens must not bypass a suspended clinic or a soft-deleted patient.
+  if not public.clinic_active(v_s.doctor_id) or not exists (
+    select 1 from public.patients p
+    where p.id = v_s.patient_id and p.doctor_id = v_s.doctor_id and p.deleted_at is null
+  ) then
+    return jsonb_build_object('ok', false, 'error', 'العيادة أو ملفك غير متاح حالياً — تواصل مع العيادة');
+  end if;
   update public.appointments
      set status = 'cancelled',
          cancel_reason = nullif(left(coalesce(p_reason, ''), 200), ''),
          cancelled_at = now()
    where id = p_appt and patient_id = v_s.patient_id and doctor_id = v_s.doctor_id
-     and deleted_at is null and status <> 'done';
-  if not found then return jsonb_build_object('ok', false, 'error', 'الموعد مش موجود أو مكتمل'); end if;
+     and deleted_at is null and status <> 'done'
+     and date >= (now() at time zone 'Africa/Cairo')::date;
+  if not found then return jsonb_build_object('ok', false, 'error', 'الموعد مش موجود أو مكتمل أو تاريخه فات'); end if;
   insert into public.audit_logs (actor_id, action, entity, entity_id, meta)
     values (v_s.doctor_id, 'patient-cancel', 'appointments', p_appt, jsonb_build_object('via', 'portal'));
   return jsonb_build_object('ok', true);
