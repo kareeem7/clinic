@@ -16,6 +16,8 @@ function databaseContext() {
   const context = vm.createContext({
     State: { settings: {}, patientIndex: {} },
     defaultClinicData: () => ({ settings: { clinicName: 'default' } }),
+    normalizeClinicalFeatures: value => Object.fromEntries(['measurements', 'inbody', 'labs', 'glucoseTracking', 'bloodPressureTracking'].map(k => [k, Boolean(value && value[k] === true)])),
+    normalizeClinicSettings: value => ({ ...(value || { clinicName: 'default' }), clinicalFeatures: Object.fromEntries(['measurements', 'inbody', 'labs', 'glucoseTracking', 'bloodPressureTracking'].map(k => [k, Boolean(value && value.clinicalFeatures && value.clinicalFeatures[k] === true)])) }),
     console
   });
   vm.runInContext(dbSource, context, { filename: 'db.js' });

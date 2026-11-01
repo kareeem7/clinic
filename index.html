@@ -788,7 +788,33 @@
               <div class="field"><label>رقم واتساب العيادة</label><input class="input ltr" id="setPhone" inputmode="tel"></div>
               <div class="field"><label>سعر الجلسة / الكشف (ج.م)</label><input class="input ltr" id="setPrice" type="number" min="0"></div>
               <div class="field full"><label>العنوان</label><input class="input" id="setAddress"></div>
-              <div class="full"><button class="btn btn-primary block"><i class="fa-solid fa-check"></i> حفظ البيانات</button></div>
+              <fieldset class="feature-settings full" aria-describedby="clinicFeaturesHint">
+                <legend><i class="fa-solid fa-sliders" aria-hidden="true"></i> خصائص العيادة الاختيارية</legend>
+                <p id="clinicFeaturesHint" class="feature-settings-hint">فعّل الأقسام التي تستخدمها عيادتك. إيقاف أي قسم يخفيه فقط ولا يحذف بياناته السابقة.</p>
+                <div class="feature-toggle-list">
+                  <label class="feature-toggle" for="setFeatureMeasurements">
+                    <span class="feature-toggle-copy"><b>القياسات الجسدية</b><small id="featureMeasurementsHint">تسجيل ومتابعة قياسات الجسم الأساسية.</small></span>
+                    <input type="checkbox" id="setFeatureMeasurements" aria-describedby="featureMeasurementsHint">
+                  </label>
+                  <label class="feature-toggle" for="setFeatureInbody">
+                    <span class="feature-toggle-copy"><b>فحوص InBody</b><small id="featureInbodyHint">متابعة مؤشرات تحليل تكوين الجسم المتاحة في جهاز العيادة.</small></span>
+                    <input type="checkbox" id="setFeatureInbody" aria-describedby="featureInbodyHint">
+                  </label>
+                  <label class="feature-toggle" for="setFeatureLabs">
+                    <span class="feature-toggle-copy"><b>التحاليل الطبية</b><small id="featureLabsHint">إضافة التحاليل ونتائجها إلى ملف المريض.</small></span>
+                    <input type="checkbox" id="setFeatureLabs" aria-describedby="featureLabsHint">
+                  </label>
+                  <label class="feature-toggle" for="setFeatureGlucose">
+                    <span class="feature-toggle-copy"><b>متابعة السكر</b><small id="featureGlucoseHint">تسجيل قراءات السكر ونوع التحليل.</small></span>
+                    <input type="checkbox" id="setFeatureGlucose" aria-describedby="featureGlucoseHint">
+                  </label>
+                  <label class="feature-toggle" for="setFeatureBloodPressure">
+                    <span class="feature-toggle-copy"><b>متابعة ضغط الدم</b><small id="featureBloodPressureHint">تسجيل الضغط الانقباضي والانبساطي والنبض اختياريًا.</small></span>
+                    <input type="checkbox" id="setFeatureBloodPressure" aria-describedby="featureBloodPressureHint">
+                  </label>
+                </div>
+              </fieldset>
+              <div class="full"><button class="btn btn-primary block" type="submit"><i class="fa-solid fa-check"></i> حفظ البيانات</button></div>
             </form>
           </div>
           <div>

@@ -23,8 +23,17 @@ const FIELD_MAPS = {
   appointments: { patientId: 'patient_id', patientName: 'patient_name', cancelledAt: 'cancelled_at', cancelReason: 'cancel_reason' },
   plans: { desc: 'description' },
   patient_notes: { patientId: 'patient_id', sugarType: 'sugar_type', bpSys: 'bp_sys', bpDia: 'bp_dia', nextVisit: 'next_visit' },
-  // patient_records: أسماء محصورة — doctor_id و patient_id مفاتيح ثابتة تحت السيرفر
-  patient_records: { patientId: 'patient_id', photoPath: 'photo_path' }
+  patient_labs: { patientId: 'patient_id', testName: 'test_name', testedOn: 'tested_on' },
+  patient_health_readings: {
+    patientId: 'patient_id', readingType: 'reading_type', recordedAt: 'recorded_at',
+    glucoseValue: 'glucose_value', glucoseType: 'glucose_type'
+  },
+  // doctor_id and patient_id are always assigned by DB methods, never caller payloads.
+  patient_records: {
+    patientId: 'patient_id', photoPath: 'photo_path', bodyFatMass: 'body_fat_mass',
+    skeletalMuscleMass: 'skeletal_muscle_mass', visceralFatLevel: 'visceral_fat_level',
+    bodyWaterPct: 'body_water_pct', recordType: 'record_type'
+  }
 };
 
 /* ============================================================
@@ -46,6 +55,42 @@ function chronicChips(p, small) {
     '<span class="chip chip-' + CHRONIC[k].cls + '"><i class="fa-solid ' + CHRONIC[k].icon + '"></i>' +
     (small ? '' : ' ') + CHRONIC[k].label + '</span>').join('');
 }
+// Validate structured lab components before they reach PostgREST. The database
+// also enforces the JSON shape; errors intentionally contain no patient values.
+function normalizeLabResults(results) {
+  if (!Array.isArray(results) || results.length < 1 || results.length > 100) throw { code: 'invalid_lab_results' };
+  return results.map(item => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) throw { code: 'invalid_lab_results' };
+    const name = String(item.name || '').trim();
+    const value = item.value;
+    const unit = item.unit == null ? '' : String(item.unit).trim();
+    if (!name || name.length > 100 || !(typeof value === 'string' || (typeof value === 'number' && Number.isFinite(value))) ||
+        (typeof value === 'string' && value.length > 500) || unit.length > 40) throw { code: 'invalid_lab_results' };
+    return { name, value, ...(unit ? { unit } : {}) };
+  });
+}
+
+function validateHealthReading(reading) {
+  const type = reading && reading.readingType;
+  if (type === 'glucose') {
+    const value = Number(reading.glucoseValue);
+    if (!Number.isFinite(value) || value < 1 || value > 2000 ||
+        !['fasting', 'post_meal', 'random'].includes(reading.glucoseType)) throw { code: 'invalid_health_reading' };
+    return { readingType: type, glucoseValue: value, glucoseType: reading.glucoseType,
+      recordedAt: reading.recordedAt || new Date().toISOString() };
+  }
+  if (type === 'blood_pressure') {
+    const systolic = Number(reading.systolic), diastolic = Number(reading.diastolic);
+    const pulse = reading.pulse == null || reading.pulse === '' ? null : Number(reading.pulse);
+    if (!Number.isInteger(systolic) || systolic < 1 || systolic > 400 ||
+        !Number.isInteger(diastolic) || diastolic < 1 || diastolic > 300 ||
+        (pulse !== null && (!Number.isInteger(pulse) || pulse < 1 || pulse > 400))) throw { code: 'invalid_health_reading' };
+    return { readingType: type, systolic, diastolic, pulse,
+      recordedAt: reading.recordedAt || new Date().toISOString() };
+  }
+  throw { code: 'invalid_health_reading' };
+}
+
 // camelCase → snake_case قبل الإرسال لسوبابيز
 function toRow(col, obj) {
   const map = FIELD_MAPS[col] || {}, out = {};
@@ -200,7 +245,7 @@ const DB = {
     const { data: docRow, error } = await this.sb.from('doctors').select('settings').eq('id', this.uid).maybeSingle();
     if (error) throw error;
     if (!docRow) throw { code: 'clinic_profile_missing' };
-    State.settings = docRow.settings || defaultClinicData().settings;
+    State.settings = normalizeClinicSettings(docRow.settings);
     return State.settings;
   },
 
@@ -258,7 +303,7 @@ const DB = {
       if (docError) throw docError;
       if (!docRow) throw { code: 'clinic_profile_missing' };
       State.appointments = appointments;
-      State.settings = docRow.settings || defaultClinicData().settings;
+      State.settings = normalizeClinicSettings(docRow.settings);
       State.pTotal = roster.filter(p => p.status === 'active').length;
       if (plans.length) { State.plans = plans; }
       else {
@@ -370,10 +415,17 @@ const DB = {
   // في الذاكرة مستحيل تكتب فوق تعليق/إنهاء عمله الأدمن. الدمج في السيرفر
   // shallow-merge على settings الحالية بدل استبدالها كاملة.
   async saveSettings(s) {
-    const { account, ...clinic } = s; // account أدمن فقط (trigger guard_account)
-    State.settings = { ...State.settings, ...clinic };
+    const current = State.settings || {};
+    const input = s && typeof s === 'object' && !Array.isArray(s) ? s : {};
+    const { account, ...clinicInput } = input; // account أدمن فقط (trigger guard_account)
+    const featureInput = Object.prototype.hasOwnProperty.call(clinicInput, 'clinicalFeatures')
+      ? clinicInput.clinicalFeatures : current.clinicalFeatures;
+    const clinic = { ...clinicInput, clinicalFeatures: normalizeClinicalFeatures(featureInput) };
+    const nextSettings = { ...current, ...clinic };
+    // Commit the local state only after the server accepts the clinic-scoped patch.
     const { error } = await this.sb.rpc('save_clinic_settings', { patch: clinic });
     if (error) throw error;
+    State.settings = nextSettings;
     await this.audit('edit', 'doctors', this.uid, { scope: 'settings' });
   },
   // ===== ملاحظات الزيارات ومتابعة الأمراض المزمنة (جدول patient_notes) =====
@@ -396,6 +448,108 @@ const DB = {
       .eq('id', id).eq('doctor_id', this.uid);
     if (error) throw error;
     await this.audit('delete', 'patient_notes', id, { soft: true });
+  },
+
+  // ===== Clinical records (doctor-side CRUD; portal writes remain RPC-only) =====
+  async loadLabs(pid) {
+    const rows = await this.fetchAll(() => this.sb.from('patient_labs').select('*')
+      .eq('patient_id', pid).eq('doctor_id', this.uid).is('deleted_at', null)
+      .order('tested_on', { ascending: false }).order('id'));
+    return rows.map(r => fromRow('patient_labs', r));
+  },
+
+  async addLab(pid, lab) {
+    const testName = String(lab.testName || '').trim();
+    if (!testName || testName.length > 160) throw { code: 'invalid_lab_test_name' };
+    const row = {
+      doctor_id: this.uid, patient_id: pid, test_name: testName,
+      tested_on: lab.testedOn || todayISO(), results: normalizeLabResults(lab.results || []), source: 'clinic'
+    };
+    const { data, error } = await this.sb.from('patient_labs').insert(row).select().single();
+    if (error) throw error;
+    const saved = fromRow('patient_labs', data);
+    await this.audit('create', 'patient_labs', saved.id, { patientRef: true });
+    return saved;
+  },
+
+  async updateLab(pid, id, patch) {
+    const row = {};
+    if (Object.prototype.hasOwnProperty.call(patch, 'testName')) {
+      row.test_name = String(patch.testName || '').trim();
+      if (!row.test_name || row.test_name.length > 160) throw { code: 'invalid_lab_test_name' };
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'testedOn')) row.tested_on = patch.testedOn;
+    if (Object.prototype.hasOwnProperty.call(patch, 'results')) row.results = normalizeLabResults(patch.results);
+    if (!Object.keys(row).length) throw { code: 'empty_update' };
+    const { data, error } = await this.sb.from('patient_labs').update(row)
+      .eq('id', id).eq('patient_id', pid).eq('doctor_id', this.uid).is('deleted_at', null)
+      .select().maybeSingle();
+    if (error) throw error;
+    if (!data) throw { code: 'clinical_record_not_found' };
+    const saved = fromRow('patient_labs', data);
+    await this.audit('edit', 'patient_labs', id, { patientRef: true });
+    return saved;
+  },
+
+  async deleteLab(pid, id) {
+    const { data, error } = await this.sb.from('patient_labs')
+      .update({ deleted_at: new Date().toISOString(), deleted_by: this.uid })
+      .eq('id', id).eq('patient_id', pid).eq('doctor_id', this.uid).is('deleted_at', null)
+      .select('id').maybeSingle();
+    if (error) throw error;
+    if (!data) throw { code: 'clinical_record_not_found' };
+    await this.audit('delete', 'patient_labs', id, { soft: true, patientRef: true });
+  },
+
+  async loadHealthReadings(pid, readingType) {
+    return this.fetchAll(() => {
+      let q = this.sb.from('patient_health_readings').select('*')
+        .eq('patient_id', pid).eq('doctor_id', this.uid).is('deleted_at', null);
+      if (readingType) q = q.eq('reading_type', readingType);
+      return q.order('recorded_at', { ascending: false }).order('id');
+    }).then(rows => rows.map(r => fromRow('patient_health_readings', r)));
+  },
+
+  async addHealthReading(pid, reading) {
+    const normalized = validateHealthReading(reading);
+    const row = toRow('patient_health_readings', normalized);
+    row.doctor_id = this.uid; row.patient_id = pid; row.source = 'clinic';
+    const { data, error } = await this.sb.from('patient_health_readings').insert(row).select().single();
+    if (error) throw error;
+    const saved = fromRow('patient_health_readings', data);
+    await this.audit('create', 'patient_health_readings', saved.id, { patientRef: true });
+    return saved;
+  },
+
+  async updateHealthReading(pid, id, patch) {
+    const allowed = ['readingType', 'recordedAt', 'glucoseValue', 'glucoseType', 'systolic', 'diastolic', 'pulse'];
+    const safePatch = {};
+    for (const key of allowed) if (Object.prototype.hasOwnProperty.call(patch, key)) safePatch[key] = patch[key];
+    if (!Object.keys(safePatch).length) throw { code: 'empty_update' };
+    const { data: current, error: readError } = await this.sb.from('patient_health_readings').select('*')
+      .eq('id', id).eq('patient_id', pid).eq('doctor_id', this.uid).is('deleted_at', null).maybeSingle();
+    if (readError) throw readError;
+    if (!current) throw { code: 'clinical_record_not_found' };
+    const normalized = validateHealthReading({ ...fromRow('patient_health_readings', current), ...safePatch });
+    const row = toRow('patient_health_readings', normalized);
+    const { data, error } = await this.sb.from('patient_health_readings').update(row)
+      .eq('id', id).eq('patient_id', pid).eq('doctor_id', this.uid).is('deleted_at', null)
+      .select().maybeSingle();
+    if (error) throw error;
+    if (!data) throw { code: 'clinical_record_not_found' };
+    const saved = fromRow('patient_health_readings', data);
+    await this.audit('edit', 'patient_health_readings', id, { patientRef: true });
+    return saved;
+  },
+
+  async deleteHealthReading(pid, id) {
+    const { data, error } = await this.sb.from('patient_health_readings')
+      .update({ deleted_at: new Date().toISOString(), deleted_by: this.uid })
+      .eq('id', id).eq('patient_id', pid).eq('doctor_id', this.uid).is('deleted_at', null)
+      .select('id').maybeSingle();
+    if (error) throw error;
+    if (!data) throw { code: 'clinical_record_not_found' };
+    await this.audit('delete', 'patient_health_readings', id, { soft: true, patientRef: true });
   },
 
   // ===== سجل القياسات: جدول patient_records حقيقي في Postgres =====
@@ -540,17 +694,43 @@ const DB = {
     if (p) p.measurements = data.map(r => fromRow('patient_records', r));
   },
   async addRecord(pid, rec) {
-    const { data, error } = await this.sb.from('patient_records').insert({
+    const payload = {
       doctor_id: this.uid, patient_id: pid, date: rec.date,
       weight: rec.weight ?? null, waist: rec.waist ?? null, hips: rec.hips ?? null, arm: rec.arm ?? null, fat: rec.fat ?? null,
       session: rec.session ?? null, pain: rec.pain ?? null, note: rec.note || '',
-      source: 'clinic' // المرحلة 16: علامة مصدر القياس (العيادة مقابل البيت)
-    }).select();
+      source: 'clinic' // قياس يسجله الطبيب؛ البوابة تفرض source='patient' في RPC
+    };
+    // Omit new nullable columns when unused so existing clinics can keep using
+    // legacy measurement writes until the additive migration has been applied.
+    for (const [key, column] of Object.entries({ bmi: 'bmi', bodyFatMass: 'body_fat_mass',
+      skeletalMuscleMass: 'skeletal_muscle_mass', visceralFatLevel: 'visceral_fat_level',
+      bodyWaterPct: 'body_water_pct', recordType: 'record_type' })) {
+      if (rec[key] != null) payload[column] = rec[key];
+    }
+    const { data, error } = await this.sb.from('patient_records').insert(payload).select();
     if (error) throw error;
     rec.id = data[0].id;
     const p = getPatient(pid);
     (p.measurements = p.measurements || []).push(rec);
     await this.audit('create', 'patient_records', rec.id, { patientRef: true });
+  },
+
+  async updateRecord(pid, mid, patch) {
+    const allowed = ['date', 'weight', 'waist', 'hips', 'arm', 'fat', 'bmi', 'bodyFatMass',
+      'skeletalMuscleMass', 'visceralFatLevel', 'bodyWaterPct', 'recordType', 'session', 'pain', 'note'];
+    const safe = {};
+    for (const key of allowed) if (Object.prototype.hasOwnProperty.call(patch, key)) safe[key] = patch[key];
+    if (!Object.keys(safe).length) throw { code: 'empty_update' };
+    const row = toRow('patient_records', safe);
+    const { data, error } = await this.sb.from('patient_records').update(row)
+      .eq('id', mid).eq('patient_id', pid).eq('doctor_id', this.uid).is('deleted_at', null)
+      .select().maybeSingle();
+    if (error) throw error;
+    if (!data) throw { code: 'clinical_record_not_found' };
+    const p = getPatient(pid);
+    if (p) p.measurements = (p.measurements || []).map(m => m.id === mid ? fromRow('patient_records', data) : m);
+    await this.audit('edit', 'patient_records', mid, { patientRef: true });
+    return fromRow('patient_records', data);
   },
 
   // Soft delete keeps the measurement in the archive (clinical history is immutable)
