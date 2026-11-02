@@ -10,10 +10,22 @@ function healthTimestampLabel(value) {
   return date.toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+function healthReadingAlert(reading) {
+  if (reading.readingType === 'glucose' && reading.glucoseUnit === 'mg/dL') {
+    if (Number(reading.glucoseValue) < 54) return { level: 'critical', label: 'تنبيه شديد: السكر أقل من 54 mg/dL' };
+    if (Number(reading.glucoseValue) < 70) return { level: 'warning', label: 'تنبيه: السكر أقل من 70 mg/dL' };
+  }
+  if (reading.readingType === 'blood_pressure' && (Number(reading.systolic) > 180 || Number(reading.diastolic) > 120)) {
+    return { level: 'critical', label: 'تنبيه: الضغط أعلى من 180 انقباضيًا أو 120 انبساطيًا mmHg' };
+  }
+  return null;
+}
+
 function healthReadingMarkup(patient, reading) {
   const glucose = reading.readingType === 'glucose';
+  const alert = healthReadingAlert(reading);
   const metrics = glucose
-    ? '<span class="health-reading-value"><b>قيمة السكر</b><strong>' + esc(reading.glucoseValue) + '</strong></span>' +
+    ? '<span class="health-reading-value"><b>قيمة السكر</b><strong>' + esc(reading.glucoseValue) + ' <small>' + (reading.glucoseUnit === 'mg/dL' ? 'mg/dL' : 'وحدة غير مسجلة') + '</small></strong></span>' +
       '<span class="health-reading-value"><b>نوع القراءة</b><strong>' + esc(HEALTH_READING_TYPES[reading.glucoseType] || reading.glucoseType) + '</strong></span>'
     : '<span class="health-reading-value"><b>الانقباضي</b><strong>' + esc(reading.systolic) + ' <small>mmHg</small></strong></span>' +
       '<span class="health-reading-value"><b>الانبساطي</b><strong>' + esc(reading.diastolic) + ' <small>mmHg</small></strong></span>' +
@@ -21,7 +33,8 @@ function healthReadingMarkup(patient, reading) {
   return '<article class="health-reading-record"><div class="health-reading-head"><div><b>' + (glucose ? 'قراءة سكر' : 'قراءة ضغط') + '</b><small>' + esc(healthTimestampLabel(reading.recordedAt)) + '</small></div>' +
     '<span class="chip ' + (reading.source === 'patient' ? 'chip-blue' : 'chip-gray') + '">' + (reading.source === 'patient' ? 'من بوابة المريض' : 'من العيادة') + '</span>' +
     '<button type="button" class="icon-btn sm" data-action="edit-health-reading" data-id="' + esc(patient.id) + '" data-x="' + esc(reading.id) + '" aria-label="تصحيح القراءة"><i class="fa-solid fa-pen"></i></button>' +
-    '</div><div class="health-reading-metrics">' + metrics + '</div></article>';
+    '</div>' + (alert ? '<p class="chip ' + (alert.level === 'critical' ? 'chip-rose' : 'chip-amber') + ' health-reading-alert" role="alert">' + esc(alert.label) + '</p>' : '') +
+    '<div class="health-reading-metrics">' + metrics + '</div></article>';
 }
 
 function destroyHealthCharts() {
@@ -55,7 +68,7 @@ function drawHealthReadingCharts(readings, glucoseEnabled, pressureEnabled) {
       }
     });
   };
-  if (glucoseEnabled) chart('healthGlucoseChart', readings.filter(r => r.readingType === 'glucose'), rows => [{
+  if (glucoseEnabled) chart('healthGlucoseChart', readings.filter(r => r.readingType === 'glucose' && r.glucoseUnit === 'mg/dL'), rows => [{
     label: 'قيمة السكر', data: rows.map(r => r.glucoseValue), borderColor: '#0d9488', backgroundColor: 'rgba(13,148,136,.12)',
     borderWidth: 2.5, tension: .25, pointRadius: 4, spanGaps: true
   }]);
@@ -154,7 +167,7 @@ function openHealthReadingModal(pid, kind, existing) {
   const reading = existing || {};
   const parts = localDateTimeValue(reading.recordedAt);
   const fields = isGlucose
-    ? '<div class="field"><label for="healthGlucoseValue">قيمة السكر *</label><input class="input ltr" id="healthGlucoseValue" type="number" step="any" value="' + esc(reading.glucoseValue ?? '') + '" required></div>' +
+    ? '<div class="field"><label for="healthGlucoseValue">قيمة السكر (mg/dL) *</label><input class="input ltr" id="healthGlucoseValue" type="number" step="any" value="' + esc(reading.glucoseValue ?? '') + '" required></div>' +
       '<div class="field"><label for="healthGlucoseType">نوع التحليل *</label><select class="input" id="healthGlucoseType" required><option value="">اختر النوع</option>' +
         Object.entries(HEALTH_READING_TYPES).map(([value, label]) => '<option value="' + value + '"' + (reading.glucoseType === value ? ' selected' : '') + '>' + label + '</option>').join('') + '</select></div>'
     : '<div class="field"><label for="healthSystolic">الضغط الانقباضي *</label><input class="input ltr" id="healthSystolic" type="number" step="1" value="' + esc(reading.systolic ?? '') + '" required></div>' +
@@ -179,10 +192,10 @@ function openHealthReadingModal(pid, kind, existing) {
     if (isGlucose) { payload.glucoseValue = $('#healthGlucoseValue').value; payload.glucoseType = $('#healthGlucoseType').value; }
     else { payload.systolic = $('#healthSystolic').value; payload.diastolic = $('#healthDiastolic').value; payload.pulse = $('#healthPulse').value || null; }
     try {
-      if (existing) await DB.updateHealthReading(pid, existing.id, payload);
-      else await DB.addHealthReading(pid, payload);
+      const saved = existing ? await DB.updateHealthReading(pid, existing.id, payload) : await DB.addHealthReading(pid, payload);
       closeModal();
-      toast(existing ? 'تم تصحيح القراءة' : 'تم حفظ القراءة');
+      const alert = healthReadingAlert(saved);
+      toast(alert ? alert.label : (existing ? 'تم تصحيح القراءة' : 'تم حفظ القراءة'), alert ? 'error' : 'info');
       await loadPatientHealthMonitoring(getPatient(pid) || patient);
     } catch (_) {
       error.textContent = 'تعذّر حفظ القراءة — تحقق من القيم والاتصال وحاول مجددًا.';

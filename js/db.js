@@ -26,7 +26,7 @@ const FIELD_MAPS = {
   patient_labs: { patientId: 'patient_id', testName: 'test_name', testedOn: 'tested_on' },
   patient_health_readings: {
     patientId: 'patient_id', readingType: 'reading_type', recordedAt: 'recorded_at',
-    glucoseValue: 'glucose_value', glucoseType: 'glucose_type'
+    glucoseValue: 'glucose_value', glucoseType: 'glucose_type', glucoseUnit: 'glucose_unit'
   },
   // doctor_id and patient_id are always assigned by DB methods, never caller payloads.
   patient_records: {
@@ -100,7 +100,7 @@ function validateHealthReading(reading) {
     const value = Number(reading.glucoseValue);
     if (!Number.isFinite(value) || value < 1 || value > 2000 ||
         !['fasting', 'post_meal', 'random'].includes(reading.glucoseType)) throw { code: 'invalid_health_reading' };
-    return { readingType: type, glucoseValue: value, glucoseType: reading.glucoseType, recordedAt };
+    return { readingType: type, glucoseValue: value, glucoseType: reading.glucoseType, glucoseUnit: 'mg/dL', recordedAt };
   }
   if (type === 'blood_pressure') {
     const systolic = Number(reading.systolic), diastolic = Number(reading.diastolic);
@@ -163,6 +163,7 @@ const DB = {
     }
     try {
       this.sb = window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey);
+      this.patientAuth = null; // initialized lazily as a non-persistent, isolated phone-OTP client
       this.ready = true;
       return true;
     } catch (e) {
@@ -350,6 +351,7 @@ const DB = {
       if (!docRow) throw { code: 'clinic_profile_missing' };
       State.appointments = appointments;
       State.settings = normalizeClinicSettings(docRow.settings);
+      State.healthAlerts = await this.loadRecentHealthAlerts();
       State.pTotal = roster.filter(p => p.status === 'active').length;
       if (plans.length) { State.plans = plans; }
       else {
@@ -367,6 +369,25 @@ const DB = {
     State.loaded = true;
     // Audit the bulk read without any PHI: counts only
     this.audit('view', 'patients', null, { scope: 'list', count: Object.keys(State.patientIndex).length });
+  },
+
+  // Keep unacknowledged safety-threshold readings visible on the doctor dashboard
+  // for 24 hours. This is an in-app notice, not a push/emergency service.
+  async loadRecentHealthAlerts() {
+    const features = normalizeClinicalFeatures((State.settings || {}).clinicalFeatures);
+    if (!features.glucoseTracking && !features.bloodPressureTracking) return [];
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const rows = await this.fetchAll(() => this.sb.from('patient_health_readings')
+      .select('id,patient_id,reading_type,recorded_at,glucose_value,glucose_unit,glucose_type,systolic,diastolic,pulse,source')
+      .eq('doctor_id', this.uid).is('deleted_at', null).gte('recorded_at', since)
+      .or('and(reading_type.eq.glucose,glucose_value.lt.70),and(reading_type.eq.blood_pressure,systolic.gt.180),and(reading_type.eq.blood_pressure,diastolic.gt.120)')
+      .order('recorded_at', { ascending: false }).order('id'));
+    const alerts = rows.map(r => fromRow('patient_health_readings', r))
+      .map(reading => ({ reading, alert: healthReadingAlert(reading) }))
+      .filter(item => item.alert)
+      .map(item => ({ ...item.reading, alertLevel: item.alert.level, alertLabel: item.alert.label }));
+    await this.audit('view', 'patient_health_readings', null, { scope: 'safety-alerts', count: alerts.length });
+    return alerts;
   },
 
   // Load soft-deleted rows for the archive view (separate query, audited)

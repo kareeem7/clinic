@@ -6,13 +6,10 @@
 <title>عيادتي — نظام إدارة العيادات</title>
 <meta name="description" content="نظام إدارة عيادات العلاج الطبيعي والسمنة والنحافة — شبين الكوم">
 <meta name="theme-color" content="#0d9488">
-<!-- (متوسط 3) سياسة أمن المحتوى CSP: تقفل مصادر التحميل على الـCDNs المستخدمة
-     فعلاً + مشروع Supabase، فأي حقن يحاول سحب سكربت من نطاق غريب يتبلوك.
-     'unsafe-inline' اضطراري لأن التطبيق ملف واحد فيه سكربت وستايل inline —
-     التخلص منه يحتاج فصل الـJS في ملفات خارجية + nonce من سيرفر الاستضافة.
-     ملاحظة: frame-ancestors ما ينفعش في meta — أضفها كـHTTP header في الاستضافة
-     (مع X-Content-Type-Options: nosniff) لمنع تضمين الموقع في iframes خبيثة. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'">
+<!-- CSP: scripts may load only from this origin and the pinned CDN; no inline
+     JavaScript is used. Inline styles remain for legacy UI markup and are handled
+     separately. frame-ancestors must be configured as an HTTP header by hosting. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%230d9488'/><text x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif'>✚</text></svg>">
 
 <!-- ====== الخطوط: Cairo للعربي ====== -->
@@ -96,7 +93,7 @@
         <div class="p-chips"><span class="chip chip-green"><i class="fa-solid fa-person-walking"></i> بوابة المرضى</span></div>
         <div>
           <h2>أهلاً بيك!</h2>
-          <p class="muted" style="font-size:14px">سجّل دخولك علشان تشوف موعدك القادم وتقدمك مع الدكتور</p>
+          <p class="muted" style="font-size:14px">أدخل رقمك وتاريخ ميلادك، ثم أكّد الدخول برمز SMS يصل إلى هاتفك المسجل</p>
         </div>
         <div class="field">
           <label for="ptPhone" style="font-size:14px">رقم الموبايل (اللي الدكتور سجّله)</label>
@@ -111,9 +108,16 @@
           </div>
           <small class="muted" style="font-size:12px;font-weight:700">لو مش متأكد، اسأل العيادة تسجل تاريخ ميلادك في ملفك</small>
         </div>
-        <div id="ptError" class="form-error"></div>
+        <div class="field hide" id="ptOtpField">
+          <label for="ptOtpCode" style="font-size:14px">رمز التحقق المرسل برسالة SMS</label>
+          <div class="in-wrap"><i class="fa-solid fa-key"></i>
+            <input id="ptOtpCode" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" dir="ltr" autocomplete="one-time-code" placeholder="••••••">
+          </div>
+          <button type="button" class="forgot-link" id="ptOtpResend">إعادة إرسال الرمز</button>
+        </div>
+        <div id="ptError" class="form-error" role="alert" aria-live="polite"></div>
         <button class="btn btn-primary block" id="ptBtn" type="submit" style="padding:15px;font-size:16px">
-          <i class="fa-solid fa-right-to-bracket"></i><span>دخول البوابة</span>
+          <i class="fa-solid fa-right-to-bracket"></i><span>إرسال رمز التحقق</span>
         </button>
         <button type="button" class="btn btn-ghost block" id="ptBack" style="font-size:14px">
           <i class="fa-solid fa-arrow-right"></i> رجوع لتسجيل الدخول الرئيسي
@@ -471,6 +475,7 @@
       <!-- ====== الرئيسية (Dashboard) ====== -->
       <section id="view-dashboard" class="view">
         <div class="greet"><h2 id="dashGreeting"></h2><p id="dashDate" class="muted"></p></div>
+        <div id="dashAlerts" aria-live="assertive"></div>
         <div class="kpi-grid" id="kpiGrid"></div>
         <!-- تنبيه القياسات من البيت (المرحلة 16) -->
         <div id="portalFeed" class="hide" style="margin-bottom:16px"></div>

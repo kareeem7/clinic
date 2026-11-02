@@ -40,6 +40,20 @@ function kpiHTML(icon, color, value, label, sub, subOk) {
     '<small class="' + (subOk ? 'sub-ok' : '') + '">' + sub + '</small></div></div>';
 }
 
+function renderDashboardHealthAlerts() {
+  const root = $('#dashAlerts');
+  if (!root) return;
+  const alerts = (State.healthAlerts || []).slice(0, 10);
+  root.innerHTML = alerts.length
+    ? '<section class="dashboard-health-alerts" role="alert"><h3><i class="fa-solid fa-triangle-exclamation"></i> قراءات صحية تتجاوز حدود التنبيه (' + (State.healthAlerts || []).length + ')</h3>' +
+      alerts.map(reading => {
+        const patient = getPatient(reading.patientId);
+        return '<button class="dashboard-health-alert" type="button" data-action="view-patient" data-id="' + esc(reading.patientId) + '"><b>' + esc(patient && patient.name || 'ملف المريض') + '</b><span>' + esc(reading.alertLabel) + '</span><small>' + esc(healthTimestampLabel(reading.recordedAt)) + '</small></button>';
+      }).join('') +
+      '<small class="muted">تنبيهات داخل التطبيق للقراءات خلال آخر 24 ساعة؛ ليست خدمة طوارئ أو إشعارًا فوريًا خارج التطبيق.</small></section>'
+    : '';
+}
+
 async function renderDashboard() { // (بند 31) بتستنى الاستعلامات المستهدفة
   const s = State.settings, h = new Date().getHours();
   // هياكل التحميل أثناء جلب البيانات من Firestore
@@ -54,6 +68,7 @@ async function renderDashboard() { // (بند 31) بتستنى الاستعلا�
   }
   $('#dashGreeting').textContent = (h < 12 ? 'صباح الخير، ' : h < 17 ? 'طاب يومك، ' : 'مساء الخير، ') + (s.doctorName || 'دكتور');
   $('#dashDate').textContent = longDate(new Date());
+  renderDashboardHealthAlerts();
 
   // حساب المؤشرات (تُعاد حسابتها من State عند كل تغيير — جمع/حذف/تعديل)
   const mNow = todayISO().slice(0, 7);

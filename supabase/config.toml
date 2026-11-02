@@ -3,3 +3,8 @@
 # service-role-only patient_portal_photo_authorize RPC before every upload.
 [functions.portal-photo-upload]
 verify_jwt = false
+
+# Internal maintenance endpoint. Invoke only from a protected scheduler using
+# the service-role JWT; handler also checks the Authorization header.
+[functions.purge-patient-photos]
+verify_jwt = true
