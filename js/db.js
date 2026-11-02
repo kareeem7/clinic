@@ -253,7 +253,11 @@ const DB = {
     return 'mfa-enroll'; // 2FA enrollment is mandatory before reaching the app
   },
 
-  async signOut() { await this.sb.auth.signOut(); this.uid = null; },
+  async signOut() {
+    this.uid = null;
+    resetClinicalState();
+    await this.sb.auth.signOut();
+  },
 
   async resetPassword(email) {
     const { error } = await this.sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });

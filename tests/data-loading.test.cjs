@@ -125,7 +125,9 @@ function authContext({ step = 'ready', failureAt = 'loadAll', accountError = nul
   };
   const context = vm.createContext({
     document: { addEventListener() {}, querySelector: $, body: { classList: cls() } },
-    window: {}, $, $$: () => [], DB, State: state, Cal: {}, Charts: {}, Portal: { token: null },
+    window: {}, $, $$: () => [], DB, State: state,
+    resetClinicalState() { Object.assign(state, { patients: [], appointments: [], plans: [], notes: [], patientIndex: {}, pTotal: 0, settings: {}, stats: { visits: [], revenue: [] }, loaded: false, isAdmin: false, route: 'dashboard', param: null, pSearch: '', pPage: 1 }); },
+    Cal: {}, Charts: {}, Portal: { token: null },
     sessionStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
     showScreen(name) { screens.push(name); }, go() {}, buildNav() {}, syncShellIdentity() {},
     explainError(e) { return 'safe: ' + e.code; }, esc: x => x,

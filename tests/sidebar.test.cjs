@@ -75,7 +75,7 @@ function uiContext() {
   const context = vm.createContext({
     document: { addEventListener() {}, querySelector: $, body: element() }, window: { scrollTo() {} }, $,
     $$: () => [], DB: { async init() { return true; }, sb: { auth: { onAuthStateChange() {} } } },
-    Portal: { token: null }, State: { isAdmin: false }, Cal: {}, Charts: {},
+    Portal: { token: null }, State: { isAdmin: false }, resetClinicalState() {}, Cal: {}, Charts: {},
     sessionStorage: { getItem() { return null; } }, longDate: () => '',
     renderDashboard: noop, renderPatients: noop, renderPatientDetail: noop,
     renderAppointments: noop, renderPlans: noop, renderSettings: noop,
@@ -131,7 +131,7 @@ function navAuthContext({ admin = false } = {}) {
   const context = vm.createContext({
     document: { addEventListener() {}, querySelector: $, body: element() },
     window: { scrollTo() {} }, $, $$: () => [], DB,
-    State: { isAdmin: false, settings: {} }, Cal: {}, Charts: {}, Portal: { token: null },
+    State: { isAdmin: false, settings: {} }, resetClinicalState() {}, Cal: {}, Charts: {}, Portal: { token: null },
     sessionStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
     longDate: () => '', toast: noop, logError: noop, explainError: () => 'error', esc: x => x,
     renderDashboard: noop, renderPatients: noop, renderPatientDetail: noop,

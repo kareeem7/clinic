@@ -166,7 +166,9 @@ async function routeAfterAuth(step, access) {
     showMfaPane(true, en.qr, en.secret);
     return;
   }
-  // step === 'ready': resolve the role and its own dashboard
+  // step === 'ready': begin from a clean identity-scoped cache before loading
+  // any account data; this prevents a prior doctor's roster surviving logout.
+  resetClinicalState();
   let role = access;
   if (role === 'auto') role = (await DB.isSuperAdmin()) ? 'admin' : 'doctor';
   if (role === 'admin') {
@@ -489,7 +491,13 @@ async function boot() {
         showScreen('login');
       }
     }
-    if (_evt === 'SIGNED_OUT') { leaveAdmin(); showScreen('login'); }
+    if (_evt === 'SIGNED_OUT') {
+      DB.uid = null;
+      resetClinicalState();
+      sessionStorage.removeItem('clinic_doctor');
+      leaveAdmin();
+      showScreen('login');
+    }
   });
 }
 
