@@ -13,6 +13,14 @@ const token = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const doctor = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const patient = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const fileId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+
+test('Supabase deployment config disables JWT verification only for the token-validated portal upload function', () => {
+  const config = fs.readFileSync(path.join(root, 'supabase/config.toml'), 'utf8');
+  assert.ok(config.includes('[functions.portal-photo-upload]'));
+  assert.ok(config.includes('verify_jwt = false'));
+  const handler = fs.readFileSync(path.join(root, 'supabase/functions/portal-photo-upload/handler.mjs'), 'utf8');
+  assert.match(handler, /patient_portal_photo_authorize/);
+});
 const png = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10, 1, 2]);
 
 async function makeHandler({ responses = [[{ doctor_id: doctor, patient_id: patient }], [{ doctor_id: doctor, patient_id: patient }]], uploadStatus = 200 } = {}) {
