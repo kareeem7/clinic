@@ -1,7 +1,7 @@
 /**
  * ========================================
  * patient-portal.js
- * الوظيفة: بوابة المريض (المراحل 14-17): الدخول بالتليفون+تاريخ الميلاد، جلسة التوكن، الصفحة الرئيسية، صفحة التقدم والمنحنيات، تسجيل القياسات من البيت مع رفع الصور، صفحة المواعيد والإلغاء بالسبب، وصفحة الخطة مع النصائح اليومية.
+ * الوظيفة: بوابة المريض (المراحل 14-17): الدخول برمز SMS للهاتف مع تاريخ الميلاد، جلسة التوكن، الصفحة الرئيسية، صفحة التقدم والمنحنيات، تسجيل القياسات من البيت مع رفع الصور، صفحة المواعيد والإلغاء بالسبب، وصفحة الخطة مع النصائح اليومية.
  * الدوال/الكيانات الرئيسية: Portal، portalGo، renderWeightStory، renderPainStory، sumCell، cutRange، drawPatientPortalChart، drawWaistChart، drawPainChart، renderMeasTable، portalPlanSheet، DAILY_TIPS
  * الاعتمادات: db.js, utils.js, app.js, state.js
  * آخر تعديل: 2026-10-31 — تقسيم من index.html الموحد (الكود منسوخ حرفياً وبلا أي تغيير)
@@ -16,12 +16,54 @@
    والبيانات تتجاب عبر RPCs محمية فقط — ممنوع قراءة بيانات مريض آخر
    أو كتابة أي شيء خارج المسارات الأربعة المسموحة.
    ============================================================ */
+function portalAuthPhone(value) {
+  let digits = String(value || '').replace(/\D/g, '');
+  if (digits.startsWith('0020')) digits = digits.slice(2);
+  if (digits.startsWith('0') && digits.length === 11) digits = '2' + digits;
+  else if (!digits.startsWith('20') && digits.length === 10) digits = '20' + digits;
+  if (!/^20\d{10}$/.test(digits)) throw { code: 'invalid_portal_phone', message: 'اكتب رقم موبايل مصريًا صحيحًا.' };
+  return '+' + digits;
+}
+
 const Portal = {
   token: sessionStorage.getItem('clinic_patient_token') || null,
   data: null,
+  pendingPhone: null,
 
-  async login(phone, birth) {
-    const { data, error } = await DB.sb.rpc('patient_portal_login', { p_phone: phone, p_birth: birth });
+  patientAuthClient() {
+    if (!DB.patientAuth) {
+      if (!window.supabase || !supabaseConfig) throw { code: 'phone_otp_unavailable', message: 'تسجيل دخول الرسائل غير مهيأ؛ تواصل مع العيادة.' };
+      DB.patientAuth = window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+      });
+    }
+    return DB.patientAuth;
+  },
+
+  async cancelOtp() {
+    this.pendingPhone = null;
+    if (DB.patientAuth) {
+      try { await DB.patientAuth.auth.signOut({ scope: 'local' }); } catch (_) { /* local OTP state is best-effort */ }
+    }
+  },
+
+  async requestOtp(phone) {
+    const normalized = portalAuthPhone(phone);
+    const { error } = await this.patientAuthClient().auth.signInWithOtp({ phone: normalized, options: { shouldCreateUser: true } });
+    if (error) throw error;
+    this.pendingPhone = normalized;
+  },
+
+  async login(phone, birth, otp) {
+    const normalized = portalAuthPhone(phone);
+    if (this.pendingPhone !== normalized || !/^\d{6}$/.test(String(otp || ''))) {
+      throw { code: 'portal_otp_required', message: 'اطلب رمز تحقق جديدًا ثم أدخله لإكمال الدخول.' };
+    }
+    const auth = this.patientAuthClient();
+    const { error: verifyError } = await auth.auth.verifyOtp({ phone: normalized, token: String(otp), type: 'sms' });
+    if (verifyError) throw verifyError;
+    this.pendingPhone = null; // the code is one-time; another attempt must request a fresh code
+    const { data, error } = await auth.rpc('patient_portal_login', { p_phone: normalized, p_birth: birth });
     if (error) throw error;
     if (!data || !data.ok) throw { message: (data && data.error) || 'تعذّر تسجيل الدخول' };
     resetPortalSessionState();
@@ -75,7 +117,9 @@ const Portal = {
     document.body.classList.remove('theme-patient');
     toast('تم تسجيل خروجك — بالسلامة!', 'info');
     switchAuthTab('patient'); showScreen('login');
+    this.pendingPhone = null;
     if (token) { try { await DB.sb.rpc('patient_portal_logout', { p_token: token }); } catch (e) { /* networkless shutdown is fine */ } }
+    if (DB.patientAuth) { try { await DB.patientAuth.auth.signOut({ scope: 'local' }); } catch (e) { /* clear the isolated OTP session best-effort */ } }
   },
 
   // ---- الواجهة ----
@@ -360,6 +404,18 @@ function portalCreateHealthRequestId() {
   return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
 }
 
+function portalHealthAlert(reading) {
+  if (reading.readingType === 'glucose') {
+    const value = Number(reading.glucoseValue);
+    if (value < 54) return { level: 'critical', text: 'تنبيه شديد: قراءة السكر أقل من 54 mg/dL. راجع مقدم الرعاية الصحية فورًا.' };
+    if (value < 70) return { level: 'warning', text: 'تنبيه: قراءة السكر أقل من 70 mg/dL. تم حفظها وسيتمكن طبيبك من رؤيتها.' };
+  }
+  if (reading.readingType === 'blood_pressure' && (Number(reading.systolic) > 180 || Number(reading.diastolic) > 120)) {
+    return { level: 'critical', text: 'تنبيه: قراءة الضغط أعلى من 180 انقباضيًا أو 120 انبساطيًا mmHg. أعد القياس وتواصل مع مقدم الرعاية الصحية.' };
+  }
+  return null;
+}
+
 function renderPortalHealthTracking(tracking) {
   const root = $('#ptHealthTracking');
   if (!root) return;
@@ -372,9 +428,9 @@ function renderPortalHealthTracking(tracking) {
     '<section class="p-card pt-health-card"><b><i class="fa-solid fa-droplet"></i> تسجيل قراءة سكر</b>' +
     '<p class="p-small">أدخل قيمة القراءة ونوع التحليل. يُسجّل وقت الإدخال ومصدره تلقائيًا.</p>' +
     '<form id="ptHealthGlucoseForm" class="pt-health-form" novalidate>' +
-      '<div class="p-field"><label for="ptHealthGlucoseValue">قيمة السكر *</label><input class="input ltr" id="ptHealthGlucoseValue" type="number" min="1" max="2000" step="any" inputmode="decimal" required></div>' +
+      '<div class="p-field"><label for="ptHealthGlucoseValue">قيمة السكر (mg/dL) *</label><input class="input ltr" id="ptHealthGlucoseValue" type="number" min="1" max="2000" step="any" inputmode="decimal" required></div>' +
       '<div class="p-field"><label for="ptHealthGlucoseType">نوع التحليل *</label><select class="input" id="ptHealthGlucoseType" required><option value="">اختر النوع</option><option value="fasting">صائم</option><option value="post_meal">بعد الأكل</option><option value="random">عشوائي</option></select></div>' +
-      '<button class="btn btn-primary block p-big" id="ptHealthGlucoseSave" type="submit">حفظ قراءة السكر</button><p class="pt-health-message" id="ptHealthGlucoseMessage" role="status" aria-live="polite"></p>' +
+      '<button class="btn btn-primary block p-big" id="ptHealthGlucoseSave" type="submit">حفظ قراءة السكر</button><p class="pt-health-message" id="ptHealthGlucoseMessage" role="alert" aria-live="assertive"></p>' +
     '</form></section>');
   if (canPressure) cards.push(
     '<section class="p-card pt-health-card"><b><i class="fa-solid fa-heart-pulse"></i> تسجيل قراءة ضغط</b>' +
@@ -383,7 +439,7 @@ function renderPortalHealthTracking(tracking) {
       '<div class="p-field"><label for="ptHealthSystolic">الضغط الانقباضي *</label><input class="input ltr" id="ptHealthSystolic" type="number" min="1" max="400" step="1" inputmode="numeric" required></div>' +
       '<div class="p-field"><label for="ptHealthDiastolic">الضغط الانبساطي *</label><input class="input ltr" id="ptHealthDiastolic" type="number" min="1" max="300" step="1" inputmode="numeric" required></div>' +
       '<div class="p-field"><label for="ptHealthPulse">النبض (اختياري)</label><input class="input ltr" id="ptHealthPulse" type="number" min="1" max="400" step="1" inputmode="numeric"></div>' +
-      '<button class="btn btn-primary block p-big" id="ptHealthPressureSave" type="submit">حفظ قراءة الضغط</button><p class="pt-health-message" id="ptHealthPressureMessage" role="status" aria-live="polite"></p>' +
+      '<button class="btn btn-primary block p-big" id="ptHealthPressureSave" type="submit">حفظ قراءة الضغط</button><p class="pt-health-message" id="ptHealthPressureMessage" role="alert" aria-live="assertive"></p>' +
     '</form></section>');
   root.innerHTML = cards.join('');
   [['glucose', '#ptHealthGlucoseForm'], ['blood_pressure', '#ptHealthPressureForm']].forEach(([kind, selector]) => {
@@ -406,7 +462,7 @@ async function portalSubmitHealthReading(kind) {
   if (!typeKey || !allowed || !Portal.token || !patient.id) return;
   const form = $(formId), button = $(buttonId), message = $(messageId);
   if (!form || !button || !message || form.dataset.submitting === 'true') return;
-  const failValidation = text => { message.textContent = text; message.classList.remove('success'); message.classList.add('error'); };
+  const failValidation = text => { message.textContent = text; message.classList.remove('success', 'warning', 'critical'); message.classList.add('error'); };
   let args = { p_reading_type: kind, p_glucose_value: null, p_glucose_type: null, p_systolic: null, p_diastolic: null, p_pulse: null };
   if (kind === 'glucose') {
     const value = Number($('#ptHealthGlucoseValue').value), readingType = $('#ptHealthGlucoseType').value;
@@ -437,7 +493,7 @@ async function portalSubmitHealthReading(kind) {
   form.dataset.submitting = 'true'; button.disabled = true;
   button.dataset.originalText = button.textContent;
   button.textContent = 'جارٍ الحفظ…';
-  message.textContent = ''; message.classList.remove('error', 'success');
+  message.textContent = ''; message.classList.remove('error', 'success', 'warning', 'critical');
   try {
     const { data, error } = await DB.sb.rpc('patient_portal_add_health_reading', args);
     if (token !== Portal.token || !Portal.data || patientId !== Portal.data.patient.id) return;
@@ -462,8 +518,10 @@ async function portalSubmitHealthReading(kind) {
     else { $('#ptHealthSystolic').value = ''; $('#ptHealthDiastolic').value = ''; $('#ptHealthPulse').value = ''; }
     form.dataset.requestId = '';
     portalRemovePendingHealthRequest(patientId, typeKey);
-    message.textContent = data.duplicate ? 'هذه القراءة محفوظة بالفعل؛ لم تُسجّل مرة أخرى.' : 'تم حفظ القراءة بنجاح.';
-    message.classList.add('success'); message.classList.remove('error');
+    const alert = portalHealthAlert({ readingType: kind, glucoseValue: args.p_glucose_value, systolic: args.p_systolic, diastolic: args.p_diastolic });
+    message.textContent = alert ? alert.text : (data.duplicate ? 'هذه القراءة محفوظة بالفعل؛ لم تُسجّل مرة أخرى.' : 'تم حفظ القراءة بنجاح.');
+    message.classList.add(alert ? (alert.level === 'critical' ? 'critical' : 'warning') : 'success');
+    message.classList.remove('error');
   } catch (_) {
     if (token !== Portal.token || !Portal.data || patientId !== Portal.data.patient.id) return;
     failValidation('تعذّر الاتصال أثناء حفظ القراءة. بقيت البيانات كما هي؛ أعد المحاولة.');

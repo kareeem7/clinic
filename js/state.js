@@ -13,7 +13,7 @@
    js/state.js — حالة التطبيق العامة
    ============================================================ */
 const State = {
-  patients: [], appointments: [], plans: [], notes: [],
+  patients: [], appointments: [], plans: [], notes: [], healthAlerts: [],
   isAdmin: false, // وضع إدارة المنصة — يفعّل أقسام الأدمن ويمنع أقسام الدكتور
   settings: {}, stats: { visits: [], revenue: [] },
   route: 'dashboard', param: null,
@@ -33,6 +33,7 @@ function resetClinicalState() {
   State.appointments = [];
   State.plans = [];
   State.notes = [];
+  State.healthAlerts = [];
   State.patientIndex = {};
   State.pTotal = 0;
   State.settings = {};

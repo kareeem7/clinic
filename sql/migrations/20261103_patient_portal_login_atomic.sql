@@ -1,6 +1,6 @@
 -- Serialize portal login attempts by normalized phone so concurrent failures
--- cannot race past the per-phone lockout. No production data is changed here;
--- review and apply only through the normal migration process.
+-- cannot race past the per-phone lockout. This intermediate function is
+-- intentionally not executable until the verified-OTP migration is applied.
 begin;
 
 create or replace function public.patient_portal_login(p_phone text, p_birth date)
@@ -75,6 +75,6 @@ begin
 end; $$;
 
 revoke all on function public.patient_portal_login(text, date) from public, anon, authenticated;
-grant execute on function public.patient_portal_login(text, date) to anon, authenticated;
+-- No EXECUTE grant here: only 20261105_patient_portal_phone_otp.sql re-enables login.
 
 commit;

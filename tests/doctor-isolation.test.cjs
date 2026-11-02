@@ -14,6 +14,7 @@ test('resetClinicalState clears all account-scoped clinical data', () => {
   state.appointments.push({ id: 'synthetic-appointment-a' });
   state.plans.push({ id: 'synthetic-plan-a' });
   state.notes.push({ id: 'synthetic-note-a' });
+  state.healthAlerts.push({ id: 'synthetic-alert-a' });
   state.patientIndex['synthetic-patient-a'] = { id: 'synthetic-patient-a' };
   state.settings.doctorName = 'Synthetic doctor';
   state.stats.visits.push({ date: '2026-01-01', count: 1 });
@@ -26,7 +27,7 @@ test('resetClinicalState clears all account-scoped clinical data', () => {
 
   context.__reset();
 
-  for (const key of ['patients', 'appointments', 'plans', 'notes']) assert.equal(state[key].length, 0, key);
+  for (const key of ['patients', 'appointments', 'plans', 'notes', 'healthAlerts']) assert.equal(state[key].length, 0, key);
   assert.deepEqual(Object.keys(state.patientIndex), []);
   assert.equal(state.pTotal, 0);
   assert.deepEqual(Object.keys(state.settings), []);

@@ -327,29 +327,65 @@ async function boot() {
     btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i><span>إرسال رابط الاستعادة</span>';
   };
 
-  // 7b) Patient portal login — phone + birthdate, no email needed
-  $('#patientLink').onclick = () => switchAuthTab('patient');
-  $('#ptBack').onclick = () => switchAuthTab('login');
+  // 7b) Patient portal login — verified SMS OTP plus phone and birthdate
+  const resetPatientOtpUi = () => {
+    void Portal.cancelOtp();
+    $('#ptOtpCode').value = '';
+    $('#ptOtpCode').required = false;
+    $('#ptOtpField').classList.add('hide');
+    $('#ptBtn').querySelector('span').textContent = 'إرسال رمز التحقق';
+  };
+  $('#patientLink').onclick = () => { resetPatientOtpUi(); switchAuthTab('patient'); };
+  $('#ptBack').onclick = () => { resetPatientOtpUi(); switchAuthTab('login'); };
+  $('#ptOtpResend').onclick = async () => {
+    const err = $('#ptError'), phone = $('#ptPhone').value.trim();
+    err.classList.remove('show');
+    try {
+      await Portal.requestOtp(phone);
+      err.textContent = 'إذا كان الرقم صالحًا، أرسلنا رمزًا جديدًا إلى الهاتف.';
+      err.classList.add('show');
+    } catch (ex) {
+      err.textContent = ex.message || explainError(ex); err.classList.add('show');
+    }
+  };
   $('#ptLoginForm').onsubmit = async e => {
     e.preventDefault();
     const btn = $('#ptBtn'), err = $('#ptError');
     err.classList.remove('show');
     const phone = $('#ptPhone').value.trim(), birth = $('#ptBirth').value;
-    // client validation: phone looks Egyptian + birthdate is set
-    const digits = phone.replace(/\D/g, '');
-    if ((digits.length < 10 || digits.length > 13)) { err.textContent = 'اكتب رقم موبايل صحيح (01xxxxxxxxx)'; err.classList.add('show'); return; }
+    // Keep phone and DOB checks local; Supabase verifies phone possession by SMS.
+    let normalizedPhone = '';
+    try { normalizedPhone = portalAuthPhone(phone); }
+    catch (ex) { err.textContent = ex.message; err.classList.add('show'); return; }
     if (!birth) { err.textContent = 'اكتب تاريخ ميلادك'; err.classList.add('show'); return; }
     btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>جارٍ الدخول...</span>';
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>جارٍ التحقق...</span>';
     try {
-      await Portal.login(phone, birth);
-      toast('أهلاً بيك ' + (Portal.data && Portal.data.patient && Portal.data.patient.name.split(' ')[0] || ''));
+      if (Portal.pendingPhone !== normalizedPhone) {
+        await Portal.requestOtp(phone);
+        $('#ptOtpField').classList.remove('hide');
+        $('#ptOtpCode').required = true;
+        $('#ptOtpCode').focus();
+        err.textContent = 'إذا كان الرقم صالحًا، أرسلنا رمز تحقق إلى الهاتف. أدخله لإكمال الدخول.';
+        err.classList.add('show');
+      } else {
+        const otp = $('#ptOtpCode').value.trim();
+        if (!/^\d{6}$/.test(otp)) throw { message: 'أدخل رمز SMS المكوّن من 6 أرقام.' };
+        await Portal.login(phone, birth, otp);
+        toast('أهلاً بيك ' + (Portal.data && Portal.data.patient && Portal.data.patient.name.split(' ')[0] || ''));
+      }
     } catch (ex) {
       err.textContent = ex.message || explainError(ex);
       err.classList.add('show');
+      if (Portal.pendingPhone !== normalizedPhone) {
+        void Portal.cancelOtp();
+        $('#ptOtpCode').value = '';
+        $('#ptOtpCode').required = false;
+        $('#ptOtpField').classList.add('hide');
+      }
     }
     btn.disabled = false;
-    btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i><span>دخول البوابة</span>';
+    btn.querySelector('span').textContent = Portal.pendingPhone === normalizedPhone ? 'تحقق من الرمز والدخول' : 'إرسال رمز التحقق';
   };
 
   // 7c) Patient portal logout + tab navigation inside the portal

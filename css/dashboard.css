@@ -90,3 +90,15 @@ button.mini-row:hover{background:#f6fbfa}
 .sql-box{direction:ltr;text-align:left;background:#0d2625;color:#bff0ea;border-radius:14px;padding:16px;
   font-size:11.5px;line-height:1.8;overflow:auto;white-space:pre;max-height:320px;margin-top:10px;
   font-family:ui-monospace,'Cascadia Mono',Consolas,monospace}
+
+/* ===== Patient-safety threshold alerts ===== */
+.dashboard-health-alerts{margin:0 0 18px;padding:16px;border:1px solid #fda4af;border-right:5px solid #e11d48;border-radius:14px;background:#fff1f2;color:#881337}
+.dashboard-health-alerts h3{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:15px;font-weight:900}
+.dashboard-health-alerts h3 i{color:#be123c}
+.dashboard-health-alert{display:grid;grid-template-columns:minmax(120px,.8fr) minmax(220px,2fr) auto;gap:10px;align-items:center;width:100%;padding:10px 8px;border-top:1px solid #fecdd3;background:transparent;text-align:start;color:inherit}
+.dashboard-health-alert:hover{background:#ffe4e6}
+.dashboard-health-alert b{font-weight:900}
+.dashboard-health-alert span{font-size:13px;font-weight:800}
+.dashboard-health-alert small{font-size:11px;color:#9f1239}
+.dashboard-health-alerts>.muted{display:block;margin-top:8px;font-size:11px;font-weight:700}
+@media(max-width:700px){.dashboard-health-alert{grid-template-columns:1fr;gap:4px}}

@@ -70,6 +70,8 @@ body.theme-patient{
 .pt-health-message:empty{display:none}
 .pt-health-message.success{color:#15803d;background:#ecf9f0;border-radius:10px;padding:10px}
 .pt-health-message.error{color:#be123c;background:#fff1f2;border-radius:10px;padding:10px}
+.pt-health-message.warning{color:#92400e;background:#fffbeb;border-radius:10px;padding:10px}
+.pt-health-message.critical{color:#be123c;background:#fff1f2;border:1px solid #fb7185;border-radius:10px;padding:10px}
 @media (max-width:520px){.p-opt-grid{grid-template-columns:1fr 1fr 1fr;gap:7px}.p-field label{font-size:13px}}
 
 /* ===== المرحلة 17: البوابة السفلية + صفحة الخطة والمواعيد ===== */
