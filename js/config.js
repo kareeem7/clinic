@@ -506,6 +506,13 @@ returns jsonb language plpgsql security definer set search_path = public as $$
 declare v_p record; v_tok uuid; v_settings jsonb; v_key text; v_n bigint;
 begin
   v_key := public.norm_phone_eg(p_phone);
+  if v_key is null or btrim(v_key) = '' then
+    return jsonb_build_object('ok', false, 'error', 'رقم التليفون أو تاريخ الميلاد غير صحيحين — تأكد منهم أو اسأل عيادتك تشغّل حسابك');
+  end if;
+
+  -- Serialize checks and writes for this normalized phone for the duration
+  -- of this RPC transaction, so concurrent failures cannot pass the limit.
+  perform pg_advisory_xact_lock(hashtextextended('patient-portal-login:' || v_key, 0));
 
   -- قفل التخمين: 5 محاولات فاشلة خلال 15 دقيقة = رفض مؤقت
   if (select count(*) from public.portal_login_attempts
@@ -564,6 +571,8 @@ begin
     'clinic', jsonb_build_object('doctorName', coalesce(v_settings->>'doctorName',''),
       'clinicName', coalesce(v_settings->>'clinicName',''), 'phone', coalesce(v_settings->>'phone','')));
 end; $$;
+revoke all on function public.patient_portal_login(text, date) from public, anon, authenticated;
+grant execute on function public.patient_portal_login(text, date) to anon, authenticated;
 
 -- Full portal payload: only rows owned by this patient, everything else stays server-side
 create or replace function public.patient_portal_data(p_token uuid)

@@ -1,0 +1,5 @@
+# Portal patients authenticate with the server-validated x-patient-token header,
+# not a Supabase Auth JWT. The upload handler checks that token against the
+# service-role-only patient_portal_photo_authorize RPC before every upload.
+[functions.portal-photo-upload]
+verify_jwt = false
