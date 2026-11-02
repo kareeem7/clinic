@@ -50,3 +50,24 @@ patient-profile.css
 .lab-result-row{display:grid;grid-template-columns:minmax(140px,1.3fr) minmax(110px,.65fr) minmax(120px,.8fr) minmax(110px,.65fr) auto;gap:8px;align-items:end;margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:#fbfdfd}
 .lab-remove-component{white-space:nowrap}
 @media(max-width:700px){.lab-result-row{grid-template-columns:1fr 1fr}.lab-result-row .lab-component-name{grid-column:1/-1}.lab-remove-component{grid-column:1/-1;justify-self:start}}
+.health-monitoring-settings{margin-bottom:14px}
+.health-monitoring-toggles{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.health-monitoring-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+.health-monitoring-card{padding:15px;border:1px solid var(--line);border-radius:var(--r-md);background:#fff}
+.health-monitoring-head,.health-reading-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.health-monitoring-head h4{margin:0;font-size:15px}
+.health-monitoring-head h4 i{color:var(--teal-700)}
+.health-monitoring-head small,.health-reading-head small{display:block;margin-top:4px;color:var(--muted);font-size:12px}
+.health-monitoring-note{margin:12px 0 0;color:var(--muted);font-size:12px}
+.health-reading-chart{height:220px;margin:14px 0}
+.health-reading-list{display:flex;flex-direction:column;gap:8px}
+.health-reading-record{padding:11px;border:1px solid var(--line);border-radius:12px;background:#fbfdfd}
+.health-reading-head{align-items:center;margin-bottom:10px}
+.health-reading-head>div{flex:1}
+.health-reading-metrics{display:flex;gap:8px;flex-wrap:wrap}
+.health-reading-value{display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:9px;background:#f1f7f6;font-size:12px}
+.health-reading-value b{color:var(--muted);font-weight:600}
+.health-reading-value strong{direction:ltr;color:var(--ink)}
+.health-reading-value small{color:var(--muted);font-size:10px}
+.health-empty{padding:14px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);font-size:13px;text-align:center}
+@media(max-width:600px){.health-monitoring-grid{grid-template-columns:1fr}.health-monitoring-head{flex-wrap:wrap}.health-reading-chart{height:190px}}

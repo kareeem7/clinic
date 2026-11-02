@@ -12,7 +12,7 @@ const root = path.join(__dirname, '..');
 const portalSource = fs.readFileSync(path.join(root, 'js/patient-portal.js'), 'utf8');
 const mainSource = fs.readFileSync(path.join(root, 'js/main.js'), 'utf8');
 
-function createApp({ setup = false, token = null, response = { ok: true }, rpcError = null } = {}) {
+function createApp({ setup = false, token = null, response = { ok: true, patient: {} }, rpcError = null } = {}) {
   const elements = new Map();
   const listeners = {};
   const storage = new Map(token ? [['clinic_patient_token', token]] : []);

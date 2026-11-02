@@ -15,7 +15,7 @@
 // التبديل بين تبويبات ملف المريض (قياسات / زيارات / خطة / مواعيد)
 function switchPTab(t) {
   $$('#patTabs [data-ptab]').forEach(b => b.classList.toggle('active', b.dataset.ptab === t));
-  ['measure', 'labs', 'visits', 'notes', 'plan', 'appts'].forEach(k => {
+  ['measure', 'labs', 'health', 'visits', 'notes', 'plan', 'appts'].forEach(k => {
     const el = document.getElementById('ptab-' + k);
     if (el) el.classList.toggle('hide', k !== t);
   });
@@ -71,6 +71,8 @@ const Actions = {
     if (lab) openLabModal(ds.id, lab); else toast('سجل التحليل غير موجود في ملف هذا المريض', 'error');
   },
   'del-lab':       ds => deletePatientLab(ds.id, ds.x),
+  'add-health-reading': ds => openHealthReadingModal(ds.id, ds.x),
+  'edit-health-reading': ds => editPatientHealthReading(ds.id, ds.x),
   'appt-for-patient': () => openApptModal(State.param), // حجز موعد من داخل ملف المريض
   'export':        () => exportBackup(),
   'decrypt-backup': () => decryptBackup(),

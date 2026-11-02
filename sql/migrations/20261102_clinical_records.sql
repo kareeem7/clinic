@@ -88,7 +88,7 @@ create table if not exists public.patient_labs (
 );
 
 -- Independent, timestamped readings support multiple readings per day and
--- explicitly distinguish clinic-entered from future portal-entered records.
+-- explicitly distinguish clinic-entered from patient-portal-entered records.
 create table if not exists public.patient_health_readings (
   id uuid primary key default gen_random_uuid(),
   doctor_id uuid not null references auth.users(id) on delete cascade,

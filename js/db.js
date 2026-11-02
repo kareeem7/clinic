@@ -19,7 +19,7 @@
 
 // خرائط تحويل أسماء الحقول: camelCase في الواجهة ↔ snake_case في قاعدة البيانات
 const FIELD_MAPS = {
-  patients: { targetWeight: 'target_weight', planId: 'plan_id', planStart: 'plan_start', planEnd: 'plan_end', createdAt: 'created_at', birthDate: 'birth_date', consentWa: 'consent_whatsapp' },
+  patients: { targetWeight: 'target_weight', planId: 'plan_id', planStart: 'plan_start', planEnd: 'plan_end', createdAt: 'created_at', birthDate: 'birth_date', consentWa: 'consent_whatsapp', glucoseTrackingEnabled: 'glucose_tracking_enabled', bloodPressureTrackingEnabled: 'blood_pressure_tracking_enabled' },
   appointments: { patientId: 'patient_id', patientName: 'patient_name', cancelledAt: 'cancelled_at', cancelReason: 'cancel_reason' },
   plans: { desc: 'description' },
   patient_notes: { patientId: 'patient_id', sugarType: 'sugar_type', bpSys: 'bp_sys', bpDia: 'bp_dia', nextVisit: 'next_visit' },
@@ -85,14 +85,22 @@ function validateLabDate(date) {
   return date;
 }
 
+function normalizeHealthReadingTimestamp(value) {
+  const source = value == null || value === '' ? new Date().toISOString() : value;
+  if (typeof source !== 'string') throw { code: 'invalid_health_reading' };
+  const date = new Date(source);
+  if (!Number.isFinite(date.getTime())) throw { code: 'invalid_health_reading' };
+  return date.toISOString();
+}
+
 function validateHealthReading(reading) {
   const type = reading && reading.readingType;
+  const recordedAt = normalizeHealthReadingTimestamp(reading && reading.recordedAt);
   if (type === 'glucose') {
     const value = Number(reading.glucoseValue);
     if (!Number.isFinite(value) || value < 1 || value > 2000 ||
         !['fasting', 'post_meal', 'random'].includes(reading.glucoseType)) throw { code: 'invalid_health_reading' };
-    return { readingType: type, glucoseValue: value, glucoseType: reading.glucoseType,
-      recordedAt: reading.recordedAt || new Date().toISOString() };
+    return { readingType: type, glucoseValue: value, glucoseType: reading.glucoseType, recordedAt };
   }
   if (type === 'blood_pressure') {
     const systolic = Number(reading.systolic), diastolic = Number(reading.diastolic);
@@ -100,8 +108,7 @@ function validateHealthReading(reading) {
     if (!Number.isInteger(systolic) || systolic < 1 || systolic > 400 ||
         !Number.isInteger(diastolic) || diastolic < 1 || diastolic > 300 ||
         (pulse !== null && (!Number.isInteger(pulse) || pulse < 1 || pulse > 400))) throw { code: 'invalid_health_reading' };
-    return { readingType: type, systolic, diastolic, pulse,
-      recordedAt: reading.recordedAt || new Date().toISOString() };
+    return { readingType: type, systolic, diastolic, pulse, recordedAt };
   }
   throw { code: 'invalid_health_reading' };
 }
@@ -539,13 +546,39 @@ const DB = {
     await this.audit('delete', 'patient_labs', id, { soft: true, patientRef: true });
   },
 
+  async updatePatientMonitoring(pid, patch) {
+    const allowed = ['glucoseTrackingEnabled', 'bloodPressureTrackingEnabled'];
+    const safe = {};
+    for (const key of allowed) {
+      if (!Object.prototype.hasOwnProperty.call(patch || {}, key)) continue;
+      if (typeof patch[key] !== 'boolean') throw { code: 'invalid_monitoring_setting' };
+      safe[key] = patch[key];
+    }
+    if (!Object.keys(safe).length) throw { code: 'empty_update' };
+    const row = toRow('patients', safe);
+    const { data, error } = await this.sb.from('patients').update(row)
+      .eq('id', pid).eq('doctor_id', this.uid).is('deleted_at', null)
+      .select('id,glucose_tracking_enabled,blood_pressure_tracking_enabled').maybeSingle();
+    if (error) throw error;
+    if (!data) throw { code: 'patient_not_found' };
+    const saved = fromRow('patients', data);
+    const patient = typeof getPatient === 'function' ? getPatient(pid) : null;
+    if (patient) Object.assign(patient, saved);
+    if (typeof State !== 'undefined' && State.patientIndex && State.patientIndex[pid]) Object.assign(State.patientIndex[pid], saved);
+    await this.audit('edit', 'patients', pid, { scope: 'health_monitoring', fields: Object.keys(safe).length });
+    return saved;
+  },
+
   async loadHealthReadings(pid, readingType) {
-    return this.fetchAll(() => {
+    const rows = await this.fetchAll(() => {
       let q = this.sb.from('patient_health_readings').select('*')
         .eq('patient_id', pid).eq('doctor_id', this.uid).is('deleted_at', null);
       if (readingType) q = q.eq('reading_type', readingType);
       return q.order('recorded_at', { ascending: false }).order('id');
-    }).then(rows => rows.map(r => fromRow('patient_health_readings', r)));
+    });
+    const readings = rows.map(r => fromRow('patient_health_readings', r));
+    await this.audit('view', 'patient_health_readings', null, { patientRef: true, count: readings.length });
+    return readings;
   },
 
   async addHealthReading(pid, reading) {

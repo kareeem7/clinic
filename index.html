@@ -372,6 +372,7 @@
         <button class="btn btn-primary block p-big" id="lgSave"><i class="fa-solid fa-check"></i> حفظ القياس</button>
         <div id="lgErr" class="form-error"></div>
       </div>
+      <div id="ptHealthTracking"></div>
       </div><!-- نهاية ptLogView -->
 
       <!-- ===== المرحلة 17: صفحة مواعيدك الكاملة ===== -->
@@ -562,6 +563,7 @@
         <div class="ptabs" id="patTabs">
           <button class="active" data-ptab="measure"><i class="fa-solid fa-weight-scale"></i> القياسات</button>
           <button id="patLabsTab" class="hide" data-ptab="labs"><i class="fa-solid fa-flask"></i> التحاليل</button>
+          <button id="patHealthTab" class="hide" data-ptab="health"><i class="fa-solid fa-heart-pulse"></i> متابعة السكر والضغط</button>
           <button data-ptab="visits"><i class="fa-solid fa-clipboard-check"></i> الزيارات</button>
           <button data-ptab="notes"><i class="fa-solid fa-notes-medical"></i> الملاحظات والأمراض المزمنة</button>
           <button data-ptab="plan"><i class="fa-solid fa-utensils"></i> الخطة الغذائية</button>
@@ -604,6 +606,11 @@
             </div>
             <div id="patLabsList" class="lab-list"></div>
           </div>
+        </div>
+
+        <!-- تبويب: إعداد متابعة السكر والضغط وسجل القراءات للطبيب -->
+        <div id="ptab-health" class="ptab-panel hide">
+          <div id="patHealthMonitoring"></div>
         </div>
 
         <!-- تبويب: الزيارات المكتملة -->
@@ -926,6 +933,7 @@
 <script src="js/patient.js"></script>
 <script src="js/notes.js"></script>
 <script src="js/labs.js"></script>
+<script src="js/health-monitoring.js"></script>
 <script src="js/appointments.js"></script>
 <script src="js/message-style.js"></script>
 <script src="js/whatsapp.js"></script>
