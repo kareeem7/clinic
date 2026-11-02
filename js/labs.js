@@ -190,11 +190,21 @@ function openLabModal(pid, existing) {
       else await DB.addLab(pid, payload);
       toast(edit ? 'تم تصحيح سجل التحليل' : 'تم حفظ نتيجة التحليل');
       closeModal(); renderPatientDetail(pid);
-    } catch (_) {
-      error.textContent = 'تعذّر حفظ نتيجة التحليل — تحقق من الاتصال وحاول مجددًا.';
+    } catch (saveError) {
+      error.textContent = labSaveFailureMessage(saveError);
       error.classList.add('show'); button.disabled = false;
     }
   };
+}
+
+function labSaveFailureMessage(error) {
+  const code = error && typeof error.code === 'string' && /^[A-Z0-9]{3,10}$/i.test(error.code)
+    ? error.code.toUpperCase() : '';
+  if (code === '42501') return 'رفضت صلاحيات الجلسة حفظ النتيجة. أعد تسجيل الدخول وأكمل تحقق MFA، وتأكد أن الملف تابع للعيادة الحالية. (42501)';
+  if (code === '23503') return 'تعذّر ربط التحليل بملف المريض والعيادة الحالية. تأكد أنك داخل حساب الطبيب المسؤول عن الملف. (23503)';
+  if (code === '23514' || code === '23502') return 'راجع اسم التحليل ومكوّناته وقيم النتائج والوحدات المطلوبة، ثم أعد المحاولة. (' + code + ')';
+  if (code === 'PGRST204' || code === 'PGRST205' || code === '42P01') return 'مخطط التحاليل غير محدث في قاعدة التجربة أو لم يحدّث Supabase مخططه بعد. أعد نشر migration التحاليل ثم حاول مجددًا. (' + code + ')';
+  return 'تعذّر حفظ نتيجة التحليل. تحقق من الاتصال وإعداد قاعدة البيانات ثم حاول مجددًا.' + (code ? ' رمز الخطأ: ' + code : '');
 }
 
 async function deletePatientLab(pid, id) {
