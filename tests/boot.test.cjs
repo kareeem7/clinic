@@ -58,7 +58,7 @@ function createApp({ setup = false, token = null, response = { ok: true, patient
     location: { reload() { result.reloads++; } },
     showScreen(name) { result.screens.push(name); },
     closeModal() { result.modalCloses++; }, leaveAdmin() {}, toast() {}, logError() {},
-    SUPABASE_SQL: ' test SQL ', State: {}, Cal: {}, Charts: {},
+    SUPABASE_SQL: ' test SQL ', State: {}, resetClinicalState() {}, Cal: {}, Charts: {},
     setTimeout() {}, clearTimeout() {}, console
   });
   vm.runInContext(portalSource, context, { filename: 'patient-portal.js' });

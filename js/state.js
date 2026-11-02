@@ -25,6 +25,25 @@ const State = {
   patientIndex: {},
   pTotal: 0
 };
+
+// Identity boundary: never let one authenticated account inherit another
+// account's in-memory clinical cache when signing out or switching users.
+function resetClinicalState() {
+  State.patients = [];
+  State.appointments = [];
+  State.plans = [];
+  State.notes = [];
+  State.patientIndex = {};
+  State.pTotal = 0;
+  State.settings = {};
+  State.stats = { visits: [], revenue: [] };
+  State.loaded = false;
+  State.isAdmin = false;
+  State.route = 'dashboard';
+  State.param = null;
+  State.pSearch = '';
+  State.pPage = 1;
+}
 const Cal = { anchor: todayISO(), selected: todayISO() }; // مؤشر التقويم
 const Charts = {}; // سجل الرسوم البيانية لمنع التكرار
 
