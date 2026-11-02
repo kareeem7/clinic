@@ -154,6 +154,7 @@ async function renderPatientDetail(id) {
   // مزامنة واجهة فلتر فترة المنحنى مع الحالة الحفوظة (تبقى عند التنقل بين المرضى)
   $$('#rangeTabs button').forEach(b => b.classList.toggle('active', b.dataset.range === State.pRange));
 
+  await loadPatientHealthMonitoring(p); // إعداد وسجل طبيبان فقط بحسب تفعيل العيادة والمريض
   await loadPatientLabs(p); // لا نجلب النتائج الطبية إلا إذا كانت ميزة التحاليل مفعّلة
   renderPatientNotes(p); // تبويب الملاحظات والأمراض المزمنة
 }

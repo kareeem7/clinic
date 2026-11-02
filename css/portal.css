@@ -60,6 +60,16 @@ body.theme-patient{
 .p-photo i{font-size:24px;color:#16a34a}
 .p-photo img{width:100%;max-height:220px;object-fit:cover;border-radius:12px}
 .p-empty-note{background:var(--amber-soft);color:#92600a;border-radius:12px;padding:10px;font-size:13px;font-weight:700}
+.pt-health-card{margin-top:14px}
+.pt-health-card> b{display:block;font-size:16px;font-weight:900;color:#2b5c3f;margin-bottom:6px}
+.pt-health-card> b i{margin-inline-end:6px;color:#15803d}
+.pt-health-card .p-field{margin-top:12px}
+.pt-health-card .input{font-size:16px;min-height:48px}
+.pt-health-card select.input{background:#fff}
+.pt-health-message{min-height:0;margin:10px 0 0;font-size:13px;font-weight:800}
+.pt-health-message:empty{display:none}
+.pt-health-message.success{color:#15803d;background:#ecf9f0;border-radius:10px;padding:10px}
+.pt-health-message.error{color:#be123c;background:#fff1f2;border-radius:10px;padding:10px}
 @media (max-width:520px){.p-opt-grid{grid-template-columns:1fr 1fr 1fr;gap:7px}.p-field label{font-size:13px}}
 
 /* ===== المرحلة 17: البوابة السفلية + صفحة الخطة والمواعيد ===== */

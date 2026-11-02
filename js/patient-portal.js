@@ -43,6 +43,24 @@ const Portal = {
       switchAuthTab('patient'); showScreen('login');
       return;
     }
+    // The separate RPC returns only this patient's doctor-enabled capabilities;
+    // a failed lookup fails closed without exposing or enabling health inputs.
+    let healthTracking = { glucose: false, bloodPressure: false };
+    try {
+      const healthResult = await DB.sb.rpc('patient_portal_health_tracking', { p_token: token });
+      if (token !== this.token) return;
+      if (!healthResult.error && healthResult.data && healthResult.data.ok === true) {
+        healthTracking = { glucose: healthResult.data.glucose === true, bloodPressure: healthResult.data.bloodPressure === true };
+      } else if (!healthResult.error && healthResult.data && healthResult.data.ok === false &&
+          /انتهت جلستك|غير متاح حالياً/.test(healthResult.data.error || '')) {
+        this.token = null; this.data = null;
+        sessionStorage.removeItem('clinic_patient_token'); resetPortalSessionState();
+        if (!silentFail) toast(healthResult.data.error, 'error');
+        switchAuthTab('patient'); showScreen('login'); return;
+      }
+    } catch (_) { /* feature state remains disabled if its secure RPC is unavailable */ }
+    if (token !== this.token) return;
+    data.patient.healthTracking = healthTracking;
     this.data = data;
     document.body.classList.add('theme-patient');
     this.render();
@@ -183,6 +201,7 @@ const Portal = {
 
     // الحفظ: نفس البوابة الفردية portalSubmitMeasurement (تتضمن التحذير والتحديث)
     $('#lgSave').onclick = () => portalSubmitMeasurement();
+    renderPortalHealthTracking(p.healthTracking);
   }
 };
 
@@ -313,12 +332,149 @@ function resetPortalSessionState() {
   $('#lgErr').classList.remove('show');
   $('#lgSave').disabled = false;
   $('#lgSave').innerHTML = '<i class="fa-solid fa-check"></i> حفظ القياس';
-  ['ptSummary', 'ptRows', 'ptRowsNote', 'ptMotive', 'ptAppointmentsView'].forEach(id => { $('#' + id).innerHTML = ''; });
+  ['ptSummary', 'ptRows', 'ptRowsNote', 'ptMotive', 'ptAppointmentsView', 'ptHealthTracking'].forEach(id => { $('#' + id).innerHTML = ''; });
   ['pw1', 'pw2'].forEach(key => { if (Charts[key]) { Charts[key].destroy(); delete Charts[key]; } });
   $('#ptHomeMain').classList.remove('hide');
   ['ptProgressView', 'ptLogView', 'ptAppointmentsView'].forEach(id => { $('#' + id).classList.add('hide'); });
   $$('#patientPortal .pt-bottom button').forEach(b => b.classList.toggle('active', b.dataset.pview === 'home'));
   $$('#ptRangeTabs button').forEach(b => b.classList.toggle('active', b.dataset.prange === 'all'));
+}
+
+function portalHealthPendingKey(patientId, kind) {
+  return 'clinic_portal_health_pending_' + patientId + '_' + kind;
+}
+function portalReadPendingHealthRequest(patientId, kind) {
+  try { return sessionStorage.getItem(portalHealthPendingKey(patientId, kind)) || ''; } catch (_) { return ''; }
+}
+function portalRemovePendingHealthRequest(patientId, kind) {
+  try { sessionStorage.removeItem(portalHealthPendingKey(patientId, kind)); } catch (_) { /* storage may be unavailable */ }
+}
+function portalCreateHealthRequestId() {
+  const cryptoApi = window.crypto;
+  if (!cryptoApi) throw new Error('secure random unavailable');
+  if (typeof cryptoApi.randomUUID === 'function') return cryptoApi.randomUUID();
+  if (typeof cryptoApi.getRandomValues !== 'function') throw new Error('secure random unavailable');
+  const bytes = new Uint8Array(16); cryptoApi.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
+}
+
+function renderPortalHealthTracking(tracking) {
+  const root = $('#ptHealthTracking');
+  if (!root) return;
+  const canGlucose = tracking && tracking.glucose === true;
+  const canPressure = tracking && tracking.bloodPressure === true;
+  const patientId = Portal.data && Portal.data.patient && Portal.data.patient.id;
+  if (!patientId || (!canGlucose && !canPressure)) { root.innerHTML = ''; return; }
+  const cards = [];
+  if (canGlucose) cards.push(
+    '<section class="p-card pt-health-card"><b><i class="fa-solid fa-droplet"></i> تسجيل قراءة سكر</b>' +
+    '<p class="p-small">أدخل قيمة القراءة ونوع التحليل. يُسجّل وقت الإدخال ومصدره تلقائيًا.</p>' +
+    '<form id="ptHealthGlucoseForm" class="pt-health-form" novalidate>' +
+      '<div class="p-field"><label for="ptHealthGlucoseValue">قيمة السكر *</label><input class="input ltr" id="ptHealthGlucoseValue" type="number" min="1" max="2000" step="any" inputmode="decimal" required></div>' +
+      '<div class="p-field"><label for="ptHealthGlucoseType">نوع التحليل *</label><select class="input" id="ptHealthGlucoseType" required><option value="">اختر النوع</option><option value="fasting">صائم</option><option value="post_meal">بعد الأكل</option><option value="random">عشوائي</option></select></div>' +
+      '<button class="btn btn-primary block p-big" id="ptHealthGlucoseSave" type="submit">حفظ قراءة السكر</button><p class="pt-health-message" id="ptHealthGlucoseMessage" role="status" aria-live="polite"></p>' +
+    '</form></section>');
+  if (canPressure) cards.push(
+    '<section class="p-card pt-health-card"><b><i class="fa-solid fa-heart-pulse"></i> تسجيل قراءة ضغط</b>' +
+    '<p class="p-small">أدخل الضغط الانقباضي والانبساطي؛ النبض اختياري. يُسجّل وقت الإدخال ومصدره تلقائيًا.</p>' +
+    '<form id="ptHealthPressureForm" class="pt-health-form" novalidate>' +
+      '<div class="p-field"><label for="ptHealthSystolic">الضغط الانقباضي *</label><input class="input ltr" id="ptHealthSystolic" type="number" min="1" max="400" step="1" inputmode="numeric" required></div>' +
+      '<div class="p-field"><label for="ptHealthDiastolic">الضغط الانبساطي *</label><input class="input ltr" id="ptHealthDiastolic" type="number" min="1" max="300" step="1" inputmode="numeric" required></div>' +
+      '<div class="p-field"><label for="ptHealthPulse">النبض (اختياري)</label><input class="input ltr" id="ptHealthPulse" type="number" min="1" max="400" step="1" inputmode="numeric"></div>' +
+      '<button class="btn btn-primary block p-big" id="ptHealthPressureSave" type="submit">حفظ قراءة الضغط</button><p class="pt-health-message" id="ptHealthPressureMessage" role="status" aria-live="polite"></p>' +
+    '</form></section>');
+  root.innerHTML = cards.join('');
+  [['glucose', '#ptHealthGlucoseForm'], ['blood_pressure', '#ptHealthPressureForm']].forEach(([kind, selector]) => {
+    const form = $(selector);
+    if (!form) return;
+    const typeKey = kind === 'glucose' ? 'glucose' : 'blood_pressure';
+    form.dataset.requestId = portalReadPendingHealthRequest(patientId, typeKey);
+    form.onsubmit = event => { event.preventDefault(); portalSubmitHealthReading(kind); };
+  });
+}
+
+async function portalSubmitHealthReading(kind) {
+  const typeKey = kind === 'glucose' ? 'glucose' : kind === 'blood_pressure' ? 'blood_pressure' : null;
+  const patient = Portal.data && Portal.data.patient;
+  const allowed = patient && patient.healthTracking && (kind === 'glucose'
+    ? patient.healthTracking.glucose === true : kind === 'blood_pressure' && patient.healthTracking.bloodPressure === true);
+  const formId = kind === 'glucose' ? '#ptHealthGlucoseForm' : kind === 'blood_pressure' ? '#ptHealthPressureForm' : '';
+  const buttonId = kind === 'glucose' ? '#ptHealthGlucoseSave' : kind === 'blood_pressure' ? '#ptHealthPressureSave' : '';
+  const messageId = kind === 'glucose' ? '#ptHealthGlucoseMessage' : kind === 'blood_pressure' ? '#ptHealthPressureMessage' : '';
+  if (!typeKey || !allowed || !Portal.token || !patient.id) return;
+  const form = $(formId), button = $(buttonId), message = $(messageId);
+  if (!form || !button || !message || form.dataset.submitting === 'true') return;
+  const failValidation = text => { message.textContent = text; message.classList.remove('success'); message.classList.add('error'); };
+  let args = { p_reading_type: kind, p_glucose_value: null, p_glucose_type: null, p_systolic: null, p_diastolic: null, p_pulse: null };
+  if (kind === 'glucose') {
+    const value = Number($('#ptHealthGlucoseValue').value), readingType = $('#ptHealthGlucoseType').value;
+    if (!Number.isFinite(value) || value < 1 || value > 2000 || !['fasting', 'post_meal', 'random'].includes(readingType)) {
+      failValidation('تحقق من قيمة السكر واختر نوع التحليل.'); return;
+    }
+    args.p_glucose_value = value; args.p_glucose_type = readingType;
+  } else {
+    const systolicText = $('#ptHealthSystolic').value, diastolicText = $('#ptHealthDiastolic').value, pulseText = $('#ptHealthPulse').value;
+    const systolic = Number(systolicText), diastolic = Number(diastolicText), pulse = pulseText === '' ? null : Number(pulseText);
+    if (systolicText === '' || diastolicText === '' || !Number.isInteger(systolic) || systolic < 1 || systolic > 400 ||
+        !Number.isInteger(diastolic) || diastolic < 1 || diastolic > 300 ||
+        (pulse !== null && (!Number.isInteger(pulse) || pulse < 1 || pulse > 400))) {
+      failValidation('أدخل قيمًا صالحة للضغط، ويمكن ترك النبض فارغًا.'); return;
+    }
+    args.p_systolic = systolic; args.p_diastolic = diastolic; args.p_pulse = pulse;
+  }
+
+  const token = Portal.token, patientId = patient.id;
+  let requestId = form.dataset.requestId || portalReadPendingHealthRequest(patientId, typeKey);
+  if (!requestId) {
+    try { requestId = portalCreateHealthRequestId(); }
+    catch (_) { failValidation('تعذّر بدء الحفظ الآمن في هذا المتصفح. حدّث الصفحة أو جرّب متصفحًا حديثًا.'); return; }
+  }
+  form.dataset.requestId = requestId;
+  try { sessionStorage.setItem(portalHealthPendingKey(patientId, typeKey), requestId); } catch (_) { /* server-side idempotency remains active for this page */ }
+  args.p_token = token; args.p_request_id = requestId;
+  form.dataset.submitting = 'true'; button.disabled = true;
+  button.dataset.originalText = button.textContent;
+  button.textContent = 'جارٍ الحفظ…';
+  message.textContent = ''; message.classList.remove('error', 'success');
+  try {
+    const { data, error } = await DB.sb.rpc('patient_portal_add_health_reading', args);
+    if (token !== Portal.token || !Portal.data || patientId !== Portal.data.patient.id) return;
+    if (error) throw error;
+    if (!data || data.ok !== true) {
+      const serverMessage = data && typeof data.error === 'string' ? data.error : 'تعذّر حفظ القراءة. حاول مجددًا.';
+      if (/بنفس البيانات/.test(serverMessage)) {
+        form.dataset.requestId = '';
+        portalRemovePendingHealthRequest(patientId, typeKey);
+        failValidation('تغيّرت البيانات عن محاولة سابقة لم يصل تأكيدها. اضغط الحفظ مرة أخرى لتسجيل القراءة الجديدة.');
+        return;
+      }
+      failValidation(serverMessage);
+      if (/انتهت جلستك|غير متاح حالياً/.test(serverMessage)) {
+        Portal.token = null; Portal.data = null;
+        sessionStorage.removeItem('clinic_patient_token'); resetPortalSessionState();
+        toast(serverMessage, 'error'); switchAuthTab('patient'); showScreen('login');
+      }
+      return;
+    }
+    if (kind === 'glucose') { $('#ptHealthGlucoseValue').value = ''; $('#ptHealthGlucoseType').value = ''; }
+    else { $('#ptHealthSystolic').value = ''; $('#ptHealthDiastolic').value = ''; $('#ptHealthPulse').value = ''; }
+    form.dataset.requestId = '';
+    portalRemovePendingHealthRequest(patientId, typeKey);
+    message.textContent = data.duplicate ? 'هذه القراءة محفوظة بالفعل؛ لم تُسجّل مرة أخرى.' : 'تم حفظ القراءة بنجاح.';
+    message.classList.add('success'); message.classList.remove('error');
+  } catch (_) {
+    if (token !== Portal.token || !Portal.data || patientId !== Portal.data.patient.id) return;
+    failValidation('تعذّر الاتصال أثناء حفظ القراءة. بقيت البيانات كما هي؛ أعد المحاولة.');
+    // Keep the same request ID so a committed request retried after a lost
+    // response cannot create a duplicate row on the server.
+  } finally {
+    if (token === Portal.token && Portal.data && patientId === Portal.data.patient.id) {
+      form.dataset.submitting = 'false'; button.disabled = false;
+      button.textContent = button.dataset.originalText || (kind === 'glucose' ? 'حفظ قراءة السكر' : 'حفظ قراءة الضغط');
+    }
+  }
 }
 
 async function portalLoadRecords(force) {
