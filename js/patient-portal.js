@@ -360,14 +360,17 @@ async function portalSubmitMeasurement() {
 }
 
 /* ===== js/patient-progress.js — المرحلة 15: منحنى تطور المريض ===== */
-let portalRecordsCache = null;   // measurements fetched once per session, refetched after adding one
+let portalRecordsCache = null;   // progress measurements fetched once per session
 let portalRecordsToken = null;
+let portalClinicalCache = null;  // lab panels and glucose / blood-pressure history
+let portalClinicalToken = null;
 let portalRange = 'all';          // فترة المنحنى: 1m | 3m | all
 let portalTableExpanded = false;
 
 // Clear patient-specific state and visible remnants before another session starts.
 function resetPortalSessionState() {
   portalRecordsCache = null; portalRecordsToken = null;
+  portalClinicalCache = null; portalClinicalToken = null;
   portalRange = 'all'; portalTableExpanded = false;
   ['lgWeight', 'lgWaist', 'lgHips', 'lgArm', 'lgNote', 'lgPhoto'].forEach(id => { $('#' + id).value = ''; });
   $('#lgPhotoPrev').classList.add('hide');
@@ -376,7 +379,7 @@ function resetPortalSessionState() {
   $('#lgErr').classList.remove('show');
   $('#lgSave').disabled = false;
   $('#lgSave').innerHTML = '<i class="fa-solid fa-check"></i> حفظ القياس';
-  ['ptSummary', 'ptRows', 'ptRowsNote', 'ptMotive', 'ptAppointmentsView', 'ptHealthTracking'].forEach(id => { $('#' + id).innerHTML = ''; });
+  ['ptSummary', 'ptRows', 'ptRowsNote', 'ptMotive', 'ptAppointmentsView', 'ptHealthTracking', 'ptClinicalHistory'].forEach(id => { $('#' + id).innerHTML = ''; });
   ['pw1', 'pw2'].forEach(key => { if (Charts[key]) { Charts[key].destroy(); delete Charts[key]; } });
   $('#ptHomeMain').classList.remove('hide');
   ['ptProgressView', 'ptLogView', 'ptAppointmentsView'].forEach(id => { $('#' + id).classList.add('hide'); });
@@ -514,6 +517,7 @@ async function portalSubmitHealthReading(kind) {
       }
       return;
     }
+    portalClinicalCache = null; portalClinicalToken = null;
     if (kind === 'glucose') { $('#ptHealthGlucoseValue').value = ''; $('#ptHealthGlucoseType').value = ''; }
     else { $('#ptHealthSystolic').value = ''; $('#ptHealthDiastolic').value = ''; $('#ptHealthPulse').value = ''; }
     form.dataset.requestId = '';
@@ -553,6 +557,65 @@ async function portalLoadRecords(force) {
   return portalRecordsCache;
 }
 
+async function portalLoadClinical(force) {
+  const token = Portal.token;
+  if (!token) return null;
+  if (portalClinicalCache && portalClinicalToken === token && !force) return portalClinicalCache;
+  const { data, error } = await DB.sb.rpc('patient_portal_clinical_history', { p_token: token });
+  if (token !== Portal.token) return null;
+  if (error) throw error;
+  if (!data || data.ok !== true) {
+    const message = data && typeof data.error === 'string' ? data.error : '';
+    if (/انتهت جلستك|غير متاح حالياً/.test(message)) {
+      Portal.logout();
+      return null;
+    }
+    throw new Error('portal_clinical_history_unavailable');
+  }
+  portalClinicalCache = {
+    labs: Array.isArray(data.labs) ? data.labs : [],
+    readings: Array.isArray(data.readings) ? data.readings : []
+  };
+  portalClinicalToken = token;
+  return portalClinicalCache;
+}
+
+function renderPortalClinicalHistory(clinical) {
+  const root = $('#ptClinicalHistory');
+  if (!root) return;
+  if (!clinical) {
+    root.innerHTML = '<div class="p-card"><b>تحاليلك وقياساتك</b><p class="portal-clinical-error" role="status">تعذّر تحميل التحاليل والقياسات حاليًا. حاول مرة أخرى أو تواصل مع العيادة.</p></div>';
+    return;
+  }
+  const labs = Array.isArray(clinical.labs) ? clinical.labs : [];
+  const readings = Array.isArray(clinical.readings) ? clinical.readings : [];
+  const labMarkup = labs.length ? labs.map(lab => {
+    const results = Array.isArray(lab.results) ? lab.results : [];
+    return '<article class="portal-clinical-record"><div class="portal-clinical-head"><b>' + esc(lab.testName || 'تحليل') + '</b><span>' + esc(humanDate(lab.testedOn)) + '</span></div>' +
+      (results.length ? '<div class="portal-clinical-results">' + results.map(result =>
+        '<div><span>' + esc(result && result.name || 'نتيجة') + '</span><b>' + esc(result && result.value != null ? String(result.value) : '—') +
+        (result && result.unit ? ' <small>' + esc(result.unit) + '</small>' : '') + '</b></div>'
+      ).join('') + '</div>' : '<p class="p-small">لا توجد تفاصيل للنتائج.</p>') +
+      '<small class="portal-clinical-source">' + (lab.source === 'patient' ? 'مسجل من بوابتك' : 'مسجل من العيادة') + '</small></article>';
+  }).join('') : '<div class="p-empty"><b>لا توجد تحاليل مسجلة حاليًا</b></div>';
+  const readingMarkup = readings.length ? readings.map(reading => {
+    const date = reading.recordedAt ? new Date(reading.recordedAt) : null;
+    const stamp = date && Number.isFinite(date.getTime())
+      ? date.toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' }) : 'وقت غير متاح';
+    const body = reading.readingType === 'glucose'
+      ? '<b>' + esc(reading.glucoseValue == null ? '—' : String(reading.glucoseValue)) + ' ' +
+        (reading.glucoseUnit ? esc(reading.glucoseUnit) : '<span class="portal-clinical-unit-unknown">الوحدة غير مسجلة</span>') + '</b>' +
+        '<span>' + ({ fasting: 'صائم', post_meal: 'بعد الأكل', random: 'عشوائي' }[reading.glucoseType] || 'سكر الدم') + '</span>'
+      : '<b>' + esc(reading.systolic == null ? '—' : String(reading.systolic)) + '/' + esc(reading.diastolic == null ? '—' : String(reading.diastolic)) + ' mmHg</b>' +
+        (reading.pulse == null ? '' : '<span>النبض: ' + esc(String(reading.pulse)) + '</span>');
+    return '<article class="portal-clinical-record"><div class="portal-clinical-head"><b>' + (reading.readingType === 'glucose' ? 'سكر الدم' : 'ضغط الدم') + '</b><span>' + esc(stamp) + '</span></div>' +
+      '<div class="portal-clinical-reading">' + body + '</div><small class="portal-clinical-source">' +
+      (reading.source === 'patient' ? 'مسجل من بوابتك' : 'مسجل من العيادة') + '</small></article>';
+  }).join('') : '<div class="p-empty"><b>لا توجد قياسات سكر أو ضغط مسجلة حاليًا</b></div>';
+  root.innerHTML = '<div class="p-card"><b><i class="fa-solid fa-flask"></i> تحاليلك</b><div class="portal-clinical-list">' + labMarkup + '</div></div>' +
+    '<div class="p-card"><b><i class="fa-solid fa-heart-pulse"></i> قياسات السكر والضغط</b><div class="portal-clinical-list">' + readingMarkup + '</div></div>';
+}
+
 function portalGo(view) {
   // ناڤ البوابة: يوجد type الآن في الشريط السفلي (4 تبويبات)
   $$('#patientPortal .pt-bottom button').forEach(b => b.classList.toggle('active', b.dataset.pview === view));
@@ -569,8 +632,13 @@ async function portalRenderProgress() {
   const token = Portal.token;
   const sum = $('#ptSummary');
   sum.innerHTML = '<div class="skel" style="height:78px"></div>'.repeat(3);
-  const rows = await portalLoadRecords().catch(() => { if (token === Portal.token) toast('تعذّر تحميل سجل القياسات', 'error'); return null; });
-  if (!rows || token !== Portal.token || !Portal.data) return;
+  const [rows, clinical] = await Promise.all([
+    portalLoadRecords().catch(() => { if (token === Portal.token) toast('تعذّر تحميل سجل القياسات', 'error'); return null; }),
+    portalLoadClinical().catch(() => { if (token === Portal.token) toast('تعذّر تحميل التحاليل والقياسات', 'error'); return null; })
+  ]);
+  if (token !== Portal.token || !Portal.data) return;
+  renderPortalClinicalHistory(clinical);
+  if (!rows) return;
   const p = Portal.data.patient;
 
   // Empty state — المريض لسه مفيش عنده قياسات
@@ -584,8 +652,8 @@ async function portalRenderProgress() {
     const wCard = document.querySelector('#ptProgressView .chart-box').closest('.p-card');
     wCard.querySelector('.chart-box').style.display = 'none';
     wCard.querySelector('#ptMotive').innerHTML =
-      '<div class="p-empty" style="padding:16px"><i class="fa-solid fa-chart-line"></i><b>لسه مفيش قياسات</b>' +
-      '<p class="p-small" style="margin-top:4px">الدكتور هيسجل أول قياس في زيارتك الجاية — وهيوصلك منحنى هنا فوراً</p></div>';
+      '<div class="p-empty" style="padding:16px"><i class="fa-solid fa-chart-line"></i><b>لسه مفيش قياسات وزن أو جلسات في سجل تطورك</b>' +
+      '<p class="p-small" style="margin-top:4px">التحاليل وقراءات السكر والضغط بتظهر في البطاقات أعلاه؛ وأول قياس تطور هيسجله الدكتور هيظهر هنا.</p></div>';
     return;
   }
 
