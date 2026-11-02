@@ -31,5 +31,7 @@ test('atomic Cairo-day quota caps all patient-submitted reading types and does n
   }
   assert.match(body(migration, 'patient_portal_add_health_reading'), /portal_request_id is distinct from p_request_id/);
   assert.match(config, /2026-11-07 atomic 20\/day patient-portal write cap/);
+  assert.match(migration, /add column if not exists created_at timestamptz/);
+  assert.match(body(migration, 'patient_portal_add_measurement'), /source, created_at\)[\s\S]*'patient', now\(\)/);
   for (const name of names) assert.equal(body(config, name, true), body(migration, name));
 });

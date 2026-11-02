@@ -1807,6 +1807,12 @@ create trigger patient_photo_queue_after_photo_change
   execute function public.queue_patient_photo_cleanup();
 
 -- 2026-11-07 atomic 20/day patient-portal write cap
+-- Older clinic schemas may not have a record creation timestamp. Keep legacy
+-- rows NULL rather than backdating them or counting them as today's writes;
+-- the portal RPC below stamps every new patient-submitted measurement.
+alter table public.patient_records
+  add column if not exists created_at timestamptz;
+
 create index if not exists patient_records_portal_daily_limit_idx
   on public.patient_records (patient_id, created_at) where source = 'patient';
 create index if not exists patient_health_readings_portal_daily_limit_idx
@@ -1883,9 +1889,9 @@ begin
     return jsonb_build_object('ok', false, 'error', 'تعذّر التحقق من الصورة — حاول رفعها مجدداً');
   end if;
 
-  insert into public.patient_records (doctor_id, patient_id, date, weight, waist, hips, arm, note, photo_path, source)
+  insert into public.patient_records (doctor_id, patient_id, date, weight, waist, hips, arm, note, photo_path, source, created_at)
     values (v_s.doctor_id, v_s.patient_id, v_date, p_weight, p_waist, p_hips, p_arm,
-            left(p_note, 500), nullif(p_photo_path, ''), 'patient');   -- source forced here
+            left(p_note, 500), nullif(p_photo_path, ''), 'patient', now());   -- source and creation time are server-assigned
 
   insert into public.audit_logs (actor_id, action, entity, entity_id, meta)
     values (v_s.doctor_id, 'patient-measure', 'patient_records', null,

@@ -226,6 +226,17 @@ test('editing an existing result saves a correction instead of creating a second
   assert.equal(ui.calls.refreshed, 1);
 });
 
+test('lab save errors expose safe actionable codes without revealing backend details', () => {
+  const context = vm.createContext({});
+  vm.runInContext(labsSource + '\nglobalThis.__message = labSaveFailureMessage;', context);
+  const message = context.__message;
+  assert.match(message({ code: '42501', message: 'private database detail' }), /MFA/);
+  assert.match(message({ code: '23503' }), /العيادة الحالية/);
+  assert.match(message({ code: 'PGRST205' }), /مخطط التحاليل/);
+  assert.match(message({ message: 'private database detail' }), /تحقق من الاتصال/);
+  assert.doesNotMatch(message({ code: '42501', message: 'private database detail' }), /private database detail/);
+});
+
 test('lab setting hides tab and does not load or erase prior results; enabling it reloads the list', async () => {
   const previous = [{ id: 'lab-old', testName: 'CBC', testedOn: '2026-10-10', results: [
     { name: 'Hb', value: 0, unit: 'g/dL' }, { name: 'Morphology', value: 'Normal' }
