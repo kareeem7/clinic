@@ -48,7 +48,7 @@ async function renderPatientDetail(id) {
     metaItem('التشخيص / الهدف', esc(p.diagnosis || '—')) +
     (p.type === 'nutrition'
       ? metaItem('الوزن المستهدف', p.targetWeight ? p.targetWeight + ' كجم' : 'لم يُحدد')
-      : metaItem('عدد الجلسات', (p.measurements || []).length + ' جلسة'));
+      : metaItem('عدد الجلسات', (p.measurements || []).filter(m => !isInBodyRecord(m)).length + ' جلسة'));
 
   // المؤشرات حسب التخصص
   let kpis = '';
@@ -63,7 +63,7 @@ async function renderPatientDetail(id) {
       kpiHTML('fa-bullseye', 'amber', p.targetWeight ? p.targetWeight + ' كجم' : '—', 'الهدف',
         current && p.targetWeight ? 'متبقٍ ' + Math.max(0, +(current - p.targetWeight).toFixed(1)) + ' كجم' : 'حدّد الهدف من التعديل');
   } else {
-    const ms = (p.measurements || []).slice().sort((a, b) => a.date.localeCompare(b.date));
+    const ms = (p.measurements || []).filter(m => !isInBodyRecord(m)).slice().sort((a, b) => a.date.localeCompare(b.date));
     const first = ms[0], last = ms[ms.length - 1];
     kpis =
       kpiHTML('fa-clipboard-list', 'teal', ms.length, 'جلسة مكتملة', 'منذ ' + (first ? humanDate(first.date) : '—')) +
@@ -79,7 +79,7 @@ async function renderPatientDetail(id) {
   drawPatientChart(p);
 
   // خط زمني للقياسات (الأحدث أولاً) — مع عرض الخصر/الأرداف/الدهون إن وُجدت
-  const msDesc = (p.measurements || []).slice().sort((a, b) => b.date.localeCompare(a.date));
+  const msDesc = (p.measurements || []).filter(m => !isInBodyRecord(m)).slice().sort((a, b) => b.date.localeCompare(a.date));
   $('#patMeasureList').innerHTML = msDesc.length ? msDesc.map(m => {
     const isNut = p.type === 'nutrition';
     const dotColor = isNut ? 'teal' : (m.pain <= 3 ? 'green' : m.pain <= 6 ? 'amber' : 'rose');
@@ -101,6 +101,7 @@ async function renderPatientDetail(id) {
       '<small style="display:block;margin-top:3px">' + relDay(m.date) + '</small>' + (m.note ? '<p>' + esc(m.note) + '</p>' : '') + '</div>' +
       '<button class="icon-btn sm danger tl-x" data-action="del-measure" data-id="' + p.id + '" data-x="' + m.id + '" title="حذف القياس"><i class="fa-solid fa-trash"></i></button></div>';
   }).join('') : emptyHTML('fa-scale-balanced', 'لا توجد قياسات بعد', 'أضف أول قياس من الزر بالأعلى لبدء متابعة التطور');
+  renderPatientInBody(p);
 
   // بطاقة الخطة الغذائية المرتبطة
   const plan = getPlan(p.planId);
@@ -153,6 +154,30 @@ async function renderPatientDetail(id) {
   // مزامنة واجهة فلتر فترة المنحنى مع الحالة الحفوظة (تبقى عند التنقل بين المرضى)
   $$('#rangeTabs button').forEach(b => b.classList.toggle('active', b.dataset.range === State.pRange));
 
+  await loadPatientLabs(p); // لا نجلب النتائج الطبية إلا إذا كانت ميزة التحاليل مفعّلة
   renderPatientNotes(p); // تبويب الملاحظات والأمراض المزمنة
+}
+
+function renderPatientInBody(p) {
+  const enabled = normalizeClinicalFeatures((State.settings || {}).clinicalFeatures).inbody;
+  $('#patInbodySection').classList.toggle('hide', !enabled);
+  if (!enabled) return; // keep source rows in p.measurements; only hide the feature UI
+
+  const records = (p.measurements || []).filter(m => m && m.recordType === 'inbody')
+    .slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  const metric = (label, value, unit) => value == null ? '' :
+    '<span class="chip chip-gray">' + label + ': ' + esc(value) + (unit ? ' ' + unit : '') + '</span>';
+  $('#patInbodyList').innerHTML = records.length ? records.map(m =>
+    '<article class="inbody-record"><div class="inbody-record-head"><b>' + esc(humanDate(m.date)) +
+      '</b><span class="chip chip-blue"><i class="fa-solid fa-wave-square"></i> InBody</span>' +
+      '<span class="inbody-record-actions"><button class="icon-btn sm" data-action="edit-inbody" data-id="' + esc(p.id) + '" data-x="' + esc(m.id) + '" aria-label="تعديل فحص InBody"><i class="fa-solid fa-pen"></i></button>' +
+      '<button class="icon-btn sm danger" data-action="del-inbody" data-id="' + esc(p.id) + '" data-x="' + esc(m.id) + '" aria-label="حذف فحص InBody"><i class="fa-solid fa-trash"></i></button></span></div>' +
+      '<div class="inbody-metrics">' +
+        metric('الوزن', m.weight, 'كجم') + metric('BMI', m.bmi, 'كجم/م²') +
+        metric('نسبة الدهون', m.fat, '%') + metric('كتلة الدهون', m.bodyFatMass, 'كجم') +
+        metric('كتلة العضلات الهيكلية', m.skeletalMuscleMass, 'كجم') +
+        metric('الدهون الحشوية', m.visceralFatLevel, 'مستوى') + metric('نسبة الماء', m.bodyWaterPct, '%') +
+      '</div>' + (m.note ? '<p class="inbody-note">' + esc(m.note) + '</p>' : '') + '</article>'
+  ).join('') : emptyHTML('fa-wave-square', 'لا توجد فحوص InBody بعد', 'أضف فحصًا لبدء سجل مكونات الجسم');
 }
 

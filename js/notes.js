@@ -141,7 +141,7 @@ function drawPatientChart(p) {
   const cv = $('#patChart'); if (!cv || !window.Chart) return;
   const box = cv.parentElement;
   box.querySelectorAll('.chart-empty').forEach(el => el.remove());
-  let ms = (p.measurements || []).slice().sort((a, b) => a.date.localeCompare(b.date));
+  let ms = (p.measurements || []).filter(m => !isInBodyRecord(m)).slice().sort((a, b) => a.date.localeCompare(b.date));
   // فلتر الفترة الزمنية المختارة: شهر / 3 شهور / الكل
   if (State.pRange !== 'all') {
     const cut = new Date(); cut.setMonth(cut.getMonth() - (State.pRange === '3m' ? 3 : 1));
@@ -191,7 +191,7 @@ function drawPatientChart(p) {
 function openMeasureModal(pid) {
   const p = getPatient(pid); if (!p) return;
   const isNut = p.type === 'nutrition';
-  const nextSession = (p.measurements || []).length + 1;
+  const nextSession = (p.measurements || []).filter(m => !isInBodyRecord(m)).length + 1;
   openModal(isNut ? 'قياس جديد — ' + esc(p.name) : 'تسجيل جلسة ' + nextSession + ' — ' + esc(p.name),
     '<form id="measureForm" class="form-grid">' +
       '<div class="field"><label>التاريخ</label><input class="input" id="m_date" type="date" value="' + todayISO() + '"></div>' +
@@ -228,6 +228,108 @@ function openMeasureModal(pid) {
       const er = $('#mErr'); er.textContent = 'تعذّر حفظ القياس — تحقق من الاتصال وحاول مجدداً'; er.classList.add('show');
     }
   };
+}
+
+// فحص InBody يُحفظ كسجل patient_records مستقل، ومصدره record_type='inbody'.
+// الطول لا يُكرر؛ BMI مشتق منه ومن وزن الفحص ما دام الطول محفوظاً بالملف.
+function inBodyBMI(weight, height) {
+  const w = Number(weight), h = Number(height);
+  if (!Number.isFinite(w) || w < 20 || w > 350 || !Number.isFinite(h) || h < 80 || h > 230) return null;
+  const value = +(w / Math.pow(h / 100, 2)).toFixed(1);
+  return value >= 1 && value <= 100 ? value : null;
+}
+
+function openInBodyModal(pid, existing) {
+  if (!normalizeClinicalFeatures((State.settings || {}).clinicalFeatures).inbody) {
+    toast('ميزة InBody غير مفعّلة لهذه العيادة', 'info'); return;
+  }
+  const p = getPatient(pid); if (!p) return;
+  if (existing && existing.recordType !== 'inbody') return;
+  const edit = Boolean(existing);
+  const value = key => existing && existing[key] != null ? esc(existing[key]) : '';
+  const date = existing && existing.date ? existing.date : todayISO();
+  const heightAvailable = Number.isFinite(Number(p.height)) && Number(p.height) >= 80 && Number(p.height) <= 230;
+  const bmiMarkup = heightAvailable
+    ? '<div class="field"><label for="ib_bmi_preview">BMI (كجم/م²)</label><output id="ib_bmi_preview" class="bmi-preview" aria-live="polite">' +
+      (inBodyBMI(existing && existing.weight, p.height) ?? 'يُحسب بعد إدخال الوزن') +
+      '</output><small class="muted">قيمة محسوبة من الوزن وطول الملف (' + esc(p.height) + ' سم)؛ لا نخزن الطول مرتين.</small></div>'
+    : '<div class="field"><label for="ib_bmi">BMI من الجهاز (كجم/م²)</label><input class="input ltr" id="ib_bmi" type="number" min="1" max="100" step="0.1" value="' + value('bmi') + '" placeholder="اختياري"></div>';
+  openModal(edit ? 'تعديل فحص InBody — ' + esc(p.name) : 'إضافة فحص InBody — ' + esc(p.name),
+    '<form id="inbodyForm" class="form-grid">' +
+      '<div class="field"><label for="ib_date">تاريخ الفحص</label><input class="input" id="ib_date" type="date" max="' + todayISO() + '" value="' + esc(date) + '" required></div>' +
+      '<div class="field"><label for="ib_weight">الوزن (كجم)</label><input class="input ltr" id="ib_weight" type="number" min="20" max="350" step="0.1" value="' + value('weight') + '" placeholder="اختياري"></div>' +
+      bmiMarkup +
+      '<div class="field"><label for="ib_fat">نسبة الدهون (%)</label><input class="input ltr" id="ib_fat" type="number" min="0" max="100" step="0.1" value="' + value('fat') + '" placeholder="اختياري"></div>' +
+      '<div class="field"><label for="ib_fat_mass">كتلة الدهون (كجم)</label><input class="input ltr" id="ib_fat_mass" type="number" min="0" max="500" step="0.1" value="' + value('bodyFatMass') + '" placeholder="اختياري"></div>' +
+      '<div class="field"><label for="ib_muscle">كتلة العضلات الهيكلية (كجم)</label><input class="input ltr" id="ib_muscle" type="number" min="0" max="300" step="0.1" value="' + value('skeletalMuscleMass') + '" placeholder="اختياري"></div>' +
+      '<div class="field"><label for="ib_visceral">الدهون الحشوية (مستوى)</label><input class="input ltr" id="ib_visceral" type="number" min="0" max="100" step="0.1" value="' + value('visceralFatLevel') + '" placeholder="اختياري"></div>' +
+      '<div class="field"><label for="ib_water">نسبة الماء (%)</label><input class="input ltr" id="ib_water" type="number" min="0" max="100" step="0.1" value="' + value('bodyWaterPct') + '" placeholder="اختياري"></div>' +
+      '<div class="field full"><label for="ib_note">ملاحظة (اختياري)</label><textarea class="input" id="ib_note" maxlength="1000">' + (existing ? esc(existing.note || '') : '') + '</textarea></div>' +
+      '<div id="ibErr" class="form-error full" role="alert" aria-live="polite"></div>' +
+      '<div class="modal-foot full"><button type="button" class="btn btn-ghost" data-close>إلغاء</button><button class="btn btn-primary"><i class="fa-solid fa-check"></i> ' + (edit ? 'حفظ التعديل' : 'حفظ الفحص') + '</button></div>' +
+    '</form>', 640);
+
+  if (heightAvailable) {
+    const updateBMI = () => { $('#ib_bmi_preview').textContent = inBodyBMI($('#ib_weight').value, p.height) ?? 'يُحسب بعد إدخال الوزن'; };
+    $('#ib_weight').addEventListener('input', updateBMI);
+    $('#ib_weight').addEventListener('change', updateBMI);
+  }
+
+  $('#inbodyForm').onsubmit = async e => {
+    e.preventDefault();
+    const btn = e.target.querySelector('.btn-primary'), error = $('#ibErr');
+    error.textContent = ''; error.classList.remove('show'); btn.disabled = true;
+    const read = (selector, min, max) => {
+      const raw = $(selector).value;
+      if (String(raw ?? '').trim() === '') return null;
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < min || n > max) throw { code: 'invalid_inbody_record' };
+      return n;
+    };
+    const dateValue = $('#ib_date').value;
+    const parsedDate = /^\d{4}-\d{2}-\d{2}$/.test(dateValue) ? new Date(dateValue + 'T00:00:00Z') : null;
+    let record;
+    try {
+      if (!parsedDate || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== dateValue || dateValue > todayISO()) {
+        throw { code: 'invalid_inbody_record' };
+      }
+      const weight = read('#ib_weight', 20, 350);
+      const bmiValue = heightAvailable ? inBodyBMI(weight, p.height) : read('#ib_bmi', 1, 100);
+      record = {
+        date: dateValue, recordType: 'inbody', weight, bmi: bmiValue,
+        fat: read('#ib_fat', 0, 100), bodyFatMass: read('#ib_fat_mass', 0, 500),
+        skeletalMuscleMass: read('#ib_muscle', 0, 300), visceralFatLevel: read('#ib_visceral', 0, 100),
+        bodyWaterPct: read('#ib_water', 0, 100), note: $('#ib_note').value.trim()
+      };
+      if (!['weight', 'bmi', 'fat', 'bodyFatMass', 'skeletalMuscleMass', 'visceralFatLevel', 'bodyWaterPct'].some(k => record[k] != null)) {
+        throw { code: 'invalid_inbody_record' };
+      }
+    } catch (_) {
+      error.textContent = 'أدخل تاريخًا صالحًا ومؤشرًا واحدًا على الأقل، وتحقق من الحدود الظاهرة بجوار الحقول.';
+      error.classList.add('show'); btn.disabled = false; return;
+    }
+
+    try {
+      if (edit) await DB.updateRecord(pid, existing.id, record);
+      else await DB.addRecord(pid, record);
+      toast(edit ? 'تم تعديل فحص InBody' : 'تم حفظ فحص InBody');
+      closeModal(); renderPatientDetail(pid);
+    } catch (_) {
+      error.textContent = 'تعذّر حفظ فحص InBody — تحقق من الاتصال وحاول مجددًا.';
+      error.classList.add('show'); btn.disabled = false;
+    }
+  };
+}
+
+async function delInBody(pid, mid) {
+  if (!normalizeClinicalFeatures((State.settings || {}).clinicalFeatures).inbody) return;
+  const p = getPatient(pid);
+  const record = p && (p.measurements || []).find(m => m.id === mid && m.recordType === 'inbody');
+  if (!record) { toast('فحص InBody غير موجود', 'error'); return; }
+  const ok = await confirmDlg('حذف فحص InBody', 'سيُخفى هذا الفحص من سجل المريض ويمكن استعادته من الأرشيف.', 'حذف');
+  if (!ok) return;
+  try { await DB.deleteRecord(pid, mid); toast('تم حذف فحص InBody'); renderPatientDetail(pid); }
+  catch (_) { toast('تعذّر حذف فحص InBody — تحقق من الاتصال', 'error'); }
 }
 
 // حذف قياس من سجل المريض (من records sub-collection)

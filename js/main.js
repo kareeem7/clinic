@@ -15,7 +15,7 @@
 // التبديل بين تبويبات ملف المريض (قياسات / زيارات / خطة / مواعيد)
 function switchPTab(t) {
   $$('#patTabs [data-ptab]').forEach(b => b.classList.toggle('active', b.dataset.ptab === t));
-  ['measure', 'visits', 'notes', 'plan', 'appts'].forEach(k => {
+  ['measure', 'labs', 'visits', 'notes', 'plan', 'appts'].forEach(k => {
     const el = document.getElementById('ptab-' + k);
     if (el) el.classList.toggle('hide', k !== t);
   });
@@ -57,6 +57,20 @@ const Actions = {
   'del-note':      ds => delNote(ds.id),
   'add-measure':   () => openMeasureModal(State.param),
   'del-measure':   ds => delMeasure(ds.id, ds.x),
+  'add-inbody':    () => openInBodyModal(State.param),
+  'edit-inbody':   ds => {
+    const p = getPatient(ds.id);
+    const rec = p && (p.measurements || []).find(m => m.id === ds.x && m.recordType === 'inbody');
+    if (rec) openInBodyModal(ds.id, rec); else toast('فحص InBody غير موجود في سجل هذا المريض', 'error');
+  },
+  'del-inbody':    ds => delInBody(ds.id, ds.x),
+  'add-lab':       () => openLabModal(State.param),
+  'edit-lab':      ds => {
+    const p = getPatient(ds.id);
+    const lab = p && (p.labs || []).find(item => item.id === ds.x);
+    if (lab) openLabModal(ds.id, lab); else toast('سجل التحليل غير موجود في ملف هذا المريض', 'error');
+  },
+  'del-lab':       ds => deletePatientLab(ds.id, ds.x),
   'appt-for-patient': () => openApptModal(State.param), // حجز موعد من داخل ملف المريض
   'export':        () => exportBackup(),
   'decrypt-backup': () => decryptBackup(),
