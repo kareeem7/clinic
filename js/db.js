@@ -65,13 +65,24 @@ function normalizeLabResults(results) {
   if (!Array.isArray(results) || results.length < 1 || results.length > 100) throw { code: 'invalid_lab_results' };
   return results.map(item => {
     if (!item || typeof item !== 'object' || Array.isArray(item)) throw { code: 'invalid_lab_results' };
-    const name = String(item.name || '').trim();
-    const value = item.value;
-    const unit = item.unit == null ? '' : String(item.unit).trim();
+    if (typeof item.name !== 'string' || (item.unit != null && typeof item.unit !== 'string')) throw { code: 'invalid_lab_results' };
+    const name = item.name.trim();
+    const rawValue = item.value;
+    const value = typeof rawValue === 'string' ? rawValue.trim() : rawValue;
+    const unit = item.unit == null ? '' : item.unit.trim();
     if (!name || name.length > 100 || !(typeof value === 'string' || (typeof value === 'number' && Number.isFinite(value))) ||
-        (typeof value === 'string' && value.length > 500) || unit.length > 40) throw { code: 'invalid_lab_results' };
+        (typeof value === 'string' && (!value || value.length > 500)) || unit.length > 40) throw { code: 'invalid_lab_results' };
     return { name, value, ...(unit ? { unit } : {}) };
   });
+}
+
+function validateLabDate(date) {
+  const parsed = typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
+    ? new Date(date + 'T00:00:00Z') : null;
+  if (!parsed || !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date || date > todayISO()) {
+    throw { code: 'invalid_lab_date' };
+  }
+  return date;
 }
 
 function validateHealthReading(reading) {
@@ -93,6 +104,26 @@ function validateHealthReading(reading) {
       recordedAt: reading.recordedAt || new Date().toISOString() };
   }
   throw { code: 'invalid_health_reading' };
+}
+
+function validateInBodyRecord(record) {
+  const ranges = {
+    weight: [20, 350], bmi: [1, 100], fat: [0, 100], bodyFatMass: [0, 500],
+    skeletalMuscleMass: [0, 300], visceralFatLevel: [0, 100], bodyWaterPct: [0, 100]
+  };
+  const hasValue = Object.keys(ranges).some(key => record[key] != null && record[key] !== '');
+  const date = record.date;
+  const parsed = typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
+    ? new Date(date + 'T00:00:00Z') : null;
+  if (!hasValue || !parsed || !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date || date > todayISO()) {
+    throw { code: 'invalid_inbody_record' };
+  }
+  for (const [key, [min, max]] of Object.entries(ranges)) {
+    const value = record[key];
+    if (value == null || value === '') continue;
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < min || number > max) throw { code: 'invalid_inbody_record' };
+  }
 }
 
 // camelCase → snake_case قبل الإرسال لسوبابيز
@@ -460,15 +491,17 @@ const DB = {
     const rows = await this.fetchAll(() => this.sb.from('patient_labs').select('*')
       .eq('patient_id', pid).eq('doctor_id', this.uid).is('deleted_at', null)
       .order('tested_on', { ascending: false }).order('id'));
-    return rows.map(r => fromRow('patient_labs', r));
+    const labs = rows.map(r => fromRow('patient_labs', r));
+    await this.audit('view', 'patient_labs', null, { patientRef: true, count: labs.length });
+    return labs;
   },
 
   async addLab(pid, lab) {
-    const testName = String(lab.testName || '').trim();
+    const testName = lab && typeof lab.testName === 'string' ? lab.testName.trim() : '';
     if (!testName || testName.length > 160) throw { code: 'invalid_lab_test_name' };
     const row = {
       doctor_id: this.uid, patient_id: pid, test_name: testName,
-      tested_on: lab.testedOn || todayISO(), results: normalizeLabResults(lab.results || []), source: 'clinic'
+      tested_on: validateLabDate(lab.testedOn || todayISO()), results: normalizeLabResults(lab.results || []), source: 'clinic'
     };
     const { data, error } = await this.sb.from('patient_labs').insert(row).select().single();
     if (error) throw error;
@@ -480,10 +513,10 @@ const DB = {
   async updateLab(pid, id, patch) {
     const row = {};
     if (Object.prototype.hasOwnProperty.call(patch, 'testName')) {
-      row.test_name = String(patch.testName || '').trim();
+      row.test_name = typeof patch.testName === 'string' ? patch.testName.trim() : '';
       if (!row.test_name || row.test_name.length > 160) throw { code: 'invalid_lab_test_name' };
     }
-    if (Object.prototype.hasOwnProperty.call(patch, 'testedOn')) row.tested_on = patch.testedOn;
+    if (Object.prototype.hasOwnProperty.call(patch, 'testedOn')) row.tested_on = validateLabDate(patch.testedOn);
     if (Object.prototype.hasOwnProperty.call(patch, 'results')) row.results = normalizeLabResults(patch.results);
     if (!Object.keys(row).length) throw { code: 'empty_update' };
     const { data, error } = await this.sb.from('patient_labs').update(row)
@@ -699,6 +732,7 @@ const DB = {
     if (p) p.measurements = data.map(r => fromRow('patient_records', r));
   },
   async addRecord(pid, rec) {
+    if (rec && rec.recordType === 'inbody') validateInBodyRecord(rec);
     const payload = {
       doctor_id: this.uid, patient_id: pid, date: rec.date,
       weight: rec.weight ?? null, waist: rec.waist ?? null, hips: rec.hips ?? null, arm: rec.arm ?? null, fat: rec.fat ?? null,
@@ -734,6 +768,7 @@ const DB = {
     const safe = {};
     for (const key of allowed) if (Object.prototype.hasOwnProperty.call(patch, key)) safe[key] = patch[key];
     if (!Object.keys(safe).length) throw { code: 'empty_update' };
+    if (safe.recordType === 'inbody') validateInBodyRecord(safe);
     const row = toRow('patient_records', safe);
     const { data, error } = await this.sb.from('patient_records').update(row)
       .eq('id', mid).eq('patient_id', pid).eq('doctor_id', this.uid).is('deleted_at', null)
@@ -751,7 +786,7 @@ const DB = {
   async deleteRecord(pid, mid) {
     const { error } = await this.sb.from('patient_records')
       .update({ deleted_at: new Date().toISOString(), deleted_by: this.uid })
-      .eq('id', mid).eq('doctor_id', this.uid);
+      .eq('id', mid).eq('patient_id', pid).eq('doctor_id', this.uid).is('deleted_at', null);
     if (error) throw error;
     const p = getPatient(pid);
     if (p) p.measurements = (p.measurements || []).filter(m => m.id !== mid);

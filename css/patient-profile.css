@@ -29,3 +29,24 @@ patient-profile.css
 .tl-body small{color:var(--muted);font-size:11.5px;display:block}
 .tl-body p{font-size:13px;margin-top:2px}
 .tl-x{align-self:flex-start}
+.inbody-list{display:flex;flex-direction:column;gap:10px}
+.inbody-record{padding:13px;border:1px solid var(--line);border-radius:var(--r-md);background:#fbfdfd}
+.inbody-record-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.inbody-record-actions{margin-inline-start:auto;display:flex;gap:5px}
+.inbody-metrics{display:flex;gap:7px;flex-wrap:wrap}
+.inbody-note{margin:9px 0 0;color:var(--muted);font-size:12.5px;white-space:pre-wrap;overflow-wrap:anywhere}
+.lab-list{display:flex;flex-direction:column;gap:10px}
+.lab-record{padding:14px;border:1px solid var(--line);border-radius:var(--r-md);background:#fbfdfd}
+.lab-record-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}
+.lab-record-head b,.lab-record-head small{display:block}
+.lab-record-head small{margin-top:3px;color:var(--muted);font-size:12px}
+.lab-record-actions{display:flex;gap:5px;flex:none}
+.lab-results{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:7px}
+.lab-result{display:flex;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:10px;background:#f2f7f6;font-size:12.5px}
+.lab-result span{color:#3d5654}
+.lab-result b{direction:ltr;text-align:left;overflow-wrap:anywhere}
+.lab-result small{color:var(--muted);font-size:11px;font-weight:700}
+.lab-components-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.lab-result-row{display:grid;grid-template-columns:minmax(140px,1.3fr) minmax(110px,.65fr) minmax(120px,.8fr) minmax(110px,.65fr) auto;gap:8px;align-items:end;margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:#fbfdfd}
+.lab-remove-component{white-space:nowrap}
+@media(max-width:700px){.lab-result-row{grid-template-columns:1fr 1fr}.lab-result-row .lab-component-name{grid-column:1/-1}.lab-remove-component{grid-column:1/-1;justify-self:start}}

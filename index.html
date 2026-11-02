@@ -561,6 +561,7 @@
         <!-- تبويبات ملف المريض (المرحلة 5) -->
         <div class="ptabs" id="patTabs">
           <button class="active" data-ptab="measure"><i class="fa-solid fa-weight-scale"></i> القياسات</button>
+          <button id="patLabsTab" class="hide" data-ptab="labs"><i class="fa-solid fa-flask"></i> التحاليل</button>
           <button data-ptab="visits"><i class="fa-solid fa-clipboard-check"></i> الزيارات</button>
           <button data-ptab="notes"><i class="fa-solid fa-notes-medical"></i> الملاحظات والأمراض المزمنة</button>
           <button data-ptab="plan"><i class="fa-solid fa-utensils"></i> الخطة الغذائية</button>
@@ -584,6 +585,24 @@
             </div>
             <div class="chart-box"><canvas id="patChart"></canvas></div>
             <div class="timeline" id="patMeasureList" style="margin-top:18px"></div>
+          </div>
+          <div id="patInbodySection" class="card hide">
+            <div class="card-head">
+              <div><h3><i class="fa-solid fa-wave-square"></i> فحوص InBody</h3><small class="muted">كل فحص مؤرخ ومميّز عن القياس اليدوي؛ لا نكرر الطول، وتبقى مؤشرات الجهاز غير المتاحة فارغة.</small></div>
+              <button class="btn btn-primary sm" data-action="add-inbody"><i class="fa-solid fa-plus"></i> إضافة فحص InBody</button>
+            </div>
+            <div id="patInbodyList" class="inbody-list"></div>
+          </div>
+        </div>
+
+        <!-- تبويب: نتائج التحاليل (يظهر عند تفعيل الميزة للعيادة) -->
+        <div id="ptab-labs" class="ptab-panel hide">
+          <div class="card">
+            <div class="card-head">
+              <div><h3><i class="fa-solid fa-flask"></i> سجل التحاليل</h3><small class="muted">كل تحليل بتاريخ مستقل؛ يمكن إدخال نتيجة رقمية أو نصية ووحدة اختيارية.</small></div>
+              <button class="btn btn-primary sm" data-action="add-lab"><i class="fa-solid fa-plus"></i> إضافة تحليل</button>
+            </div>
+            <div id="patLabsList" class="lab-list"></div>
           </div>
         </div>
 
@@ -906,6 +925,7 @@
 <script src="js/patients.js"></script>
 <script src="js/patient.js"></script>
 <script src="js/notes.js"></script>
+<script src="js/labs.js"></script>
 <script src="js/appointments.js"></script>
 <script src="js/message-style.js"></script>
 <script src="js/whatsapp.js"></script>

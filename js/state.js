@@ -36,11 +36,14 @@ const rosterArr = () => Object.values(State.patientIndex);
 const getPatient = id => byId(State.patients, id) || State.patientIndex[id] || null;
 const getPlan    = id => byId(State.plans, id);
 const activePatients = () => rosterArr().filter(p => p.status === 'active'); // (بند 31) من الفهرس الخفيف
-const lastMeasure = p => (p.measurements || []).slice().sort((a, b) => b.date.localeCompare(a.date))[0];
+// Keep InBody scans in their dedicated view; they must not leak into the
+// ordinary weight history when the clinic has disabled the InBody feature.
+const isInBodyRecord = m => m && m.recordType === 'inbody';
+const lastMeasure = p => (p.measurements || []).filter(m => !isInBodyRecord(m)).slice().sort((a, b) => b.date.localeCompare(a.date))[0];
 
-// حساب إجمالي تغير الوزن (سالب = نزول)
+// حساب إجمالي تغير الوزن من القياسات اليدوية/المنزلية فقط (InBody له سجل مستقل).
 function weightChange(p) {
-  const ws = (p.measurements || []).filter(m => m.weight != null).sort((a, b) => a.date.localeCompare(b.date));
+  const ws = (p.measurements || []).filter(m => !isInBodyRecord(m) && m.weight != null).sort((a, b) => a.date.localeCompare(b.date));
   if (ws.length < 2) return { diff: 0, current: ws[0]?.weight || null };
   return { diff: +(ws[ws.length - 1].weight - ws[0].weight).toFixed(1), current: ws[ws.length - 1].weight };
 }

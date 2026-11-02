@@ -686,6 +686,7 @@ begin
                  case when source = 'patient' then note else null end as note
           from public.patient_records
           where patient_id = v_s.patient_id and deleted_at is null
+            and record_type is distinct from 'inbody'
           order by date asc
          ) r
   );
