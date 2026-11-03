@@ -93,7 +93,7 @@
         <div class="p-chips"><span class="chip chip-green"><i class="fa-solid fa-person-walking"></i> بوابة المرضى</span></div>
         <div>
           <h2>أهلاً بيك!</h2>
-          <p class="muted" style="font-size:14px">أدخل رقمك وتاريخ ميلادك، ثم أكّد الدخول برمز SMS يصل إلى هاتفك المسجل</p>
+          <p class="muted" style="font-size:14px">أدخل رقم الموبايل المسجل في العيادة وتاريخ ميلادك للدخول مؤقتًا</p>
         </div>
         <div class="field">
           <label for="ptPhone" style="font-size:14px">رقم الموبايل (اللي الدكتور سجّله)</label>
@@ -108,16 +108,9 @@
           </div>
           <small class="muted" style="font-size:12px;font-weight:700">لو مش متأكد، اسأل العيادة تسجل تاريخ ميلادك في ملفك</small>
         </div>
-        <div class="field hide" id="ptOtpField">
-          <label for="ptOtpCode" style="font-size:14px">رمز التحقق المرسل برسالة SMS</label>
-          <div class="in-wrap"><i class="fa-solid fa-key"></i>
-            <input id="ptOtpCode" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" dir="ltr" autocomplete="one-time-code" placeholder="••••••">
-          </div>
-          <button type="button" class="forgot-link" id="ptOtpResend">إعادة إرسال الرمز</button>
-        </div>
         <div id="ptError" class="form-error" role="alert" aria-live="polite"></div>
         <button class="btn btn-primary block" id="ptBtn" type="submit" style="padding:15px;font-size:16px">
-          <i class="fa-solid fa-right-to-bracket"></i><span>إرسال رمز التحقق</span>
+          <i class="fa-solid fa-right-to-bracket"></i><span>دخول بوابة المرضى</span>
         </button>
         <button type="button" class="btn btn-ghost block" id="ptBack" style="font-size:14px">
           <i class="fa-solid fa-arrow-right"></i> رجوع لتسجيل الدخول الرئيسي

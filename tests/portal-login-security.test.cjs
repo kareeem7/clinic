@@ -7,7 +7,7 @@ const path = require('node:path');
 
 const root = path.join(__dirname, '..');
 const setup = fs.readFileSync(path.join(root, 'js/config.js'), 'utf8');
-const migration = fs.readFileSync(path.join(root, 'sql/migrations/20261105_patient_portal_phone_otp.sql'), 'utf8');
+const migration = fs.readFileSync(path.join(root, 'sql/migrations/20261109_patient_portal_phone_otp_temporary_disable.sql'), 'utf8');
 const atomicMigration = fs.readFileSync(path.join(root, 'sql/migrations/20261103_patient_portal_login_atomic.sql'), 'utf8');
 
 function loginFunction(source) {
@@ -31,23 +31,24 @@ test('portal login serializes per-phone attempts before counting or recording fa
   assert.match(fn, /tried_at > now\(\) - interval '15 minutes'\) >= 5/);
 });
 
-test('the intermediate atomic migration fails closed until OTP is installed', () => {
+test('the intermediate atomic migration fails closed until a later login migration grants execution', () => {
   assert.match(atomicMigration, /pg_advisory_xact_lock/);
   assert.match(atomicMigration, /revoke all on function public\.patient_portal_login\(text, date\) from public, anon, authenticated/);
   assert.doesNotMatch(atomicMigration, /grant execute on function public\.patient_portal_login/);
 });
 
-test('setup SQL and the standalone OTP migration use the same function body and authenticated-only grant', () => {
-  assert.equal(loginFunction(setup), loginFunction(migration));
-  for (const source of [setup, migration]) {
-    assert.match(source, /auth\.uid\(\) is null or not exists[\s\S]*?phone_confirmed_at is not null[\s\S]*?norm_phone_eg\(u\.phone\) = v_key/);
-    assert.match(source, /revoke all on function public\.patient_portal_login\(text, date\) from public, anon, authenticated/);
-    assert.match(source, /grant execute on function public\.patient_portal_login\(text, date\) to authenticated/);
-    assert.doesNotMatch(source, /grant execute on function public\.patient_portal_login\(text, date\) to anon/);
-  }
-  assert.match(migration, /delete from public\.patient_sessions/);
+test('temporary staging migration removes only the phone OTP gate and grants the portal RPC to anon', () => {
+  const fn = loginFunction(migration);
+  assert.doesNotMatch(fn, /auth\.uid\(\)|phone_confirmed_at|auth\.users/);
+  assert.match(fn, /birth_date = p_birth[\s\S]*?norm_phone_eg\(phone\) = v_key/);
+  assert.match(migration, /grant execute on function public\.patient_portal_login\(text, date\) to anon, authenticated/);
+  assert.match(migration, /TEMPORARY STAGING ONLY[\s\S]*?Do not apply to production/);
+  assert.equal(loginFunction(setup), fn);
+  assert.match(setup, /grant execute on function public\.patient_portal_login\(text, date\) to anon, authenticated/);
+
   const portal = fs.readFileSync(path.join(root, 'js/patient-portal.js'), 'utf8');
-  assert.match(portal, /signInWithOtp\(\{ phone: normalized, options: \{ shouldCreateUser: true \} \}\)/);
-  assert.match(portal, /verifyOtp\(\{ phone: normalized, token: String\(otp\), type: 'sms' \}\)/);
-  assert.match(portal, /auth\.rpc\('patient_portal_login'/);
+  assert.match(portal, /DB\.sb\.rpc\('patient_portal_login'/);
+  assert.doesNotMatch(portal, /signInWithOtp|verifyOtp/);
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.doesNotMatch(html, /ptOtpCode|ptOtpResend/);
 });
