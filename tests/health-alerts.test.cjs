@@ -60,7 +60,12 @@ test('patient portal gets the same warning tiers and the form names its fixed un
   const alert = exported(portalSource, 'portalHealthAlert', { sessionStorage: { getItem() { return null; } } });
   assert.match(alert({ readingType: 'glucose', glucoseValue: 69 }).text, /أقل من 70 mg\/dL/);
   assert.match(alert({ readingType: 'glucose', glucoseValue: 53 }).text, /أقل من 54 mg\/dL/);
-  assert.match(alert({ readingType: 'blood_pressure', systolic: 181, diastolic: 90 }).text, /180/);
+  const pressureText = alert({ readingType: 'blood_pressure', systolic: 181, diastolic: 90 }).text;
+  assert.match(pressureText, /أعد القياس بعد دقيقة للتأكد/);
+  assert.ok(pressureText.indexOf('أعد القياس') < pressureText.indexOf('إذا بقيت'));
+  assert.ok(pressureText.indexOf('إذا بقيت') < pressureText.indexOf('تواصل فورًا مع طبيبك'));
+  assert.match(pressureText, /180 انقباضيًا أو 120 انبساطيًا/);
+  assert.match(pressureText, /اطلب الإسعاف المحلي فورًا/);
   assert.match(portalSource, /قيمة السكر \(mg\/dL\)/);
   assert.match(portalSource, /aria-live="assertive"/);
 });
