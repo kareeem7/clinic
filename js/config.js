@@ -463,7 +463,7 @@ alter table public.patients add column if not exists birth_date date;
 -- Normalize Egyptian phone numbers the same way the client does
 create or replace function public.norm_phone_eg(t text)
 returns text language sql immutable as $$
-  with d as (select regexp_replace(coalesce(t,''), '\D', '', 'g') as x)
+  with d as (select regexp_replace(coalesce(t,''), '[^0-9]', '', 'g') as x)
   select case
     when x like '0020%' then substring(x from 3)
     when x like '0%' and length(x) = 11 then '2' || x
