@@ -9,6 +9,7 @@ const root = path.join(__dirname, '..');
 const setup = fs.readFileSync(path.join(root, 'js/config.js'), 'utf8');
 const migration = fs.readFileSync(path.join(root, 'sql/migrations/20261109_patient_portal_phone_otp_temporary_disable.sql'), 'utf8');
 const atomicMigration = fs.readFileSync(path.join(root, 'sql/migrations/20261103_patient_portal_login_atomic.sql'), 'utf8');
+const phoneNormalizationMigration = fs.readFileSync(path.join(root, 'sql/migrations/20261110_fix_portal_phone_normalization.sql'), 'utf8');
 
 function loginFunction(source) {
   const start = source.indexOf('create or replace function public.patient_portal_login(p_phone text, p_birth date)');
@@ -18,6 +19,16 @@ function loginFunction(source) {
   assert.notEqual(end, -1, 'patient portal login function terminates');
   return source.slice(start, end + endMarker.length);
 }
+
+test('SQL phone normalization strips the plus sign from E.164 numbers before matching', () => {
+  const start = setup.indexOf('create or replace function public.norm_phone_eg(t text)');
+  const end = setup.indexOf('$$;', start) + 3;
+  const normalizer = setup.slice(start, end);
+  assert.ok(start >= 0 && end > 2, 'setup SQL defines the phone normalizer');
+  assert.match(normalizer, /regexp_replace\(coalesce\(t,''\), '\[\^0-9\]', '', 'g'\)/);
+  assert.equal(normalizer.includes("'\\D'"), false);
+  assert.match(phoneNormalizationMigration, /regexp_replace\(coalesce\(t,''\), '\[\^0-9\]', '', 'g'\)/);
+});
 
 test('portal login serializes per-phone attempts before counting or recording failures', () => {
   const fn = loginFunction(migration);
