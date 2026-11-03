@@ -334,11 +334,11 @@ async function boot() {
     e.preventDefault();
     const btn = $('#ptBtn'), err = $('#ptError');
     err.classList.remove('show');
-    const phone = $('#ptPhone').value.trim(), birthInput = $('#ptBirth').value;
+    const phone = $('#ptPhone').value.trim();
     try { portalAuthPhone(phone); }
     catch (ex) { err.textContent = ex.message; err.classList.add('show'); return; }
     let birth;
-    try { birth = portalBirthDate(birthInput); }
+    try { birth = portalBirthDate($('#ptBirthDay').value, $('#ptBirthMonth').value, $('#ptBirthYear').value); }
     catch (ex) { err.textContent = ex.message; err.classList.add('show'); return; }
     btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>جارٍ التحقق...</span>';

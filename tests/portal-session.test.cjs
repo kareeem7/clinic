@@ -87,13 +87,13 @@ test('temporary patient login uses phone and birthdate through the portal RPC wi
   assert.equal(app.authCalls.length, 0);
 });
 
-test('portal birthdate accepts Egyptian digits in day/month/year order and emits ISO for the database', () => {
+test('portal birthdate uses clearly separated day, Arabic month, and year fields', () => {
   const app = harness();
-  assert.equal(app.run("portalBirthDate('٠٧/٠٤/١٩٩٠')"), '1990-04-07');
-  assert.equal(app.run("portalBirthDate('7/4/1990')"), '1990-04-07');
-  assert.equal(app.run("portalBirthDate('1990-04-07')"), '1990-04-07');
-  assert.throws(() => app.run("portalBirthDate('31/02/1990')"), e => e.code === 'invalid_portal_birth_date' && /تاريخ الميلاد غير صحيح/.test(e.message));
-  assert.throws(() => app.run("portalBirthDate('04-07-1990')"), e => e.code === 'invalid_portal_birth_date' && /صيغة يوم\/شهر\/سنة/.test(e.message));
+  assert.equal(app.run("portalBirthDate('7', '4', '١٩٩٠')"), '1990-04-07');
+  assert.equal(app.run("portalBirthDate('29', '2', '2000')"), '2000-02-29');
+  assert.throws(() => app.run("portalBirthDate('', '4', '1990')"), e => e.code === 'invalid_portal_birth_date' && /اختار اليوم والشهر/.test(e.message));
+  assert.throws(() => app.run("portalBirthDate('31', '2', '1990')"), e => e.code === 'invalid_portal_birth_date' && /تاريخ الميلاد غير صحيح/.test(e.message));
+  assert.throws(() => app.run("portalBirthDate('7', '4', '90')"), e => e.code === 'invalid_portal_birth_date' && /4 أرقام/.test(e.message));
 });
 
 test('records and form data are cleared between patients on the same page', async () => {
