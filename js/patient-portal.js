@@ -1,7 +1,7 @@
 /**
  * ========================================
  * patient-portal.js
- * الوظيفة: بوابة المريض (المراحل 14-17): الدخول برمز SMS للهاتف مع تاريخ الميلاد، جلسة التوكن، الصفحة الرئيسية، صفحة التقدم والمنحنيات، تسجيل القياسات من البيت مع رفع الصور، صفحة المواعيد والإلغاء بالسبب، وصفحة الخطة مع النصائح اليومية.
+ * الوظيفة: بوابة المريض (المراحل 14-17): دخول تجريبي برقم الهاتف وتاريخ الميلاد، جلسة التوكن، الصفحة الرئيسية، صفحة التقدم والمنحنيات، تسجيل القياسات من البيت مع رفع الصور، صفحة المواعيد والإلغاء بالسبب، وصفحة الخطة مع النصائح اليومية.
  * الدوال/الكيانات الرئيسية: Portal، portalGo، renderWeightStory، renderPainStory، sumCell، cutRange، drawPatientPortalChart، drawWaistChart، drawPainChart، renderMeasTable، portalPlanSheet، DAILY_TIPS
  * الاعتمادات: db.js, utils.js, app.js, state.js
  * آخر تعديل: 2026-10-31 — تقسيم من index.html الموحد (الكود منسوخ حرفياً وبلا أي تغيير)
@@ -23,6 +23,25 @@ function portalAuthPhone(value) {
   else if (!digits.startsWith('20') && digits.length === 10) digits = '20' + digits;
   if (!/^20\d{10}$/.test(digits)) throw { code: 'invalid_portal_phone', message: 'اكتب رقم موبايل مصريًا صحيحًا.' };
   return '+' + digits;
+}
+
+function portalBirthDate(value) {
+  const digits = String(value || '').replace(/[٠-٩۰-۹]/g, digit => {
+    const code = digit.charCodeAt(0);
+    return String(code >= 0x06f0 ? code - 0x06f0 : code - 0x0660);
+  }).trim();
+  let year, month, day;
+  const dmy = digits.match(/^(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{4})$/);
+  const iso = digits.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (dmy) [, day, month, year] = dmy;
+  else if (iso) [, year, month, day] = iso;
+  else throw { code: 'invalid_portal_birth_date', message: 'اكتب تاريخ الميلاد بصيغة يوم/شهر/سنة، مثال: 07/04/1990.' };
+  const y = Number(year), m = Number(month), d = Number(day);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  if (y < 1900 || y > new Date().getUTCFullYear() || date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) {
+    throw { code: 'invalid_portal_birth_date', message: 'تاريخ الميلاد غير صحيح؛ راجع اليوم والشهر والسنة.' };
+  }
+  return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
 const Portal = {
