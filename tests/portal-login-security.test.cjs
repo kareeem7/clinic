@@ -51,4 +51,6 @@ test('temporary staging migration removes only the phone OTP gate and grants the
   assert.doesNotMatch(portal, /signInWithOtp|verifyOtp/);
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   assert.doesNotMatch(html, /ptOtpCode|ptOtpResend/);
+  assert.match(html, /id="ptBirth" type="text" inputmode="numeric"/);
+  assert.match(portal, /function portalBirthDate\(value\)/);
 });

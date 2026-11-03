@@ -102,11 +102,11 @@
           </div>
         </div>
         <div class="field">
-          <label for="ptBirth" style="font-size:14px">تاريخ ميلادك</label>
+          <label for="ptBirth" style="font-size:14px">تاريخ ميلادك (يوم/شهر/سنة)</label>
           <div class="in-wrap"><i class="fa-solid fa-cake-candles"></i>
-            <input id="ptBirth" type="date" required dir="ltr" style="font-size:17px;padding:14px 44px 14px 14px">
+            <input id="ptBirth" type="text" inputmode="numeric" autocomplete="bday" required dir="ltr" placeholder="DD/MM/YYYY" aria-describedby="ptBirthHint" style="font-size:17px;padding:14px 44px 14px 14px">
           </div>
-          <small class="muted" style="font-size:12px;font-weight:700">لو مش متأكد، اسأل العيادة تسجل تاريخ ميلادك في ملفك</small>
+          <small id="ptBirthHint" class="muted" style="font-size:12px;font-weight:700">مثال: 07/04/1990 — لو مش متأكد، اسأل العيادة تسجل تاريخ ميلادك في ملفك</small>
         </div>
         <div id="ptError" class="form-error" role="alert" aria-live="polite"></div>
         <button class="btn btn-primary block" id="ptBtn" type="submit" style="padding:15px;font-size:16px">
