@@ -409,8 +409,15 @@ function renderPortalHealthTracking(tracking) {
   if (!root) return;
   const canGlucose = tracking && tracking.glucose === true;
   const canPressure = tracking && tracking.bloodPressure === true;
-  const patientId = Portal.data && Portal.data.patient && Portal.data.patient.id;
-  if (!patientId || (!canGlucose && !canPressure)) { root.innerHTML = ''; return; }
+  const patient = Portal.data && Portal.data.patient;
+  const patientId = patient && patient.id;
+  if (!patientId) { root.innerHTML = ''; return; }
+  if (!canGlucose && !canPressure) {
+    root.innerHTML = patient.type === 'nutrition' ? '' :
+      '<section class="p-card"><b><i class="fa-solid fa-circle-info"></i> تسجيل القياسات</b>' +
+      '<p class="p-small">تسجيل القياسات من البوابة غير مفعّل لهذا الملف حاليًا. تواصل مع العيادة لمعرفة القياسات المتاحة أو تفعيلها.</p></section>';
+    return;
+  }
   const cards = [];
   if (canGlucose) cards.push(
     '<section class="p-card pt-health-card"><b><i class="fa-solid fa-droplet"></i> تسجيل قراءة سكر</b>' +

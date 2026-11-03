@@ -108,8 +108,8 @@ function harness(rpcImpl = async () => ({ data: { ok: true }, error: null })) {
   return {
     context, $, calls, screens, toasts, session,
     setRpc(fn) { rpcImpl = fn; },
-    setPatient({ id = 'patient-A', glucose = true, pressure = true } = {}) {
-      vm.runInContext(`Portal.token = 'token-A'; Portal.data = { patient: { id: '${id}', healthTracking: { glucose: ${glucose}, bloodPressure: ${pressure} } } }`, context);
+    setPatient({ id = 'patient-A', glucose = true, pressure = true, type = 'nutrition' } = {}) {
+      vm.runInContext(`Portal.token = 'token-A'; Portal.data = { patient: { id: '${id}', type: '${type}', healthTracking: { glucose: ${glucose}, bloodPressure: ${pressure} } } }`, context);
     }
   };
 }
@@ -134,6 +134,13 @@ function setPressure(app, { systolic = '128', diastolic = '82', pulse = '' } = {
   const disabled = harness(); disabled.setPatient({ glucose: false, pressure: false });
   vm.runInContext("renderPortalHealthTracking(Portal.data.patient.healthTracking)", disabled.context);
   assert.equal(disabled.$('#ptHealthTracking').innerHTML, '');
+});
+
+test('physiotherapy patient sees an explanation instead of a blank measurement tab when tracking is disabled', () => {
+  const app = harness(); app.setPatient({ type: 'pt', glucose: false, pressure: false });
+  vm.runInContext("renderPortalHealthTracking(Portal.data.patient.healthTracking)", app.context);
+  assert.match(app.$('#ptHealthTracking').innerHTML, /غير مفعّل لهذا الملف/);
+  assert.match(app.$('#ptHealthTracking').innerHTML, /تواصل مع العيادة/);
 });
 
 test('authorized patient writes glucose and blood-pressure values through the session RPC only', async () => {
