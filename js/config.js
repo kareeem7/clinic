@@ -510,16 +510,8 @@ begin
     return jsonb_build_object('ok', false, 'error', 'رقم التليفون أو تاريخ الميلاد غير صحيحين — تأكد منهم أو اسأل عيادتك تشغّل حسابك');
   end if;
 
-  -- A portal session can only be minted from a verified Supabase Auth
-  -- phone session for the same normalized number. DOB remains a second check.
-  if auth.uid() is null or not exists (
-    select 1 from auth.users u
-    where u.id = auth.uid()
-      and u.phone_confirmed_at is not null
-      and public.norm_phone_eg(u.phone) = v_key
-  ) then
-    return jsonb_build_object('ok', false, 'error', 'تعذّر التحقق من رقم الهاتف أو تاريخ الميلاد');
-  end if;
+  -- Temporary staging-only flow: match phone + birthdate. The portal-specific
+  -- RPC retains its per-phone lockout and only returns an opaque, expiring token.
 
   -- Serialize checks and writes for this normalized phone for the duration
   -- of this RPC transaction, so concurrent failures cannot pass the limit.
@@ -585,7 +577,7 @@ end; $$;
 
 
 revoke all on function public.patient_portal_login(text, date) from public, anon, authenticated;
-grant execute on function public.patient_portal_login(text, date) to authenticated;
+grant execute on function public.patient_portal_login(text, date) to anon, authenticated;
 -- Invalidate any sessions created by the previous phone+DOB-only flow.
 delete from public.patient_sessions;
 
@@ -1765,7 +1757,7 @@ begin
 end; $$;
 
 revoke all on function public.patient_portal_login(text, date) from public, anon, authenticated;
-grant execute on function public.patient_portal_login(text, date) to authenticated;
+grant execute on function public.patient_portal_login(text, date) to anon, authenticated;
 
 -- 2026-11-06 queue Storage images after permanent patient-record deletion
 -- Queue Storage objects whenever their clinical record is permanently deleted

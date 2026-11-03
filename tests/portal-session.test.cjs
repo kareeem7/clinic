@@ -56,23 +56,15 @@ function harness() {
     todayISO: () => '2026-11-01', humanDate: date => date, relDay: date => date, fmtTime: time => time, esc: escapeHtml,
     toast(message, type) { toasts.push({ message, type }); }, switchAuthTab() {}, showScreen(name) { screens.push(name); },
     DB: {
-      patientAuth: {
-        auth: {
-          async signInWithOtp(args) { authCalls.push({ method: 'signInWithOtp', args }); return { error: null }; },
-          async verifyOtp(args) { authCalls.push({ method: 'verifyOtp', args }); return { error: null }; },
-          async signOut() { authCalls.push({ method: 'signOut' }); return { error: null }; }
-        },
+      sb: {
         async rpc(name, args) {
-          calls.push({ name, args, via: 'patientAuth' });
+          calls.push({ name, args, via: 'sb' });
           const result = await rpc(name, args);
           if (name === 'patient_portal_login' && result && result.data && result.data.token === args.p_phone) {
             return { ...result, data: { ...result.data, token: args.p_phone.endsWith('001') ? 'A' : 'B' } };
           }
           return result;
-        }
-      },
-      sb: {
-        rpc(name, args) { calls.push({ name, args, via: 'sb' }); return rpc(name, args); },
+        },
         functions: { invoke(name, options) { calls.push({ name, options }); return invoke(name, options); } }
       }
     }
@@ -85,21 +77,19 @@ function harness() {
   };
 }
 
-test('patient login requires and verifies Supabase SMS OTP before minting a portal token', async () => {
+test('temporary patient login uses phone and birthdate through the portal RPC without SMS auth', async () => {
   const app = harness();
-  await assert.rejects(app.run("Portal.login('01000000001', '2000-01-01', '123456')"), e => e.code === 'portal_otp_required');
-  await app.run("Portal.requestOtp('01000000001').then(() => Portal.login('01000000001', '2000-01-01', '123456'))");
-  assert.deepEqual(app.authCalls.map(call => call.method), ['signInWithOtp', 'verifyOtp']);
-  assert.equal(app.authCalls[0].args.phone, '+201000000001');
-  assert.equal(app.authCalls[1].args.type, 'sms');
+  await app.run("Portal.login('01000000001', '2000-01-01')");
   const login = app.calls.find(call => call.name === 'patient_portal_login');
-  assert.equal(login.via, 'patientAuth');
+  assert.equal(login.via, 'sb');
   assert.equal(login.args.p_phone, '+201000000001');
+  assert.equal(login.args.p_birth, '2000-01-01');
+  assert.equal(app.authCalls.length, 0);
 });
 
 test('records and form data are cleared between patients on the same page', async () => {
   const app = harness();
-  await app.run("Portal.requestOtp('01000000001').then(() => Portal.login('01000000001', '2000-01-01', '123456'))");
+  await app.run("Portal.login('01000000001', '2000-01-01')");
   const first = await app.run('portalLoadRecords()');
   assert.equal(first[0].weight, 71);
   assert.equal((await app.run('portalLoadRecords()'))[0].weight, 71);
@@ -111,7 +101,7 @@ test('records and form data are cleared between patients on the same page', asyn
   assert.equal(app.$('#lgNote').value, '');
   assert.equal(app.$('#ptRows').innerHTML, '');
   assert.equal(destroyed, 1);
-  await app.run("Portal.requestOtp('01000000002').then(() => Portal.login('01000000002', '2000-01-01', '123456'))");
+  await app.run("Portal.login('01000000002', '2000-01-01')");
   const second = await app.run('portalLoadRecords()');
   assert.equal(second[0].weight, 82);
   assert.equal(app.calls.filter(x => x.name === 'patient_portal_records').length, 2);
@@ -126,10 +116,10 @@ test('late records response cannot populate the next patient session', async () 
     if (name === 'patient_portal_records') return { data: { ok: true, records: [{ weight: 82 }] } };
     return { data: null };
   });
-  await app.run("Portal.requestOtp('01000000001').then(() => Portal.login('01000000001', '2000-01-01', '123456'))");
+  await app.run("Portal.login('01000000001', '2000-01-01')");
   const oldRequest = app.run('portalLoadRecords()');
   await app.run('Portal.logout()');
-  await app.run("Portal.requestOtp('01000000002').then(() => Portal.login('01000000002', '2000-01-01', '123456'))");
+  await app.run("Portal.login('01000000002', '2000-01-01')");
   pending.resolve({ data: { ok: true, records: [{ weight: 71 }] } });
   assert.equal(await oldRequest, null);
   assert.equal((await app.run('portalLoadRecords()'))[0].weight, 82);
@@ -144,11 +134,11 @@ test('late portal data and appointments responses do not overwrite the new sessi
     if (name === 'patient_portal_appointments') return oldAppointments.promise;
     return { data: null };
   });
-  const loginA = app.run("Portal.requestOtp('01000000001').then(() => Portal.login('01000000001', '2000-01-01', '123456'))");
+  const loginA = app.run("Portal.login('01000000001', '2000-01-01')");
   await new Promise(resolve => setImmediate(resolve));
   const appointmentsA = app.run('portalRenderAppointments()');
   await app.run('Portal.logout()');
-  await app.run("Portal.requestOtp('01000000002').then(() => Portal.login('01000000002', '2000-01-01', '123456'))");
+  await app.run("Portal.login('01000000002', '2000-01-01')");
   oldData.resolve({ data: { ok: true, patient: { name: 'A' }, clinic: {} } });
   oldAppointments.resolve({ data: { ok: true, upcoming: [], past: [] } });
   await loginA; await appointmentsA;
@@ -158,7 +148,7 @@ test('late portal data and appointments responses do not overwrite the new sessi
 
 test('logout clears local data before an unresponsive server returns', async () => {
   const app = harness(), pending = deferred();
-  await app.run("Portal.requestOtp('01000000001').then(() => Portal.login('01000000001', '2000-01-01', '123456'))");
+  await app.run("Portal.login('01000000001', '2000-01-01')");
   app.setRpc((name) => name === 'patient_portal_logout' ? pending.promise : Promise.resolve({ data: null }));
   const logout = app.run('Portal.logout()');
   assert.equal(app.run('Portal.token'), null);
@@ -170,7 +160,7 @@ test('logout clears local data before an unresponsive server returns', async () 
 
 test('rejected portal data clears the session and its cached records', async () => {
   const app = harness();
-  await app.run("Portal.requestOtp('01000000001').then(() => Portal.login('01000000001', '2000-01-01', '123456'))");
+  await app.run("Portal.login('01000000001', '2000-01-01')");
   await app.run('portalLoadRecords()');
   app.setRpc(async () => ({ data: { ok: false, error: 'unavailable' } }));
   await app.run('Portal.load(true)');
@@ -199,7 +189,7 @@ test('SQL source guards every data and mutation RPC before its operation', () =>
 
 test('successful save followed by refresh failure does not invite a duplicate retry', async () => {
   const app = harness();
-  await app.run("Portal.requestOtp('01000000001').then(() => Portal.login('01000000001', '2000-01-01', '123456'))");
+  await app.run("Portal.login('01000000001', '2000-01-01')");
   await app.run('portalLoadRecords()');
   app.$('#lgWeight').value = '80';
   app.$('#lgDate').value = '2026-11-01';
@@ -222,7 +212,7 @@ test('successful save followed by refresh failure does not invite a duplicate re
 
 test('rejected save retains the form and reports the failure', async () => {
   const app = harness();
-  await app.run("Portal.requestOtp('01000000001').then(() => Portal.login('01000000001', '2000-01-01', '123456'))");
+  await app.run("Portal.login('01000000001', '2000-01-01')");
   app.$('#lgWeight').value = '80';
   app.$('#lgDate').value = '2026-11-01';
   app.setRpc(async () => ({ data: { ok: false, error: 'rejected' }, error: null }));
@@ -235,7 +225,7 @@ test('rejected save retains the form and reports the failure', async () => {
 
 test('successful save and refresh still clears the form and shows feedback', async () => {
   const app = harness();
-  await app.run("Portal.requestOtp('01000000001').then(() => Portal.login('01000000001', '2000-01-01', '123456'))");
+  await app.run("Portal.login('01000000001', '2000-01-01')");
   app.$('#lgWeight').value = '80';
   app.$('#lgDate').value = '2026-11-01';
   app.$('#ptProgressView').classList.add('hide');
@@ -249,7 +239,7 @@ test('successful save and refresh still clears the form and shows feedback', asy
 
 test('nutrition progress without weights shows the records and restores chart when weights appear', async () => {
   const app = harness();
-  await app.run("Portal.requestOtp('01000000001').then(() => Portal.login('01000000001', '2000-01-01', '123456'))");
+  await app.run("Portal.login('01000000001', '2000-01-01')");
   app.run("Portal.data.patient.type = 'nutrition'");
   let records = [{ date: '2026-11-01', weight: null, waist: 90, note: 'test' }];
   app.setRpc(async () => ({ data: { ok: true, records }, error: null }));
@@ -274,7 +264,7 @@ test('SQL source restricts portal cancellation to today or later in Cairo', () =
 
 test('appointment statuses are escaped in upcoming and past markup', async () => {
   const app = harness();
-  await app.run("Portal.requestOtp('01000000001').then(() => Portal.login('01000000001', '2000-01-01', '123456'))");
+  await app.run("Portal.login('01000000001', '2000-01-01')");
   const payload = '<img src=x onerror=alert(1)>';
   app.setRpc(async () => ({ data: { ok: true,
     upcoming: [{ id: 'up', date: '2026-11-01', time: '10:00', status: payload },
@@ -310,7 +300,7 @@ test('photo path validation is shared by setup SQL and standalone migration', ()
 
 test('photo upload uses the captured patient token and server-returned path', async () => {
   const app = harness();
-  await app.run("Portal.requestOtp('01000000001').then(() => Portal.login('01000000001', '2000-01-01', '123456'))");
+  await app.run("Portal.login('01000000001', '2000-01-01')");
   app.$('#lgWeight').value = '80'; app.$('#lgDate').value = '2026-11-01';
   const file = { type: 'image/png', size: 10 };
   app.$('#lgPhoto').files = [file];
@@ -328,13 +318,13 @@ test('photo upload uses the captured patient token and server-returned path', as
 
 test('switching patient during photo upload cannot send the old measurement or change the new form', async () => {
   const app = harness(), pending = deferred();
-  await app.run("Portal.requestOtp('01000000001').then(() => Portal.login('01000000001', '2000-01-01', '123456'))");
+  await app.run("Portal.login('01000000001', '2000-01-01')");
   app.$('#lgWeight').value = '80'; app.$('#lgDate').value = '2026-11-01';
   app.$('#lgPhoto').files = [{ type: 'image/png', size: 10 }];
   app.setInvoke(() => pending.promise);
   const oldSave = app.run('portalSubmitMeasurement()');
   await app.run('Portal.logout()');
-  await app.run("Portal.requestOtp('01000000002').then(() => Portal.login('01000000002', '2000-01-01', '123456'))");
+  await app.run("Portal.login('01000000002', '2000-01-01')");
   app.$('#lgWeight').value = '92';
   assert.equal(app.$('#lgSave').disabled, false);
   pending.resolve({ data: { path: 'doctor/patient/photo.png' }, error: null });
@@ -346,7 +336,7 @@ test('switching patient during photo upload cannot send the old measurement or c
 
 test('late measurement response does not clear a new patient form', async () => {
   const app = harness(), pending = deferred();
-  await app.run("Portal.requestOtp('01000000001').then(() => Portal.login('01000000001', '2000-01-01', '123456'))");
+  await app.run("Portal.login('01000000001', '2000-01-01')");
   app.$('#lgWeight').value = '80'; app.$('#lgDate').value = '2026-11-01';
   app.setRpc(async name => name === 'patient_portal_add_measurement' ? pending.promise : { data: null });
   const oldSave = app.run('portalSubmitMeasurement()');
@@ -354,7 +344,7 @@ test('late measurement response does not clear a new patient form', async () => 
   app.setRpc(async name => name === 'patient_portal_login'
     ? { data: { ok: true, token: 'B' } }
     : { data: { ok: true, patient: {}, clinic: {} } });
-  await app.run("Portal.requestOtp('01000000002').then(() => Portal.login('01000000002', '2000-01-01', '123456'))");
+  await app.run("Portal.login('01000000002', '2000-01-01')");
   app.$('#lgWeight').value = '92';
   pending.resolve({ data: { ok: true }, error: null });
   await oldSave;

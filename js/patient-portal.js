@@ -28,48 +28,15 @@ function portalAuthPhone(value) {
 const Portal = {
   token: sessionStorage.getItem('clinic_patient_token') || null,
   data: null,
-  pendingPhone: null,
-
-  patientAuthClient() {
-    if (!DB.patientAuth) {
-      if (!window.supabase || !supabaseConfig) throw { code: 'phone_otp_unavailable', message: 'تسجيل دخول الرسائل غير مهيأ؛ تواصل مع العيادة.' };
-      DB.patientAuth = window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey, {
-        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
-      });
-    }
-    return DB.patientAuth;
-  },
-
-  async cancelOtp() {
-    this.pendingPhone = null;
-    if (DB.patientAuth) {
-      try { await DB.patientAuth.auth.signOut({ scope: 'local' }); } catch (_) { /* local OTP state is best-effort */ }
-    }
-  },
-
-  async requestOtp(phone) {
+  async login(phone, birth) {
     const normalized = portalAuthPhone(phone);
-    const { error } = await this.patientAuthClient().auth.signInWithOtp({ phone: normalized, options: { shouldCreateUser: true } });
-    if (error) throw error;
-    this.pendingPhone = normalized;
-  },
-
-  async login(phone, birth, otp) {
-    const normalized = portalAuthPhone(phone);
-    if (this.pendingPhone !== normalized || !/^\d{6}$/.test(String(otp || ''))) {
-      throw { code: 'portal_otp_required', message: 'اطلب رمز تحقق جديدًا ثم أدخله لإكمال الدخول.' };
-    }
-    const auth = this.patientAuthClient();
-    const { error: verifyError } = await auth.auth.verifyOtp({ phone: normalized, token: String(otp), type: 'sms' });
-    if (verifyError) throw verifyError;
-    this.pendingPhone = null; // the code is one-time; another attempt must request a fresh code
-    const { data, error } = await auth.rpc('patient_portal_login', { p_phone: normalized, p_birth: birth });
+    const { data, error } = await DB.sb.rpc('patient_portal_login', { p_phone: normalized, p_birth: birth });
     if (error) throw error;
     if (!data || !data.ok) throw { message: (data && data.error) || 'تعذّر تسجيل الدخول' };
     resetPortalSessionState();
     sessionStorage.setItem('clinic_patient_token', data.token);
     this.token = data.token;
-    await this.load(); // pulls the first portal payload right after login
+    await this.load();
   },
 
   async load(silentFail) {
@@ -117,9 +84,7 @@ const Portal = {
     document.body.classList.remove('theme-patient');
     toast('تم تسجيل خروجك — بالسلامة!', 'info');
     switchAuthTab('patient'); showScreen('login');
-    this.pendingPhone = null;
     if (token) { try { await DB.sb.rpc('patient_portal_logout', { p_token: token }); } catch (e) { /* networkless shutdown is fine */ } }
-    if (DB.patientAuth) { try { await DB.patientAuth.auth.signOut({ scope: 'local' }); } catch (e) { /* clear the isolated OTP session best-effort */ } }
   },
 
   // ---- الواجهة ----
