@@ -102,11 +102,13 @@
           </div>
         </div>
         <div class="field">
-          <label for="ptBirth" style="font-size:14px">تاريخ ميلادك (يوم/شهر/سنة)</label>
-          <div class="in-wrap"><i class="fa-solid fa-cake-candles"></i>
-            <input id="ptBirth" type="text" inputmode="numeric" autocomplete="bday" required dir="ltr" placeholder="DD/MM/YYYY" aria-describedby="ptBirthHint" style="font-size:17px;padding:14px 44px 14px 14px">
+          <label style="font-size:14px">تاريخ ميلادك</label>
+          <div style="display:grid;grid-template-columns:.8fr 1.25fr 1fr;gap:8px">
+            <div><label for="ptBirthDay" style="font-size:12px">اليوم</label><select class="input" id="ptBirthDay" dir="ltr" aria-label="يوم الميلاد"><option value="">يوم</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option><option value="28">28</option><option value="29">29</option><option value="30">30</option><option value="31">31</option></select></div>
+            <div><label for="ptBirthMonth" style="font-size:12px">الشهر</label><select class="input" id="ptBirthMonth" dir="rtl" aria-label="شهر الميلاد"><option value="">شهر</option><option value="1">يناير</option><option value="2">فبراير</option><option value="3">مارس</option><option value="4">أبريل</option><option value="5">مايو</option><option value="6">يونيو</option><option value="7">يوليو</option><option value="8">أغسطس</option><option value="9">سبتمبر</option><option value="10">أكتوبر</option><option value="11">نوفمبر</option><option value="12">ديسمبر</option></select></div>
+            <div><label for="ptBirthYear" style="font-size:12px">السنة</label><input class="input" id="ptBirthYear" type="text" inputmode="numeric" autocomplete="bday-year" maxlength="4" placeholder="1990" dir="ltr" aria-label="سنة الميلاد"></div>
           </div>
-          <small id="ptBirthHint" class="muted" style="font-size:12px;font-weight:700">مثال: 07/04/1990 — لو مش متأكد، اسأل العيادة تسجل تاريخ ميلادك في ملفك</small>
+          <small id="ptBirthHint" class="muted" style="font-size:12px;font-weight:700">اختار اليوم والشهر من القوائم، واكتب سنة الميلاد. مثال: 1990</small>
         </div>
         <div id="ptError" class="form-error" role="alert" aria-live="polite"></div>
         <button class="btn btn-primary block" id="ptBtn" type="submit" style="padding:15px;font-size:16px">

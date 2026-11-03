@@ -25,18 +25,19 @@ function portalAuthPhone(value) {
   return '+' + digits;
 }
 
-function portalBirthDate(value) {
-  const digits = String(value || '').replace(/[٠-٩۰-۹]/g, digit => {
+function portalBirthDate(dayValue, monthValue, yearValue) {
+  const normalizeDigits = value => String(value || '').replace(/[٠-٩۰-۹]/g, digit => {
     const code = digit.charCodeAt(0);
     return String(code >= 0x06f0 ? code - 0x06f0 : code - 0x0660);
   }).trim();
-  let year, month, day;
-  const dmy = digits.match(/^(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{4})$/);
-  const iso = digits.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (dmy) [, day, month, year] = dmy;
-  else if (iso) [, year, month, day] = iso;
-  else throw { code: 'invalid_portal_birth_date', message: 'اكتب تاريخ الميلاد بصيغة يوم/شهر/سنة، مثال: 07/04/1990.' };
-  const y = Number(year), m = Number(month), d = Number(day);
+  const dayText = normalizeDigits(dayValue), monthText = normalizeDigits(monthValue), yearText = normalizeDigits(yearValue);
+  if (!dayText || !monthText || !yearText) {
+    throw { code: 'invalid_portal_birth_date', message: 'اختار اليوم والشهر واكتب سنة الميلاد.' };
+  }
+  if (!/^\d{1,2}$/.test(dayText) || !/^\d{1,2}$/.test(monthText) || !/^\d{4}$/.test(yearText)) {
+    throw { code: 'invalid_portal_birth_date', message: 'اكتب سنة الميلاد كاملة من 4 أرقام.' };
+  }
+  const d = Number(dayText), m = Number(monthText), y = Number(yearText);
   const date = new Date(Date.UTC(y, m - 1, d));
   if (y < 1900 || y > new Date().getUTCFullYear() || date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) {
     throw { code: 'invalid_portal_birth_date', message: 'تاريخ الميلاد غير صحيح؛ راجع اليوم والشهر والسنة.' };
