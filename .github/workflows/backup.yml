@@ -1,0 +1,102 @@
+name: Nightly backup
+
+# The Supabase Free plan has ZERO backup retention. This workflow is the
+# replacement: a nightly logical dump stored as a GitHub Actions artifact.
+#
+# Required repository secrets:
+#   SUPABASE_DB_URL  — postgres connection string from
+#                      Supabase -> Project Settings -> Database -> Connection string (URI)
+#
+# Free-plan retention note: artifacts on private repos keep 90 days by default.
+# For a longer window, uncomment the Backblaze B2 upload step and add the
+# B2_* secrets.
+
+on:
+  schedule:
+    - cron: "0 1 * * *"   # 01:00 UTC = 03:00 Cairo
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dump:
+    name: pg_dump
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify secret exists
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$DB_URL" ]; then
+            echo "::error::SUPABASE_DB_URL secret is not configured"
+            exit 1
+          fi
+
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Dump database
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          STAMP="$(date -u +%Y%m%d-%H%M%S)"
+          mkdir -p backup
+          # --no-owner / --no-privileges keeps the dump restorable into a fresh project.
+          pg_dump "$DB_URL" \
+            --no-owner --no-privileges --clean --if-exists \
+            --schema=public --schema=storage --schema=auth \
+            -Fc -f "backup/clinic-${STAMP}.dump"
+          pg_dump "$DB_URL" \
+            --no-owner --no-privileges --schema=public \
+            -f "backup/clinic-${STAMP}-public.sql"
+          ls -lh backup/
+          echo "BACKUP_FILE=clinic-${STAMP}" >> "$GITHUB_ENV"
+
+      - name: Sanity check the dump is not empty
+        run: |
+          set -euo pipefail
+          SIZE=$(stat -c%s backup/clinic-*.dump | head -1)
+          echo "dump size: $SIZE bytes"
+          if [ "$SIZE" -lt 20000 ]; then
+            echo "::error::Backup suspiciously small ($SIZE bytes) — check the connection string"
+            exit 1
+          fi
+          # The schema must at least contain the core tables.
+          for t in patients appointments doctors; do
+            if ! grep -q "CREATE TABLE.*$t" backup/*-public.sql 2>/dev/null; then
+              echo "::warning::table $t not found in dump"
+            fi
+          done
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_number }}
+          path: backup/
+          retention-days: 90
+          if-no-files-found: error
+
+      # Optional off-site copy. Uncomment after adding B2_BUCKET / B2_KEY_ID /
+      # B2_APPLICATION_KEY secrets. Backblaze B2 free tier includes 10 GB.
+      #
+      # - name: Upload to Backblaze B2
+      #   env:
+      #     B2_BUCKET: ${{ secrets.B2_BUCKET }}
+      #     B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
+      #     B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+      #   run: |
+      #     curl -sSf -o /tmp/b2 https://f001.backblazeb2.com/file/b2-cli/b2
+      #     chmod +x /tmp/b2
+      #     /tmp/b2 authorize-account "$B2_KEY_ID" "$B2_APPLICATION_KEY" >/dev/null
+      #     for f in backup/*; do
+      #       /tmp/b2 upload-file --noProgress "$B2_BUCKET" "$f" "clinic/$(basename "$f")"
+      #     done

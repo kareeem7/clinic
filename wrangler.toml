@@ -1,0 +1,13 @@
+# Cloudflare Pages configuration
+# The app is a plain static site: no build step, no framework.
+# This file only pins the output directory so Pages never tries to compile anything.
+
+[build]
+command = ""
+publish_directory = "./"
+
+# Nothing here is a single-page app; every route is a real file.
+# Do not add SPA fallbacks that would rewrite 404s to index.html.
+
+[build.environment]
+NODE_VERSION = "22"
