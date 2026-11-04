@@ -55,8 +55,14 @@ test('codes are permanent, issued once, random and there is NO rotation function
   assert.match(migration, /create or replace function public\.issue_patient_code\(p_patient_id uuid\)/);
   assert.match(migration, /alreadyIssued/);
   assert.match(migration, /اختار بادئة الفرع من الإعدادات قبل إصدار الكود/);
-  assert.match(migration, /gen_random_uuid\(\)::text \|\| gen_random_uuid\(\)::text/);
-  assert.match(migration, /substr\(v_secret, 9, 4\)/);
+  // الكود القصير: ٦ أرقام من هاش عشوائي + إعادة محاولة عند التكرار
+  assert.match(migration, /hashtextextended\(gen_random_uuid\(\)::text \|\| clock_timestamp\(\)::text, 0\)/);
+  assert.match(migration, /for v_try in 1\.\.12 loop/);
+  assert.match(migration, /exit when not exists \(select 1 from public\.patient_portal_credentials where code = v_code\)/);
+  assert.match(migration, /lpad\(right\(/);
+  // الكود القديم الطويل لسه مقبول (ما فيش تدوير لأي كود اتسلّم)
+  assert.match(migration, /coalesce\(array_length\(v_parts, 1\), 0\) not in \(2, 4\)/);
+  assert.doesNotMatch(migration, /substr\(v_secret, 9, 4\)/);
   assert.match(migration, /on conflict|alreadyIssued/, 're-issuing returns the same code');
   assert.doesNotMatch(migration, /create or replace function public\.(rotate|change|regenerate|update)_?patient_?code/);
   assert.match(migration, /grant execute on function public\.issue_patient_code\(uuid\) to authenticated;/);

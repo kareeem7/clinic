@@ -191,9 +191,7 @@ begin
                         where x.code = 'DEMO1' and x.doctor_id <> v_doctor);
     insert into public.patient_portal_credentials (patient_id, doctor_id, clinic_id, code)
     select p.id, p.doctor_id, p.clinic_id,
-           'DEMO1-' || upper(substr(replace(p.id::text, '-', ''), 1, 4)) || '-' ||
-           upper(substr(replace(p.id::text, '-', ''), 5, 4)) || '-' ||
-           upper(substr(replace(p.id::text, '-', ''), 9, 4))
+           'DEMO1-' || translate(substr(replace(p.id::text, '-', ''), 27, 6), 'ABCDEF', '012345')
       from public.patients p
      where p.doctor_id = v_doctor and p.clinic_id is not null
        and p.id in (

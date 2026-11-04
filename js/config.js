@@ -2015,7 +2015,9 @@ create index if not exists credentials_clinic_idx
 
 -- ---------------------------------------------------------------------
 -- 3) إصدار الكود: مرة واحدة لكل مريض (idempotent). لا توجد دالة تغيير.
---    الكود = PREFIX-XXXX-XXXX-XXXX (12 خانة عشوائية من السيرفر).
+--    الكود = PREFIX-###### (ستة أرقام عشرية) — أقصر وأسهل على الموبايل.
+--    الكود القديم الطويل PREFIX-XXXX-XXXX-XXXX لسه مقبول في الدخول
+--    (ما فيش تدوير/تغيير لأي كود اتسلّمه المريض بالفعل).
 -- ---------------------------------------------------------------------
 create or replace function public.issue_patient_code(p_patient_id uuid)
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -2047,8 +2049,17 @@ begin
     return jsonb_build_object('ok', true, 'code', v_existing, 'alreadyIssued', true);
   end if;
 
-  v_secret := upper(substr(replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''), 1, 12));
-  v_code := v_prefix || '-' || substr(v_secret, 1, 4) || '-' || substr(v_secret, 5, 4) || '-' || substr(v_secret, 9, 4);
+  -- ٦ أرقام من هاش UUID عشوائي + طابع زمني (أقوى من random() العادي).
+  -- ٦ أرقام = مليون احتمال، فبنعيد المحاولة لو الكود اتكرر بدل ما يفشل الإدراج.
+  for v_try in 1..12 loop
+    v_secret := lpad(right(replace(
+      hashtextextended(gen_random_uuid()::text || clock_timestamp()::text, 0)::text, '-', ''), 6), 6, '0');
+    v_code := v_prefix || '-' || v_secret;
+    exit when not exists (select 1 from public.patient_portal_credentials where code = v_code);
+  end loop;
+  if exists (select 1 from public.patient_portal_credentials where code = v_code) then
+    return jsonb_build_object('ok', false, 'error', 'تعذّر توليد كود فريد — حاول مرة أخرى');
+  end if;
   insert into public.patient_portal_credentials (patient_id, doctor_id, clinic_id, code)
   values (p_patient_id, v_p.doctor_id, v_p.clinic_id, v_code);
   update public.patients set clinic_id = v_p.clinic_id
@@ -2109,7 +2120,9 @@ begin
   v_err := 'رقم التليفون أو الكود غير صحيحين — تأكد منهم أو اسأل عيادتك';
   v_input := upper(btrim(coalesce(p_code, '')));
   v_parts := string_to_array(v_input, '-');
-  if array_length(v_parts, 1) <> 4 then
+  -- جزئين = الكود القصير الجديد PREFIX-######؛ ٤ أجزاء = الكود القديم
+  -- الطويل اللي استلمه المريض بالفعل (الكود دائم، ما بيتغيرش أبداً).
+  if coalesce(array_length(v_parts, 1), 0) not in (2, 4) then
     return jsonb_build_object('ok', false, 'error', v_err);
   end if;
   v_prefix := v_parts[1];

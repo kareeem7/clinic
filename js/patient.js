@@ -12,12 +12,43 @@
 /* ============================================================
    js/patient.js — المرحلة 5: ملف المريض التفصيلي + منحنى التطور
    ============================================================ */
-// الدفعة ٣: كود دخول البوابة inside ملف الطبيب.
+// الدفعة ٣: كود دخول البوابة داخل ملف الطبيب.
 // الكود دائم بلا أي زر تغيير/تدوير؛ issue_patient_code ثابتة (idempotent)
 // فبتعرض الكود الموجود أو بتصدره أول مرة من غير ما تبدّله.
+// الكود محفوظ في الذاكرة فقط أثناء عرض الملف: لا يُكتب في لينك ولا في data-attribute.
+let patientAccessCode = '';
+
+// واتساب أي «رسالة جاهزة» بيحطها بعد ?text= جوه اللينك، يعني الكود هيبقى
+// مكتوب في الرابط (تاريخ المتصفح + السجلات + أي screenshot). عشان كده:
+// بننسخ الكود محلياً للحافظة ونفتح محادثة فاضية، والدكتور يلصقه بنفسه.
+async function sendPatientCodeWA(patientId) {
+  const code = patientAccessCode, p = getPatient(patientId);
+  if (!code) { toast('استنى لحد ما الكود يظهر ثم اضغط تاني', 'error'); return; }
+  if (!p || !p.phone) { toast('لا يوجد رقم موبايل لهذا المريض', 'error'); return; }
+  const link = 'https://wa.me/' + normPhoneEG(p.phone); // ← بلا أي معامل نص وبلا الكود إطلاقاً
+  // الاتنين لازم يبدأوا داخل نفس ضغطة الزر عشان المتصفح ما يبلوكش النافذة/الحافظة
+  let copy;
+  try { copy = navigator.clipboard.writeText(code); }
+  catch (e) { copy = Promise.reject(e); }
+  window.open(link, '_blank', 'noopener,noreferrer');
+  try {
+    await copy;
+    toast('اتنسخ الكود — الصقه في محادثة الواتساب اللي اتفتحت (الكود مش مكتوب في اللينك)');
+  } catch (e) {
+    toast('اتفتحت المحادثة — انسخ الكود من الكارت يدوياً وألصقه', 'info');
+  }
+}
+
+async function copyPatientCode() {
+  if (!patientAccessCode) return;
+  try { await navigator.clipboard.writeText(patientAccessCode); toast('اتنسخ الكود'); }
+  catch (e) { toast('انسخ الكود يدوياً من الكارت', 'info'); }
+}
+
 async function renderPatientAccess(p) {
   const box = $('#patAccessBody');
   if (!box) return;
+  patientAccessCode = ''; // ما نحتفظش بكود مريض تاني لما بنبدّل الملف
   if (!DB.sb || typeof DB.sb.rpc !== 'function') return;
   box.innerHTML = 'جارٍ التحميل…';
   try {
@@ -26,15 +57,19 @@ async function renderPatientAccess(p) {
     if (data && data.ok === false) throw { message: data.error || 'تعذّر إصدار الكود' };
     const code = data && (typeof data === 'string' ? data : data.code);
     if (!code) throw { message: 'empty access code' };
+    patientAccessCode = code;
     box.innerHTML =
       '<div class="sys-row"><div style="flex:1">' +
         '<b class="ltr" style="font-size:17px;letter-spacing:.5px">' + esc(code) + '</b>' +
         '<small>الكود الدائم للمريض — يدخل بيه كل مرة مع رقم موبايله، وبيظهر له دائماً داخل البوابة. مفيش زر تغيير أو تدوير.</small>' +
       '</div></div>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">' +
+        '<button class="btn btn-outline sm" type="button" data-action="pt-code-wa" data-id="' + esc(p.id) + '" style="color:#128c4b"><i class="fa-brands fa-whatsapp"></i> إرسال الكود واتساب</button>' +
+        '<button class="btn btn-ghost sm" type="button" data-action="pt-code-copy"><i class="fa-regular fa-copy"></i> نسخ الكود</button>' +
         '<button class="btn btn-outline sm" type="button" data-action="pt-access-off" data-id="' + esc(p.id) + '"><i class="fa-solid fa-ban"></i> إيقاف دخول البوابة (طوارئ)</button>' +
         '<button class="btn btn-ghost sm" type="button" data-action="pt-access-on" data-id="' + esc(p.id) + '"><i class="fa-solid fa-unlock"></i> إعادة تشغيل الدخول</button>' +
-      '</div>';
+      '</div>' +
+      '<small style="display:block;margin-top:8px">الزر بينسخ الكود ويفتح محادثة فاضية؛ الكود <b>ما بيتكتبش في أي لينك أو رابط</b>، والدكتور يلصقه بنفسه. راعِ موافقة المريض على التواصل.</small>';
   } catch (e) {
     logError(e, 'patient.accessCode');
     box.innerHTML = '<b style="color:var(--rose)">تعذّر إصدار الكود.</b> ' +
