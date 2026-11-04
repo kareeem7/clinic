@@ -49,7 +49,7 @@ function harness(store = memoryStore()) {
 }
 
 test('service worker precaches every local shell file and never touches Supabase', () => {
-  assert.match(sw, /CACHE_NAME = 'clinic-shell-v1'/);
+  assert.match(sw, /CACHE_NAME = 'clinic-shell-v2'/);
   assert.match(sw, /self\.addEventListener\('install'/);
   assert.match(sw, /self\.addEventListener\('activate'/);
   assert.match(sw, /self\.skipWaiting\(\)/);
@@ -72,6 +72,7 @@ test('service worker precaches every local shell file and never touches Supabase
 
 test('page registers the worker through an external script and shows an offline bar', () => {
   assert.match(html, /<script src="js\/offline\.js"><\/script>/);
+  assert.match(html, /<script src="js\/offline-snapshot\.js"><\/script>/);
   for (const id of ['offlineBar', 'offlineLabel', 'offlinePending', 'offlineFlushBtn', 'offlineReviewBtn', 'offlineConflictCount', 'offlinePanel']) {
     assert.match(html, new RegExp('id="' + id + '"'));
   }
@@ -230,17 +231,18 @@ test('schema-cache errors now produce an actionable Arabic message instead of th
   assert.match(run('explainError({code:"totally-unknown"})'), /حدث خطأ غير متوقع/);
 });
 
-test('README records the offline decisions, all three batches and the remaining limits', () => {
-  assert.match(readme, /الأوفلاين \(الدفعة ١ \+ ٢ \+ ٣ من ٤\)/);
+test('README records the offline decisions, all four batches and the remaining limits', () => {
+  assert.match(readme, /الأوفلاين \(الدفعات ١–٤ من ٤\)/);
   assert.match(readme, /جهاز صاحبه فقط/);
   assert.match(readme, /جهاز العيادة وموبايل المريض معاً/);
   assert.match(readme, /تنبيه للدكتور/);
   assert.match(readme, /AES-GCM/);
   assert.match(readme, /لا يتدخل ولا يخزّن أي طلب لـ `supabase\.co`/);
-  assert.match(readme, /مفيش توكن ولا كود دخول ولا صور جوه الدفتر/);
-  assert.match(readme, /الصور لسه مش جوه الدفتر/);
+  assert.match(readme, /مفيش توكن ولا كود دخول جوه الدفتر/);
+  assert.match(readme, /الصور بقت جوه الدفتر/);
   assert.match(readme, /measurementLooksUploaded/);
   assert.match(readme, /بلا أي اسم مريض ولا قيم سريرية/);
-  assert.match(readme, /الدفعة ٤/);
+  assert.match(readme, /20261114_offline_conflict_tickets/);
+  assert.match(readme, /كل الاختبارات `node:test`/);
   assert.match(readme, /OTP\/SMS لسه مؤجّل/);
 });

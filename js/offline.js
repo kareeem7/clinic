@@ -24,6 +24,7 @@ const Offline = {
   role: 'clinic',            // 'clinic' = جهاز العيادة | 'patient' = موبايل المريض
   pending: 0,
   conflicts: [],
+  remoteTickets: [],     // الدفعة ٤: تذاكر واردة من أجهزة المرضى (ترحيل 20261114)
   encryption: false,
   _key: null,
   _flushing: false,
@@ -65,11 +66,14 @@ const Offline = {
   _openDB() {
     return new Promise((resolve, reject) => {
       if (typeof indexedDB === 'undefined') { reject({ code: 'offline_no_idb' }); return; }
-      const req = indexedDB.open('clinic-offline-v1', 1);
+      // v2: أضفنا مخزن 'photos' للصور المشفّرة (الدفعة ٤).
+      // onupgradeneeded بينشئ أي مخزن ناقص، فالترقية آمنة من v1 ومن تثبيت جديد.
+      const req = indexedDB.open('clinic-offline-v1', 2);
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains('queue')) db.createObjectStore('queue', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'k' });
+        if (!db.objectStoreNames.contains('photos')) db.createObjectStore('photos', { keyPath: 'k' });
       };
       req.onsuccess = () => resolve(idbWrap(req.result));
       req.onerror = () => reject(req.error);
@@ -149,8 +153,51 @@ const Offline = {
 
   async remove(id) {
     const db = await Offline._openDB();
+    const rows = await db.getAll('queue');
+    const row = rows.find(r => r.id === id);
     await db.del('queue', id);
+    // الصورة المشفّرة المرتبطة بالعملية تتمسح معاها (نجاح أو حذف بقرار الدكتور)
+    if (row && row.requestId) { try { await db.del('photos', row.requestId); } catch (_) {} }
   },
+
+  // ---------- صور القياسات المشفّرة (الدفعة ٤) ----------
+  // البايتات نفسها تتشفّر AES-GCM؛ اسم الملف مش بيتخزّن أصلاً (ممكن يكون فيه PHI)،
+  // والميتاداتا الوحيدة هي نوع MIME من 3 قيم ثابتة.
+  putPhoto(requestId, bytes, type) {
+    if (!Offline.encryption) throw { code: 'offline_crypto_missing', message: 'التشفير غير متاح' };
+    const allowed = { 'image/jpeg': 'photo.jpg', 'image/png': 'photo.png', 'image/webp': 'photo.webp' };
+    if (!allowed[type]) throw { code: 'offline_photo_type', message: 'صيغة الصورة غير مدعومة' };
+    if (!bytes || bytes.byteLength > 5 * 1024 * 1024) throw { code: 'offline_photo_size', message: 'الصورة أكبر من 5MB' };
+    return (async () => {
+      const key = await Offline.deviceKey();
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const buf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, bytes);
+      const db = await Offline._openDB();
+      await db.put('photos', { k: requestId, iv: Array.from(iv),
+        data: Array.from(new Uint8Array(buf)), type });
+      return requestId;
+    })();
+  },
+
+  async getPhoto(requestId) {
+    const db = await Offline._openDB();
+    const row = await db.get('photos', requestId);
+    if (!row) return null;
+    const key = await Offline.deviceKey();
+    const buf = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: new Uint8Array(row.iv) }, key, new Uint8Array(row.data));
+    return { bytes: new Uint8Array(buf), type: row.type,
+      name: ({ 'image/jpeg': 'photo.jpg', 'image/png': 'photo.png', 'image/webp': 'photo.webp' })[row.type] || 'photo.jpg' };
+  },
+
+  async dropPhoto(requestId) {
+    if (!requestId) return;
+    const db = await Offline._openDB();
+    await db.del('photos', requestId);
+  },
+
+  // «نسخة أوفلاين» بتاعة البوابة (الدفعة ٤) — بتظهر في شريط الحالة
+  snapshotNote: null,
 
   // تعديل علم جوه العملية المشفّرة (مثلاً «الدكتور أكّد الرفع»).
   // بنعيد التشفير بـ iv جديد، والبيانات ما تطلعش من الذاكرة أبداً.
@@ -188,7 +235,7 @@ const Offline = {
   async resolveConflict(id, action) {
     const db = await Offline._openDB();
     if (action === 'discard') {
-      await db.del('queue', id);
+      await Offline.remove(id); // بيمسح الصورة المشفّرة المرتبطة كمان
     } else {
       if (action === 'force') await Offline.setFlag(id, 'forced', true);
       const rows = await db.getAll('queue');
@@ -250,12 +297,15 @@ const Offline = {
           const c = (typeof OfflineCapture !== 'undefined' && OfflineCapture.classifyThrown)
             ? OfflineCapture.classifyThrown(e) : { kind: 'unknown', reason: Offline.reasonFor(e) };
           await Offline.markConflict(item.id, c.reason, c.kind);
+          Offline.reportConflictRemote(item, c.kind, c.reason);
           conflicts++; continue;
         }
         // «معلّق» (جلسة لسه مش جاهزة): ما يتعلّمش تعارض وما يتحذفش
         if (res && res.skipped) { skipped++; continue; }
         if (res && res.conflict) {
-          await Offline.markConflict(item.id, res.reason || 'تعارض في البيانات', res.kind);
+          const reason = res.reason || 'تعارض في البيانات';
+          await Offline.markConflict(item.id, reason, res.kind);
+          Offline.reportConflictRemote(item, res.kind, reason);
           conflicts++; continue;
         }
         // alreadyApplied: السيرفر حقّق المطلوب فعلاً في محاولة سابقة (رد ضايع)
@@ -299,9 +349,42 @@ const Offline = {
     throw { code: 'offline_unknown_op', message: 'نوع عملية غير معروف' };
   },
 
+  /** بلاغ «أفضل جهد» للدكتور على أي جهاز. بلا بيانات مرضى، وبلا توكن مخزّن.
+   *  لو ترحيل 20261114 لسه ما اتطبّقش، التذكرة المحلية هي البديل. */
+  reportConflictRemote(item, kind, reason) {
+    if (typeof OfflineCapture === 'undefined' || !OfflineCapture.reportConflict) return;
+    const p = (item && item.payload) || {};
+    if (p.origin !== 'patient') return; // تعارضات جهاز العيادة الدكتور شايفها أصلاً
+    // 🚫 تعارض هوية: التوكن الحالي لمريض **تاني**، فأي بلاغ هيتربط بحساب غلط
+    if (kind === 'identity') return;
+    const current = OfflineCapture.currentPatientId ? OfflineCapture.currentPatientId() : null;
+    if (p.patientId && current && p.patientId !== current) return;
+    OfflineCapture.reportConflict({
+      origin: p.origin, requestId: item.requestId, kind: kind || 'unknown',
+      label: p.label || 'تسجيل بيانات', reason: reason || ''
+    }).catch(e => Offline.log(e, 'offline.report.remote'));
+  },
+
+  async refreshRemoteTickets() {
+    if (typeof OfflineCapture === 'undefined' || !OfflineCapture.listConflicts) return;
+    if (Offline.role === 'patient' || !Offline.isOnline) return;
+    try {
+      Offline.remoteTickets = await OfflineCapture.listConflicts();
+    } catch (e) { Offline.remoteTickets = []; Offline.log(e, 'offline.remote.list'); }
+    Offline.render();
+  },
+
+  async ackRemoteTicket(id) {
+    if (typeof OfflineCapture === 'undefined' || !OfflineCapture.ackConflict) return;
+    const ok = await OfflineCapture.ackConflict(id);
+    if (ok) await Offline.refreshRemoteTickets();
+    else if (typeof toast === 'function') toast('ما قدرناش نقفل التذكرة — تأكد إن الترحيل متطبّق', 'error');
+  },
+
   setRole(role) {
     Offline.role = (role === 'patient') ? 'patient' : 'clinic';
     Offline.render();
+    if (Offline.role === 'clinic') Offline.refreshRemoteTickets();
   },
 
   // على جهاز العيادة: تنبيه للدكتور يراجع. على موبايل المريض: مفيش دكتور
@@ -332,6 +415,8 @@ const Offline = {
       else if (act === 'force') Offline.resolveConflict(id, 'force').catch(err => Offline.log(err, 'offline.force'));
       else if (act === 'discard') Offline.resolveConflict(id, 'discard').catch(err => Offline.log(err, 'offline.discard'));
       else if (act === 'copy-report') Offline.copyReport();
+      else if (act === 'refresh-remote') Offline.refreshRemoteTickets().catch(e => Offline.log(e, 'offline.remote.refresh'));
+      else if (act === 'ack-remote') Offline.ackRemoteTicket(id).catch(e => Offline.log(e, 'offline.remote.ack'));
     });
   },
 
@@ -370,14 +455,17 @@ const Offline = {
     const bar = document.getElementById('offlineBar');
     if (!bar) return;
     const offline = !Offline.isOnline, pending = Offline.pending, conflicts = Offline.conflicts.length;
-    const show = offline || pending > 0 || conflicts > 0;
+    const show = offline || pending > 0 || conflicts > 0 ||
+      !!Offline.snapshotNote || (Offline.role === 'clinic' && Offline.remoteTickets.length > 0);
     bar.hidden = !show;
     bar.style.display = show ? 'flex' : 'none'; // inline display لوحده بيتغلب على hidden
     const label = document.getElementById('offlineLabel');
-    if (label) label.textContent = offline
-      ? 'النت مقطوع — الكتابة هتتحفظ على هذا الجهاز فقط (مشفّرة) وهتترفع أول ما النت يرجع'
-      : (pending > 0 ? 'فيه ' + pending + ' تسجيل مستني رفع للسيرفر…'
-        : 'فيه ' + conflicts + ' تسجيل محتاج مراجعتك');
+    if (label) label.textContent = Offline.snapshotNote
+      ? Offline.snapshotNote
+      : (offline
+        ? 'النت مقطوع — الكتابة هتتحفظ على هذا الجهاز فقط (مشفّرة) وهتترفع أول ما النت يرجع'
+        : (pending > 0 ? 'فيه ' + pending + ' تسجيل مستني رفع للسيرفر…'
+          : 'فيه ' + conflicts + ' تسجيل محتاج مراجعتك'));
     const pendingEl = document.getElementById('offlinePending');
     if (pendingEl) {
       pendingEl.textContent = 'معلّق: ' + pending;
@@ -393,9 +481,22 @@ const Offline = {
     if (flushBtn) flushBtn.style.display = (!offline && pending > 0) ? '' : 'none';
     const panel = document.getElementById('offlinePanel');
     if (panel) {
-      panel.style.display = (Offline._panelOpen && conflicts > 0) ? 'block' : 'none';
+      const hasPanel = conflicts > 0 || (Offline.role === 'clinic' && Offline.remoteTickets.length > 0);
+      panel.style.display = (Offline._panelOpen && hasPanel) ? 'block' : 'none';
       // على موبايل المريض: ما نديهوش زر «حذف» لتسجيل محتاج مراجعة الدكتور
       const canDiscard = Offline.role !== 'patient';
+      const remoteTickets = (Offline.role === 'clinic' && Offline.remoteTickets.length)
+        ? '<div class="sys-row" style="display:block;margin:8px 0">' +
+          '<b>تذاكر من أجهزة المرضى</b> <small class="muted">(بلا بيانات مرضى — البيانات لسه على جهاز المريض)</small> ' +
+          '<button class="btn btn-ghost sm" type="button" data-offline-action="refresh-remote">تحديث</button>' +
+          Offline.remoteTickets.map(t =>
+            '<div class="sys-row"><span><b>' + safeText(t.label) + '</b> — ' + safeText(t.reason) +
+            '<br><small class="muted ltr">' + safeText(t.createdAt) + ' · ' + safeText(t.kind) +
+            ' · ' + safeText(t.requestId) + '</small></span>' +
+            '<button class="btn btn-outline sm" type="button" data-offline-action="ack-remote" data-offline-id="' +
+            safeText(t.id) + '">تمت المراجعة</button></div>').join('') +
+          '</div>'
+        : '';
       panel.innerHTML = conflicts
         ? '<p class="p-small" style="margin:0 0 6px">' +
           (canDiscard
@@ -412,8 +513,8 @@ const Offline = {
             '<button class="btn btn-ghost sm" type="button" data-offline-action="retry" data-offline-id="' + safeText(c.id) + '">إعادة المحاولة</button>' +
             (canDiscard ? '<button class="btn btn-outline sm" type="button" data-offline-action="discard" data-offline-id="' + safeText(c.id) + '">حذف</button>' : '') +
             '</div>';
-          }).join('')
-        : '';
+          }).join('') + remoteTickets
+        : remoteTickets;
     }
   },
 

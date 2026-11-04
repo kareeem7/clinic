@@ -50,6 +50,11 @@ const Portal = {
     if (error) throw error;
     if (!data || !data.ok) throw { message: (data && data.error) || 'تعذّر تسجيل الدخول' };
     resetPortalSessionState();
+    // 🚫 دخول مريض جديد لازم يمسح نسخة المريض السابق فوراً، حتى لو حصل
+    // فشل شبكي بعد الدخول مباشرة — من غير كده restore هيوري بيانات مريض تاني.
+    if (typeof OfflineSnapshot !== 'undefined') {
+      try { await OfflineSnapshot.clear(); } catch (_) { /* no-op */ }
+    }
     sessionStorage.setItem('clinic_patient_token', data.token);
     this.token = data.token;
     if (typeof OfflineCapture !== 'undefined') OfflineCapture.enter('patient');
@@ -58,13 +63,27 @@ const Portal = {
 
   async load(silentFail) {
     const token = this.token;
-    const { data, error } = await DB.sb.rpc('patient_portal_data', { p_token: token });
+    let portalRpc;
+    try { portalRpc = await DB.sb.rpc('patient_portal_data', { p_token: token }); }
+    catch (e) {
+      // الدفعة ٤: فشل شبكي → نحاول النسخة المشفّرة المحفوظة على الجهاز.
+      // `restore` بيرفض لو مفيش توكن جلسة في نفس المتصفح، فمش بديل عن الدخول.
+      if (typeof Offline !== 'undefined' && Offline.isNetworkError(e) &&
+          typeof OfflineSnapshot !== 'undefined') {
+        try { if (await OfflineSnapshot.restore(this)) return; }
+        catch (se) { if (typeof Offline !== 'undefined') Offline.log(se, 'offline.snapshot.restore'); }
+      }
+      throw e;
+    }
+    const { data, error } = portalRpc;
     if (token !== this.token) return; // an older session must not update the current UI
     if (error) throw error;
     if (!data.ok) {
       this.token = null; this.data = null;
       sessionStorage.removeItem('clinic_patient_token');
       resetPortalSessionState();
+      // جلسة مرفوضة صراحةً من السيرفر → النسخة المحلية ما تفضلش متاحة
+      if (typeof OfflineSnapshot !== 'undefined') OfflineSnapshot.clear().catch(() => {});
       if (!silentFail) toast(data.error || 'انتهت جلستك', 'error');
       switchAuthTab('patient'); showScreen('login');
       return;
@@ -103,6 +122,13 @@ const Portal = {
     } catch (_) { /* تعذّر جلب الكود لا يعطّل البوابة */ }
     if (token !== this.token) return;
     this.data = data;
+    this.offlineSnapshot = null; // رجعنا أونلاين بنسخة حقيقية من السيرفر
+    if (typeof Offline !== 'undefined') {
+      Offline.snapshotNote = null;
+      if (typeof Offline.render === 'function') Offline.render();
+    }
+    // الدفعة ٤: جدّد النسخة المشفّرة بعد كل تحميل ناجح (الكود الدائم بيتشال قبل الحفظ)
+    if (typeof OfflineSnapshot !== 'undefined') OfflineSnapshot.save(data).catch(() => {});
     document.body.classList.add('theme-patient');
     this.render();
     showScreen('portal');
@@ -115,9 +141,11 @@ const Portal = {
 
   async logout() {
     const token = this.token;
-    this.token = null; this.data = null;
+    this.token = null; this.data = null; this.offlineSnapshot = null;
     sessionStorage.removeItem('clinic_patient_token');
     resetPortalSessionState();
+    // تسجيل خروج صريح = مفيش سبب يخلي نسخة بيانات المريض متاحة على الجهاز
+    if (typeof OfflineSnapshot !== 'undefined') OfflineSnapshot.clear().catch(() => {});
     document.body.classList.remove('theme-patient');
     toast('تم تسجيل خروجك — بالسلامة!', 'info');
     switchAuthTab('patient'); showScreen('login');
@@ -316,17 +344,38 @@ async function portalSubmitMeasurement() {
   btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>جارٍ الحفظ...</span>';
 
   try {
-    // optional photo upload first (its path is stored with the measurement)
-    let photoPath = null;
+    // الدفعة ٤: الصورة بتتشفّر في الدفتر **قبل** أي نداء شبكة. كده حتى لو
+    // النت انقطع في نص الرفع، الصورة ما تضيعش وتترفع تلقائياً مع القياس.
+    // اللي بيتخزّن في العملية هو مفتاح الصورة بس، مش بايتاتها ولا اسم الملف.
+    let photoPath = null, photoReq = null, deferred = false;
     const file = $('#lgPhoto').files && $('#lgPhoto').files[0];
-    // الدفعة ٢: الصور لسه مش جوه الدفتر (الدفعة ٤) — القياس يُسجّل بدونها
-    if (file && portalIsOffline()) {
-      toast('الصورة مش هتتحفظ أوفلاين — القياس هيتسجّل بدونها', 'info');
-    } else if (file) {
+    if (file && typeof Offline !== 'undefined' && typeof Offline.putPhoto === 'function' &&
+        typeof OfflineCapture !== 'undefined' && Offline.encryption) {
+      try {
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type))
+          throw { message: 'اختار صورة بصيغة JPG أو PNG أو WebP' };
+        if (file.size > 5 * 1024 * 1024) throw { message: 'الصورة كبيرة قوي — حتى 5MB بس' };
+        photoReq = OfflineCapture.uuid();
+        await Offline.putPhoto(photoReq, await file.arrayBuffer(), file.type);
+      } catch (pe) {
+        photoReq = null;
+        toast('الصورة ما تحفظتش على الجهاز — القياس هيتسجّل بدونها: ' + (pe.message || ''), 'info');
+      }
+    } else if (file && portalIsOffline()) {
+      toast('تشفير الصور غير متاح على الجهاز — القياس هيتسجّل بدونها', 'info');
+    }
+
+    if (file && !portalIsOffline()) {
       try { photoPath = await portalUploadPhoto(file, token); }
       catch (pe) {
         if (token !== Portal.token) return;
-        toast('الصورة ماترفعتش — القياس هيتحفظ بدونها: ' + (pe.message || ''), 'info');
+        if (photoReq && typeof Offline !== 'undefined' && Offline.isNetworkError(pe)) {
+          deferred = true; // فشل شبكي + نسخة مشفّرة → نأجّل القياس كله للدفتر
+        } else {
+          toast('الصورة ماترفعتش — القياس هيتحفظ بدونها: ' + (pe.message || ''), 'info');
+          if (photoReq && typeof Offline !== 'undefined') Offline.dropPhoto(photoReq).catch(() => {});
+          photoReq = null;
+        }
       }
     }
 
@@ -334,16 +383,20 @@ async function portalSubmitMeasurement() {
     const queuedArgs = {
       __session: true, p_weight: w,
       p_waist: wa || null, p_hips: hips || null, p_arm: arm || null,
-      p_note: note, p_date: date, p_photo_path: photoPath
+      p_note: note, p_date: date, p_photo_path: photoPath,
+      __photo: photoReq || null
     };
     const liveArgs = Object.assign({}, queuedArgs, { p_token: token });
-    delete liveArgs.__session;
+    delete liveArgs.__session; delete liveArgs.__photo;
     const { data: r, error } = await portalOfflineCall(
       { kind: 'rpc', name: 'patient_portal_add_measurement', args: queuedArgs,
-        origin: 'patient', label: 'قياس وزن من المريض' },
-      () => DB.sb.rpc('patient_portal_add_measurement', liveArgs),
+        origin: 'patient', label: 'قياس وزن من المريض', requestId: photoReq || undefined },
+      deferred ? () => Promise.reject({ message: 'Failed to fetch' })
+               : () => DB.sb.rpc('patient_portal_add_measurement', liveArgs),
       { data: { ok: true }, error: null });
     if (token !== Portal.token) return;
+    if (photoReq && typeof Offline !== 'undefined' && typeof OfflineCapture !== 'undefined' &&
+        !OfflineCapture.lastQueued) Offline.dropPhoto(photoReq).catch(() => {});
     if (error) throw error;
     if (!r || !r.ok) { err.textContent = r && r.error ? r.error : 'تعذّر الحفظ'; err.classList.add('show'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check"></i> حفظ القياس'; return; }
 

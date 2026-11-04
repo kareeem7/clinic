@@ -13,7 +13,9 @@
 /* ============================================================
    قواعد أمان غير قابلة للتفاوض
    ------------------------------------------------------------
-   1) مفيش توكن ولا كود دخول ولا صور جوه الدفتر. بوابة المريض بتحتاج
+   1) مفيش توكن ولا كود دخول جوه الدفتر. الصور (الدفعة ٤) بتتشفّر
+      في مخزن مستقل ولا يُحفظ اسم ملفها، ومفتاحها بس بيبقى في العملية.
+      بوابة المريض بتحتاج
       p_token في كل RPC، فبنخزّن علامة `__session` بس، وعند الرفع بنقرأ
       التوكن الحالي من Portal.token (الذاكرة/sessionStorage) ونحقنه ساعتها.
    2) كل عملية بتتقيّد بهوية صاحبها (doctorId / clinicId / patientId).
@@ -35,6 +37,8 @@ function cairoDate(v) {
 
 const OfflineCapture = {
   replaying: false,
+  lastQueued: false,      // هل آخر call اتحط فعلاً في الدفتر؟ (لتنظيف الصورة)
+  photoUploader: null,    // قابلة للاستبدال في الاختبارات
 
   uuid() {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -91,6 +95,7 @@ const OfflineCapture = {
   async call(ops, live, fake) {
     if (OfflineCapture.replaying) return live();
     if (typeof Offline === 'undefined') return live();
+    OfflineCapture.lastQueued = false;
     const list = (Array.isArray(ops) ? ops : [ops]).map(o => OfflineCapture.decorate(o));
     if (!Offline.isOnline) return OfflineCapture.queue(list, fake);
     try { return await live(); }
@@ -101,6 +106,7 @@ const OfflineCapture = {
   },
 
   async queue(list, fake) {
+    OfflineCapture.lastQueued = true;
     try {
       for (const op of list) await Offline.enqueue(op); // assertSafe يمنع الأكواد/التوكنات
     } catch (e) {
@@ -153,13 +159,13 @@ const OfflineCapture = {
       const current = OfflineCapture.currentPatientId();
       if (!current) return { skipped: true };
       if (op.patientId && op.patientId !== current) {
-        return { conflict: true, reason: 'الجلسة الحالية لمريض آخر — التسجيل لن يُرفع على حساب خاطئ، راجع العيادة' };
+        return { conflict: true, kind: 'identity', reason: 'الجلسة الحالية لمريض آخر — التسجيل لن يُرفع على حساب خاطئ، راجع العيادة' };
       }
     } else {
       const uid = (typeof DB !== 'undefined' && DB.uid) || null;
       if (!uid) return { skipped: true };
       if (op.doctorId && op.doctorId !== uid) {
-        return { conflict: true, reason: 'تسجيل دخول بحساب دكتور آخر — سجّل الدخول بنفس الحساب الذي سجّل البيانات' };
+        return { conflict: true, kind: 'identity', reason: 'تسجيل دخول بحساب دكتور آخر — سجّل الدخول بنفس الحساب الذي سجّل البيانات' };
       }
     }
 
@@ -205,6 +211,25 @@ const OfflineCapture = {
           }
         }
 
+        // الدفعة ٤: الصورة المشفّرة على الجهاز تترفع الأول، ومسارها يُحقن في RPC.
+        if (Object.prototype.hasOwnProperty.call(args, '__photo')) {
+          const ref = args.__photo; delete args.__photo;
+          if (ref && typeof Offline !== 'undefined' && typeof Offline.getPhoto === 'function') {
+            const photo = await Offline.getPhoto(ref);
+            if (!photo) {
+              return { conflict: true, kind: 'attachment',
+                reason: 'الصورة المشفّرة المرتبطة بالقياس مش موجودة على الجهاز — راجعها مع الدكتور.' };
+            }
+            try { args.p_photo_path = await OfflineCapture.uploadPhoto(photo, token); }
+            catch (pe) {
+              if (typeof Offline !== 'undefined' && Offline.isNetworkError(pe)) throw pe;
+              return { conflict: true, kind: 'attachment',
+                reason: 'تعذّر رفع الصورة المشفّرة (' + String((pe && pe.message) || '') +
+                  ') — أعد المحاولة أو احذف الصورة.' };
+            }
+          }
+        }
+
         const { data, error } = await DB.sb.rpc(op.name, args);
         if (error) throw error;
         // الـ RPC بتاعة البوابة بترجع ok:false بدل ما ترمي خطأ (حد يومي/جلسة/تاريخ)
@@ -229,6 +254,17 @@ const OfflineCapture = {
     } finally {
       OfflineCapture.replaying = false;
     }
+  },
+
+  /** إعادة بناء File من البايتات المفكّكة ورفعها عبر Edge Function البوابة.
+   *  `photoUploader` قابلة للاستبدال في الاختبارات (مفيش File ولا functions.invoke هناك). */
+  async uploadPhoto(photo, token) {
+    if (OfflineCapture.photoUploader) return OfflineCapture.photoUploader(photo, token);
+    if (typeof portalUploadPhoto !== 'function' || typeof File === 'undefined') {
+      throw { code: 'offline_photo_unavailable', message: 'رفع الصور غير متاح على هذا الجهاز' };
+    }
+    const file = new File([photo.bytes], photo.name, { type: photo.type });
+    return portalUploadPhoto(file, token);
   },
 
   /** فحص «هل القياس وصل فعلاً؟» عبر RPC قراءة البوابة (مفيش إدراج مباشر لـ anon).
@@ -296,6 +332,42 @@ const OfflineCapture = {
       return { kind: 'validation', reason: 'السيرفر رفض قيمة غير صالحة: ' + all.slice(0, 200) };
     }
     return { kind: 'unknown', reason: all.slice(0, 250) || 'فشل الرفع — راجع العنصر مع الدكتور.' };
+  },
+
+  // ---------- تذاكر التعارض عبر الأجهزة (ترحيل 20261114، اختياري) ----------
+  // لو الترحيل لسه ما اتطبّقش، الـ RPC بيرجع PGRST205/42883 → بنتجاهل بهدوء
+  // ونكتفي بتذكرة المراجعة المحلية. مفيش أي توكن بيتخزّن: بيتبعت هنا بس.
+  async reportConflict(ticket) {
+    if (!ticket || typeof DB === 'undefined' || !DB.sb) return false;
+    const token = OfflineCapture.portalToken();
+    if (!token) return false;
+    try {
+      const { data, error } = await DB.sb.rpc('offline_report_conflict', {
+        p_token: token,
+        p_request_id: ticket.requestId,
+        p_kind: String(ticket.kind || 'unknown').slice(0, 40),
+        p_label: String(ticket.label || 'تسجيل بيانات').slice(0, 120),
+        p_reason: String(ticket.reason || 'محتاج مراجعة').slice(0, 400),
+        p_origin: ticket.origin === 'clinic' ? 'clinic' : 'patient'
+      });
+      return !error && data && data.ok !== false;
+    } catch (_) { return false; }
+  },
+
+  async listConflicts() {
+    if (typeof DB === 'undefined' || !DB.sb || !DB.uid) return [];
+    try {
+      const { data, error } = await DB.sb.rpc('offline_list_conflicts', { p_limit: 50 });
+      return (!error && Array.isArray(data)) ? data : [];
+    } catch (_) { return []; }
+  },
+
+  async ackConflict(id) {
+    if (!id || typeof DB === 'undefined' || !DB.sb) return false;
+    try {
+      const { data, error } = await DB.sb.rpc('offline_ack_conflict', { p_ticket: id });
+      return !error && data && data.ok !== false;
+    } catch (_) { return false; }
   },
 
   /** تنبيه ناعم (مش منع) لاقتراب حد الـ 20 كتابة يومياً بتوقيت القاهرة. */

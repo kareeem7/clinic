@@ -9,7 +9,7 @@
    ===================================================================== */
 'use strict';
 
-const CACHE_NAME = 'clinic-shell-v1';
+const CACHE_NAME = 'clinic-shell-v2';
 
 const SHELL = [
   './',
@@ -48,6 +48,7 @@ const SHELL = [
   './js/message-style.js',
   './js/notes.js',
   './js/offline-capture.js',
+  './js/offline-snapshot.js',
   './js/offline.js',
   './js/patient-portal.js',
   './js/patient.js',

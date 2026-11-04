@@ -101,8 +101,8 @@ function harness(opts = {}) {
 
 // ---------------------------------------------------------------- static
 test('batch 2 wires both device kinds through explicit, guarded seams', () => {
-  assert.match(html, /<script src="js\/offline\.js"><\/script>\s*\n<script src="js\/offline-capture\.js"><\/script>\s*\n<script src="js\/app\.js"><\/script>/);
-  for (const f of ['./js/offline.js', './js/offline-capture.js']) assert.ok(sw.includes("'" + f + "'"), f + ' precached');
+  assert.match(html, /<script src="js\/offline\.js"><\/script>\s*\n<script src="js\/offline-capture\.js"><\/script>\s*\n<script src="js\/offline-snapshot\.js"><\/script>\s*\n<script src="js\/app\.js"><\/script>/);
+  for (const f of ['./js/offline.js', './js/offline-capture.js', './js/offline-snapshot.js']) assert.ok(sw.includes("'" + f + "'"), f + ' precached');
   assert.match(dbSrc, /function offlineCall\(/);
   assert.match(dbSrc, /function offlineId\(/);
   assert.match(dbSrc, /typeof Offline !== 'undefined' && !Offline\.isOnline\) return;/, 'audit skips offline');
@@ -128,7 +128,9 @@ test('portal queue descriptors carry a session marker, never a token or an acces
   for (const name of ['patient_portal_add_measurement', 'patient_portal_add_health_reading', 'patient_portal_cancel']) {
     assert.match(portalSrc, new RegExp("name: '" + name + "'"));
   }
-  assert.match(portalSrc, /الصورة مش هتتحفظ أوفلاين/, 'photos are explicitly deferred');
+  assert.match(portalSrc, /Offline\.putPhoto\(/, 'batch 4 encrypts photos before any network call');
+  assert.match(portalSrc, /__photo: photoReq \|\| null/, 'only a photo key is queued, never bytes');
+  assert.match(captureSrc, /OfflineCapture\.uploadPhoto\(photo, token\)/, 'photos are uploaded at replay');
   assert.match(offlineSrc, /const canDiscard = Offline\.role !== 'patient'/,
     'a patient must not be offered a delete button for a doctor-review item');
   assert.match(offlineSrc, /if \(res && res\.skipped\) \{ skipped\+\+; continue; \}/,
