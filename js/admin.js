@@ -296,7 +296,8 @@ const Admin = {
     const d = this.overview.find(x => x.doctor_id === id);
     if (!d || !d.email) return toast('لا يوجد بريد مسجّل لهذا الحساب', 'error');
     // Client-side safe: Supabase emails the doctor a fresh reset link without knowing the password
-    const { error } = await DB.sb.auth.resetPasswordForEmail(d.email, { redirectTo: location.origin + location.pathname });
+    const redirectTo = new URL('reset.html', location.origin + location.pathname).href;
+    const { error } = await DB.sb.auth.resetPasswordForEmail(d.email, { redirectTo: redirectTo });
     if (error) { toast('تعذّر الإرسال — ' + explainError(error), 'error'); return; }
     await DB.audit('edit', 'doctors', id, { scope: 'password-reset-link' });
     toast('تم إرسال رابط إعادة تعيين كلمة المرور إلى <b class="ltr">' + esc(d.email) + '</b>');

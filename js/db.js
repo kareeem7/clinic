@@ -261,7 +261,11 @@ const DB = {
   },
 
   async resetPassword(email) {
-    const { error } = await this.sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+    // The recovery link must land on the dedicated reset.html page, not on the
+    // app shell: index.html boots the MFA gate and would swallow an aal1
+    // recovery session instead of letting the doctor set a new password.
+    const redirectTo = new URL('reset.html', location.origin + location.pathname).href;
+    const { error } = await this.sb.auth.resetPasswordForEmail(email, { redirectTo: redirectTo });
     if (error) throw error;
   },
 

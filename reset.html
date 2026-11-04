@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>إعادة تعيين كلمة المرور — عيادتي</title>
+<meta name="description" content="صفحة استقبال رابط استعادة كلمة المرور لحساب الدكتور">
+<meta name="theme-color" content="#0d9488">
+<!-- نفس سياسة index.html: لا يوجد JavaScript مضمّن، والسكربتات من هذا الأصل أو CDN مثبّت. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%230d9488'/><text x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif'>✚</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha384-PPIZEGYM1v8zp5Py7UjFb79S58UeqCL9pYVnVPURKEqvioPROaVAJKKLzvH2rDnI" crossorigin="anonymous" referrerpolicy="no-referrer">
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+
+<section class="login-view">
+  <div class="login-card" style="grid-template-columns:1fr;max-width:560px">
+    <div class="login-form">
+      <div class="p-chips"><span class="chip chip-teal"><i class="fa-solid fa-shield-halved"></i> إعادة تعيين كلمة المرور</span></div>
+      <div>
+        <h2>كلمة مرور جديدة</h2>
+        <p class="muted">اكتب كلمة المرور الجديدة لحسابك. بعد الحفظ هترجع لصفحة الدخول وتكمل بالتحقق بخطوتين.</p>
+      </div>
+
+      <p id="recoveryStatus" class="muted" role="status" style="font-size:13.5px;font-weight:700">جارٍ التحقق من رابط الاستعادة…</p>
+      <div id="recoveryError" class="form-error" role="alert" aria-live="polite"></div>
+      <div id="recoveryOk" class="demo-hint" style="display:none">
+        <i class="fa-solid fa-circle-check" aria-hidden="true"></i><span id="recoveryOkText"></span>
+      </div>
+
+      <form id="recoveryForm" class="auth-form hide" novalidate>
+        <div class="field">
+          <label for="recoveryPass">كلمة المرور الجديدة * (8 أحرف على الأقل)</label>
+          <div class="in-wrap"><i class="fa-solid fa-lock"></i>
+            <input id="recoveryPass" type="password" required dir="ltr" minlength="8" autocomplete="new-password">
+          </div>
+        </div>
+        <div class="field">
+          <label for="recoveryPass2">تأكيد كلمة المرور *</label>
+          <div class="in-wrap"><i class="fa-solid fa-lock"></i>
+            <input id="recoveryPass2" type="password" required dir="ltr" minlength="8" autocomplete="new-password">
+          </div>
+        </div>
+        <button class="btn btn-primary block" id="recoveryBtn" type="submit">
+          <i class="fa-solid fa-check"></i><span>حفظ كلمة المرور</span>
+        </button>
+      </form>
+
+      <div id="recoveryHelp" class="hide" style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
+        <a class="btn btn-outline block" href="index.html#reset"><i class="fa-solid fa-paper-plane"></i> اطلب رابط استعادة جديد</a>
+        <a class="btn btn-ghost block" href="index.html"><i class="fa-solid fa-arrow-right"></i> العودة لتسجيل الدخول</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- مكتبة Supabase الرسمية — نفس الإصدار والبصمة المستخدمة في index.html -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<!-- الترتيب إلزامي: config.js يعرّف supabaseConfig قبل reset.js -->
+<script src="js/config.js"></script>
+<script src="js/reset.js"></script>
+
+</body>
+</html>

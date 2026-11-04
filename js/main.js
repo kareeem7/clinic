@@ -256,6 +256,9 @@ async function boot() {
   $('#tabRegister').onclick = () => switchAuthTab('register');
   $('#forgotBtn').onclick = () => switchAuthTab('reset');
   $('#resetBack').onclick = () => switchAuthTab('login');
+  // reset.html يرسل الزائر هنا لطلب رابط جديد — نفتح تبويب الاستعادة مباشرة
+  // (typeof يحمي اختبارات الـ DOM المحاكى اللي ما بتعرّفش location)
+  if (typeof location !== 'undefined' && location.hash === '#reset') switchAuthTab('reset');
   $('#adminLink').onclick = () => switchAuthTab('admin');
   $('#adBack').onclick = () => switchAuthTab('login');
 

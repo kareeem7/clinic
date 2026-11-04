@@ -399,7 +399,7 @@ function portalHealthAlert(reading) {
     if (value < 70) return { level: 'warning', text: 'تنبيه: قراءة السكر أقل من 70 mg/dL. تم حفظها وسيتمكن طبيبك من رؤيتها.' };
   }
   if (reading.readingType === 'blood_pressure' && (Number(reading.systolic) > 180 || Number(reading.diastolic) > 120)) {
-    return { level: 'critical', text: 'تنبيه: قراءة الضغط أعلى من 180 انقباضيًا أو 120 انبساطيًا mmHg. أعد القياس وتواصل مع مقدم الرعاية الصحية.' };
+    return { level: 'critical', text: 'قراءة الضغط أعلى من حد التنبيه. اجلس بهدوء وأعد القياس بعد دقيقة للتأكد من القراءة. إذا بقيت أعلى من 180 انقباضيًا أو 120 انبساطيًا، تواصل فورًا مع طبيبك. إذا ظهرت أعراض مثل ألم الصدر أو ضيق النفس أو ضعف/تنميل أو تغيّر الرؤية أو صعوبة الكلام، اطلب الإسعاف المحلي فورًا.' };
   }
   return null;
 }
