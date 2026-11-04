@@ -12,6 +12,36 @@
 /* ============================================================
    js/patient.js — المرحلة 5: ملف المريض التفصيلي + منحنى التطور
    ============================================================ */
+// الدفعة ٣: كود دخول البوابة inside ملف الطبيب.
+// الكود دائم بلا أي زر تغيير/تدوير؛ issue_patient_code ثابتة (idempotent)
+// فبتعرض الكود الموجود أو بتصدره أول مرة من غير ما تبدّله.
+async function renderPatientAccess(p) {
+  const box = $('#patAccessBody');
+  if (!box) return;
+  if (!DB.sb || typeof DB.sb.rpc !== 'function') return;
+  box.innerHTML = 'جارٍ التحميل…';
+  try {
+    const { data, error } = await DB.sb.rpc('issue_patient_code', { p_patient_id: p.id });
+    if (error) throw error;
+    if (data && data.ok === false) throw { message: data.error || 'تعذّر إصدار الكود' };
+    const code = data && (typeof data === 'string' ? data : data.code);
+    if (!code) throw { message: 'empty access code' };
+    box.innerHTML =
+      '<div class="sys-row"><div style="flex:1">' +
+        '<b class="ltr" style="font-size:17px;letter-spacing:.5px">' + esc(code) + '</b>' +
+        '<small>الكود الدائم للمريض — يدخل بيه كل مرة مع رقم موبايله، وبيظهر له دائماً داخل البوابة. مفيش زر تغيير أو تدوير.</small>' +
+      '</div></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">' +
+        '<button class="btn btn-outline sm" type="button" data-action="pt-access-off" data-id="' + esc(p.id) + '"><i class="fa-solid fa-ban"></i> إيقاف دخول البوابة (طوارئ)</button>' +
+        '<button class="btn btn-ghost sm" type="button" data-action="pt-access-on" data-id="' + esc(p.id) + '"><i class="fa-solid fa-unlock"></i> إعادة تشغيل الدخول</button>' +
+      '</div>';
+  } catch (e) {
+    logError(e, 'patient.accessCode');
+    box.innerHTML = '<b style="color:var(--rose)">تعذّر إصدار الكود.</b> ' +
+      esc((e && e.message) || '') + ' — لو الرسالة بتقول «اختار بادئة الفرع»، روح «الإعدادات ← الفروع وأكواد الدخول» واختارها ثم ارجع لملف المريض.';
+  }
+}
+
 async function renderPatientDetail(id) {
   let p = getPatient(id);
   if (!p) return go('patients');
@@ -28,6 +58,8 @@ async function renderPatientDetail(id) {
   try { await DB.loadNotesFor(p.id); } catch (e) { logError(e, 'notes.lazy'); }
   // Audit the profile view itself — mandatory per compliance rules (contains only an id)
   DB.audit('view', 'patients', p.id, { scope: 'profile' });
+  // الدفعة ٣: كود البوابة الدائم في ملف الطبيب (best-effort، ما يعطّلش باقي الملف)
+  renderPatientAccess(p);
 
   // رأس الملف: هوية + أزرار تواصل
   $('#patHeader').innerHTML =

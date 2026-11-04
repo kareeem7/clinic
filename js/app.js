@@ -75,4 +75,16 @@ function syncShellIdentity() {
   $('#sideClinicName').textContent = s.clinicName || 'عيادتي';
   $('#sideDoctor').textContent = s.doctorName || 'الدكتور';
   $('#sideAvatar').textContent = (s.doctorName || 'د').replace('د.', '').trim()[0] || 'د';
+  // الدفعة ٣: اسم الفرع النشط + مُبدّل الفروع (يظهر لو فيه فرعين أو أكتر)
+  const clinics = Array.isArray(State.clinics) ? State.clinics : [];
+  const active = clinics.find(c => c.id === State.activeClinicId);
+  if (active) $('#sideClinicName').textContent = active.name || s.clinicName || 'عيادتي';
+  const sel = $('#activeClinic');
+  if (sel) {
+    sel.innerHTML = clinics.length
+      ? clinics.map(c => '<option value="' + esc(c.id) + '"' + (c.id === State.activeClinicId ? ' selected' : '') + '>'
+          + esc(c.name || 'فرع') + (c.code ? ' (' + esc(c.code) + ')' : '') + '</option>').join('')
+      : '<option value="">الفرع الافتراضي</option>';
+    sel.classList.toggle('hide', clinics.length < 2);
+  }
 }

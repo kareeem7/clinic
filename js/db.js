@@ -36,6 +36,12 @@ const FIELD_MAPS = {
   }
 };
 
+// الدفعة ٣: الفروع مملوكة لنفس الدكتور؛ الفلترة للعرض فقط، والعزل الحقيقي
+// من RLS + القيد المركّب (clinic_id, doctor_id). الصفوف بلا فرع تُعرض في النشط.
+const clinicRows = rows => (typeof State !== 'undefined' && State.activeClinicId
+  ? rows.filter(r => !r.clinic_id || r.clinic_id === State.activeClinicId)
+  : rows);
+
 /* ============================================================
    قائمة الأمراض المزمنة المدعومة في المتابعة
    ============================================================ */
@@ -251,6 +257,11 @@ const DB = {
       }
     });
     if (sErr) throw sErr;
+    // الدفعة ٣: فرع افتراضي واحد، بلا بادئة لحد ما الدكتور يختارها من الإعدادات
+    const { error: cErr } = await this.sb.from('clinics').insert({
+      doctor_id: this.uid, name: clinic || ('عيادة ' + name), is_default: true
+    });
+    if (cErr) throw cErr;
     return 'mfa-enroll'; // 2FA enrollment is mandatory before reaching the app
   },
 
@@ -353,11 +364,11 @@ const DB = {
       const { data: docRow, error: docError } = await this.sb.from('doctors').select('settings').eq('id', this.uid).maybeSingle();
       if (docError) throw docError;
       if (!docRow) throw { code: 'clinic_profile_missing' };
-      State.appointments = appointments;
+      State.appointments = clinicRows(appointments);
       State.settings = normalizeClinicSettings(docRow.settings);
       State.healthAlerts = await this.loadRecentHealthAlerts();
-      State.pTotal = roster.filter(p => p.status === 'active').length;
-      if (plans.length) { State.plans = plans; }
+      State.pTotal = clinicRows(roster).filter(p => p.status === 'active').length;
+      if (plans.length) { State.plans = clinicRows(plans); }
       else {
         // First sign-in: seed the starter nutrition-plan library for this doctor
         const seedRows = defaultClinicData().plans.map(pl => ({
@@ -367,12 +378,34 @@ const DB = {
         }));
         const { data: inserted, error } = await this.sb.from('plans').insert(seedRows).select();
         if (error) throw error;
-        State.plans = (inserted || []).map(r => fromRow('plans', r));
+        State.plans = clinicRows((inserted || []).map(r => fromRow('plans', r)));
       }
     }
     State.loaded = true;
     // Audit the bulk read without any PHI: counts only
     this.audit('view', 'patients', null, { scope: 'list', count: Object.keys(State.patientIndex).length });
+  },
+
+  // الدفعة ٣: قائمة فروع الدكتور + الفرع النشط (محفوظ في doctors.settings)
+  async loadClinics() {
+    const rows = await this.fetchAll(() => this.sb.from('clinics')
+      .select('id,name,code,phone,is_default,active')
+      .eq('doctor_id', this.uid).is('deleted_at', null)
+      .order('is_default', { ascending: false }).order('name'));
+    State.clinics = rows;
+    const saved = State.settings && State.settings.activeClinicId;
+    State.activeClinicId = rows.some(c => c.id === saved) ? saved
+      : ((rows.find(c => c.is_default) || rows[0] || {}).id || null);
+    // ترايجر set_row_clinic_id بيقرأ doctors.settings مباشرة، فلازم نثبّت
+    // الاختيار على السيرفر قبل أول INSERT (خصوصاً أول دخول لحساب جديد).
+    // save_clinic_settings RPC موجودة أصلاً وتحافظ على حقل account.
+    if (State.activeClinicId && (!State.settings || !State.settings.activeClinicId)) {
+      try {
+        const { error } = await this.sb.rpc('save_clinic_settings', { patch: { activeClinicId: State.activeClinicId } });
+        if (!error && State.settings) State.settings.activeClinicId = State.activeClinicId;
+      } catch (e) { /* best-effort: الفلترة في الذاكرة بتشتغل على أي حال */ }
+    }
+    return State.clinics;
   },
 
   // Keep unacknowledged safety-threshold readings visible on the doctor dashboard
@@ -381,11 +414,14 @@ const DB = {
     const features = normalizeClinicalFeatures((State.settings || {}).clinicalFeatures);
     if (!features.glucoseTracking && !features.bloodPressureTracking) return [];
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const rows = await this.fetchAll(() => this.sb.from('patient_health_readings')
-      .select('id,patient_id,reading_type,recorded_at,glucose_value,glucose_unit,glucose_type,systolic,diastolic,pulse,source')
-      .eq('doctor_id', this.uid).is('deleted_at', null).gte('recorded_at', since)
-      .or('and(reading_type.eq.glucose,glucose_value.lt.70),and(reading_type.eq.blood_pressure,systolic.gt.180),and(reading_type.eq.blood_pressure,diastolic.gt.120)')
-      .order('recorded_at', { ascending: false }).order('id'));
+    const rows = await this.fetchAll(() => {
+      let q = this.sb.from('patient_health_readings')
+        .select('id,patient_id,reading_type,recorded_at,glucose_value,glucose_unit,glucose_type,systolic,diastolic,pulse,source,clinic_id')
+        .eq('doctor_id', this.uid).is('deleted_at', null).gte('recorded_at', since)
+        .or('and(reading_type.eq.glucose,glucose_value.lt.70),and(reading_type.eq.blood_pressure,systolic.gt.180),and(reading_type.eq.blood_pressure,diastolic.gt.120)');
+      if (State.activeClinicId) q = q.eq('clinic_id', State.activeClinicId);
+      return q.order('recorded_at', { ascending: false }).order('id');
+    });
     const alerts = rows.map(r => fromRow('patient_health_readings', r))
       .map(reading => ({ reading, alert: healthReadingAlert(reading) }))
       .filter(item => item.alert)
@@ -401,7 +437,7 @@ const DB = {
       .eq('doctor_id', this.uid).not('deleted_at', 'is', null)
       .order('deleted_at', { ascending: false }).order('id'));
     await this.audit('view', table, null, { scope: 'archive', count: data.length });
-    return data.map(r => fromRow(table, r));
+    return clinicRows(data).map(r => fromRow(table, r));
   },
 
   // (بند 12) المريض + قياساته الأولى بيتسجلوا في معاملة واحدة ذرّية عبر RPC:
@@ -658,9 +694,13 @@ const DB = {
   // فهرس خفيف لكل المرضى (أعمدة أساسية فقط): يحسم الأسماء والمراجع والعدّادات
   // من غير تحميل الصفوف الكاملة — القائمة نفسها بتيجي صفحة-بصفحة من pagePatients
   async loadRoster() {
-    const rows = await this.fetchAll(() => this.sb.from('patients')
-      .select('id,name,phone,type,status,created_at,plan_id,diagnosis')
-      .eq('doctor_id', this.uid).is('deleted_at', null).order('id'));
+    const rows = await this.fetchAll(() => {
+      let q = this.sb.from('patients')
+        .select('id,name,phone,type,status,created_at,plan_id,diagnosis,clinic_id')
+        .eq('doctor_id', this.uid).is('deleted_at', null);
+      if (State.activeClinicId) q = q.eq('clinic_id', State.activeClinicId);
+      return q.order('id');
+    });
     const ps = rows.map(r => fromRow('patients', r));
     ps.forEach(p => { State.patientIndex[p.id] = p; });
     return ps;
@@ -669,6 +709,7 @@ const DB = {
   _pfQuery(q, type, selectOptions) {
     let b = this.sb.from('patients').select('*', selectOptions)
       .eq('doctor_id', this.uid).is('deleted_at', null).eq('status', 'active');
+    if (State.activeClinicId) b = b.eq('clinic_id', State.activeClinicId);
     if (type && type !== 'all') b = b.eq('type', type);
     const s = String(q || '').replace(/[%(),]/g, ' ').trim();
     if (s) {
@@ -756,8 +797,8 @@ const DB = {
   async dumpAll() {
     const g = (t) => this.fetchAll(() => this.sb.from(t).select('*')
       .eq('doctor_id', this.uid).is('deleted_at', null).order('id'));
-    const [pats, apts, notes, plans, recs] = await Promise.all([
-      g('patients'), g('appointments'), g('patient_notes'), g('plans'), g('patient_records')
+    const [pats, apts, notes, plans, recs, clinics] = await Promise.all([
+      g('patients'), g('appointments'), g('patient_notes'), g('plans'), g('patient_records'), g('clinics')
     ]);
     const patients = pats.map(r => fromRow('patients', r));
     const byPid = {};
@@ -767,7 +808,8 @@ const DB = {
       patients,
       appointments: apts.map(r => fromRow('appointments', r)),
       notes: notes.map(r => fromRow('patient_notes', r)),
-      plans: plans.map(r => fromRow('plans', r))
+      plans: plans.map(r => fromRow('plans', r)),
+      clinics: clinics.map(r => fromRow('clinics', r))
     };
   },
   // (بند 32) فحص اتصال حقيقي بنقطة صحة Supabase — الإعدادات ما تقولش «متصل» وهي مش متصلة

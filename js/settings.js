@@ -12,6 +12,22 @@
 /* ============================================================
    js/settings.js — الإعدادات وحالة النظام
    ============================================================ */
+// الدفعة ٣: قائمة الفروع + اختيار بادئة الكود (البادئة من اختيار الدكتور)
+function renderClinicBranches() {
+  const clinics = Array.isArray(State.clinics) ? State.clinics : [];
+  const list = $('#clinicBranchesList'), sel = $('#clinicPrefixFor');
+  if (list) list.innerHTML = clinics.length
+    ? clinics.map(c => '<div class="sys-row"><span>' + esc(c.name || 'فرع') +
+        (c.is_default ? ' <b class="muted">(افتراضي)</b>' : '') +
+        (c.active === false ? ' <b style="color:var(--rose)">(موقوف)</b>' : '') +
+        '</span><b class="ltr">' + esc(c.code || '— بدون بادئة —') + '</b></div>').join('')
+    : 'ما فيش فروع مسجّلة. أضف فرعاً بالأسفل.';
+  if (sel) sel.innerHTML = clinics.length
+    ? clinics.map(c => '<option value="' + esc(c.id) + '"' + (c.id === State.activeClinicId ? ' selected' : '') + '>'
+        + esc(c.name || 'فرع') + '</option>').join('')
+    : '<option value="">—</option>';
+}
+
 function renderSettings() {
   const s = State.settings || {};
   $('#setClinic').value = s.clinicName || ''; $('#setDoctor').value = s.doctorName || '';
@@ -25,6 +41,7 @@ function renderSettings() {
 
   // Message-style card: build once, fill with saved styles, live preview engine
   ensureMsgStyleUI();
+  renderClinicBranches(); // الدفعة ٣: الفروع والبادئات
 
   // (بند 32) حالة اتصال حقيقية: فحص فعلي لنقطة صحة Supabase بدل نص ثابت
   // — الشاشة ما تقولش «متصل» والاتصال واقع أو المفتاح ناقص

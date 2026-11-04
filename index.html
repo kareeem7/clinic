@@ -93,7 +93,7 @@
         <div class="p-chips"><span class="chip chip-green"><i class="fa-solid fa-person-walking"></i> بوابة المرضى</span></div>
         <div>
           <h2>أهلاً بيك!</h2>
-          <p class="muted" style="font-size:14px">أدخل رقم الموبايل المسجل في العيادة وتاريخ ميلادك للدخول مؤقتًا</p>
+          <p class="muted" style="font-size:14px">أدخل رقم الموبايل المسجّل في العيادة والكود اللي استلمته من العيادة</p>
         </div>
         <div class="field">
           <label for="ptPhone" style="font-size:14px">رقم الموبايل (اللي الدكتور سجّله)</label>
@@ -102,13 +102,11 @@
           </div>
         </div>
         <div class="field">
-          <label style="font-size:14px">تاريخ ميلادك</label>
-          <div style="display:grid;grid-template-columns:.8fr 1.25fr 1fr;gap:8px">
-            <div><label for="ptBirthDay" style="font-size:12px">اليوم</label><select class="input" id="ptBirthDay" dir="ltr" aria-label="يوم الميلاد"><option value="">يوم</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option><option value="28">28</option><option value="29">29</option><option value="30">30</option><option value="31">31</option></select></div>
-            <div><label for="ptBirthMonth" style="font-size:12px">الشهر</label><select class="input" id="ptBirthMonth" dir="rtl" aria-label="شهر الميلاد"><option value="">شهر</option><option value="1">يناير</option><option value="2">فبراير</option><option value="3">مارس</option><option value="4">أبريل</option><option value="5">مايو</option><option value="6">يونيو</option><option value="7">يوليو</option><option value="8">أغسطس</option><option value="9">سبتمبر</option><option value="10">أكتوبر</option><option value="11">نوفمبر</option><option value="12">ديسمبر</option></select></div>
-            <div><label for="ptBirthYear" style="font-size:12px">السنة</label><input class="input" id="ptBirthYear" type="text" inputmode="numeric" autocomplete="bday-year" maxlength="4" placeholder="1990" dir="ltr" aria-label="سنة الميلاد"></div>
+          <label for="ptCode" style="font-size:14px">كود الدخول (من العيادة)</label>
+          <div class="in-wrap"><i class="fa-solid fa-key"></i>
+            <input id="ptCode" type="text" required dir="ltr" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="SHB1-XXXX-XXXX-XXXX" style="font-size:17px;padding:14px 44px 14px 14px;letter-spacing:.5px">
           </div>
-          <small id="ptBirthHint" class="muted" style="font-size:12px;font-weight:700">اختار اليوم والشهر من القوائم، واكتب سنة الميلاد. مثال: 1990</small>
+          <small class="muted" style="font-size:12px;font-weight:700">الكود مكتوب في كارت العيادة، وبيظهر لك دايماً جوّه البوابة عشان تفضل فاكره. ما تشاركهوش مع حد.</small>
         </div>
         <div id="ptError" class="form-error" role="alert" aria-live="polite"></div>
         <button class="btn btn-primary block" id="ptBtn" type="submit" style="padding:15px;font-size:16px">
@@ -303,6 +301,12 @@
         </div>
       </div>
 
+      <div class="p-card" id="ptCodeCard" style="margin-bottom:14px">
+        <div class="p-title"><i class="fa-solid fa-key"></i> كود دخولك</div>
+        <div id="ptAccessCode" dir="ltr" style="font-size:20px;font-weight:800;letter-spacing:1.5px;text-align:center;padding:10px 0;color:#1f6f5c">—</div>
+        <p class="p-small" style="margin:0">الكود ده دائم؛ احتفظ بيه عشان تدخل بيه كل مرة. لو ضاع، كلّم العيادة.</p>
+      </div>
+
       <div id="ptHomeMain">
       <!-- موعدك القادم -->
       <div class="p-card p-next" id="ptNextCard"></div>
@@ -446,7 +450,9 @@
   <aside id="sidebar">
     <div class="side-brand">
       <div class="side-logo"><i class="fa-solid fa-heart-pulse"></i></div>
-      <div><strong>عيادتي</strong><small id="sideClinicName">مركز الشروق</small></div>
+      <div><strong>عيادتي</strong><small id="sideClinicName">مركز الشروق</small>
+        <select id="activeClinic" class="input hide" aria-label="الفرع الحالي" style="margin-top:6px;font-size:12px;padding:5px 8px;width:100%"></select>
+      </div>
     </div>
     <nav class="side-nav" id="sideNav"></nav>
     <div class="side-user">
@@ -562,6 +568,10 @@
           <div class="pat-meta" id="patMeta"></div>
         </div>
         <div class="kpi-grid" id="patKpis"></div>
+        <div class="card" id="patAccessCard">
+          <div class="card-head"><h3><i class="fa-solid fa-key"></i> كود دخول بوابة المريض</h3></div>
+          <div id="patAccessBody" class="muted" style="font-size:13px">جارٍ التحميل…</div>
+        </div>
         <!-- تبويبات ملف المريض (المرحلة 5) -->
         <div class="ptabs" id="patTabs">
           <button class="active" data-ptab="measure"><i class="fa-solid fa-weight-scale"></i> القياسات</button>
@@ -847,6 +857,18 @@
             </form>
           </div>
           <div>
+            <div class="card">
+              <div class="card-head"><h3><i class="fa-solid fa-code-branch"></i> الفروع وأكواد الدخول</h3></div>
+              <div id="clinicBranchesList" class="muted" style="font-size:13px">جارٍ تحميل الفروع…</div>
+              <div class="form-grid" style="margin-top:12px">
+                <div class="field"><label for="clinicPrefixFor">الفرع</label><select class="input" id="clinicPrefixFor"></select></div>
+                <div class="field"><label for="clinicPrefixValue">بادئة الكود (حروف إنجليزية كبيرة / أرقام)</label><input class="input ltr" id="clinicPrefixValue" maxlength="12" placeholder="SHB1" dir="ltr" autocomplete="off"></div>
+                <div class="field full"><button class="btn btn-outline block" type="button" id="clinicPrefixSave"><i class="fa-solid fa-check"></i> حفظ البادئة</button></div>
+                <div class="field"><label for="newClinicName">اسم فرع جديد</label><input class="input" id="newClinicName" placeholder="مثلاً: فرع المنصورة"></div>
+                <div class="field full"><button class="btn btn-ghost block" type="button" id="clinicAddSave"><i class="fa-solid fa-plus"></i> إضافة فرع</button></div>
+              </div>
+              <p class="muted" style="font-size:12px;margin:10px 0 0">البادئة فريدة على مستوى المنصة وتُقفل بعد إصدار أول كود مريض. الكود بيظهر في ملف المريض وداخل بوابته دائماً.</p>
+            </div>
             <div class="card">
               <div class="card-head"><h3><i class="fa-solid fa-database"></i> حالة النظام</h3></div>
               <div id="fbStatus"></div>

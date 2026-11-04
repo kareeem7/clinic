@@ -168,6 +168,43 @@ begin
     on conflict (id) do nothing;
   end if;
 
+  -- ربط مرضى العرض بالفرع الافتراضي لو ترحيل الفروع مطبّق (الدفعة ١)
+  if to_regclass('public.clinics') is not null
+     and exists (select 1 from information_schema.columns
+                  where table_schema = 'public' and table_name = 'patients'
+                    and column_name = 'clinic_id') then
+    update public.patients
+       set clinic_id = (select c.id from public.clinics c
+                         where c.doctor_id = v_doctor and c.is_default
+                           and c.deleted_at is null limit 1)
+     where doctor_id = v_doctor and clinic_id is null;
+  end if;
+
+  -- أكواد دخول اصطناعية ثابتة لمرضى العرض (لازم يتسجّلوا مع أرقامهم).
+  -- البادئة DEMO1 واضحة إنها عرض؛ الكودات مشتقة من معرّفات المرضى الوهمية.
+  if to_regclass('public.clinics') is not null
+     and to_regclass('public.patient_portal_credentials') is not null then
+    update public.clinics set code = 'DEMO1'
+     where doctor_id = v_doctor and is_default and deleted_at is null
+       and (code is null or code = 'DEMO1')
+       and not exists (select 1 from public.clinics x
+                        where x.code = 'DEMO1' and x.doctor_id <> v_doctor);
+    insert into public.patient_portal_credentials (patient_id, doctor_id, clinic_id, code)
+    select p.id, p.doctor_id, p.clinic_id,
+           'DEMO1-' || upper(substr(replace(p.id::text, '-', ''), 1, 4)) || '-' ||
+           upper(substr(replace(p.id::text, '-', ''), 5, 4)) || '-' ||
+           upper(substr(replace(p.id::text, '-', ''), 9, 4))
+      from public.patients p
+     where p.doctor_id = v_doctor and p.clinic_id is not null
+       and p.id in (
+         'd0000000-0000-4000-8000-000000000001',
+         'd0000000-0000-4000-8000-000000000002',
+         'd0000000-0000-4000-8000-000000000003',
+         'd0000000-0000-4000-8000-000000000004'
+       )
+    on conflict (patient_id) do nothing;
+  end if;
+
   raise notice 'DEMO_SEED: تم إدخال/تأكيد بيانات العرض الاصطناعية للحساب %', v_doctor;
 end $$;
 
