@@ -69,3 +69,12 @@ test('patient portal gets the same warning tiers and the form names its fixed un
   assert.match(portalSource, /قيمة السكر \(mg\/dL\)/);
   assert.match(portalSource, /aria-live="assertive"/);
 });
+
+// حارس إضافي مستقل: صياغة التنبيه ما تتهمش المريض ولا تشكّك في قراءته.
+test('blood pressure guidance never blames or doubts the patient', () => {
+  const alert = exported(portalSource, 'portalHealthAlert', { sessionStorage: { getItem() { return null; } } });
+  assert.doesNotMatch(
+    alert({ readingType: 'blood_pressure', systolic: 181, diastolic: 90 }).text,
+    /اتهام|غش/
+  );
+});
