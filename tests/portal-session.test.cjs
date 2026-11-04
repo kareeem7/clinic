@@ -77,28 +77,21 @@ function harness() {
   };
 }
 
-test('temporary patient login uses phone and birthdate through the portal RPC without SMS auth', async () => {
+test('patient login uses the permanent clinic code and phone through the portal RPC without SMS auth', async () => {
   const app = harness();
-  await app.run("Portal.login('01000000001', '2000-01-01')");
+  await app.run("Portal.login('01000000001', 'shb1-k7m2-9qx4-pl3t')");
   const login = app.calls.find(call => call.name === 'patient_portal_login');
   assert.equal(login.via, 'sb');
   assert.equal(login.args.p_phone, '+201000000001');
-  assert.equal(login.args.p_birth, '2000-01-01');
+  assert.equal(login.args.p_code, 'SHB1-K7M2-9QX4-PL3T');
+  assert.match(login.args.p_code, /^[A-Z0-9]{2,12}(-[A-Z0-9]{4}){3}$/);
+  assert.equal(login.args.p_birth, undefined);
   assert.equal(app.authCalls.length, 0);
-});
-
-test('portal birthdate uses clearly separated day, Arabic month, and year fields', () => {
-  const app = harness();
-  assert.equal(app.run("portalBirthDate('7', '4', '١٩٩٠')"), '1990-04-07');
-  assert.equal(app.run("portalBirthDate('29', '2', '2000')"), '2000-02-29');
-  assert.throws(() => app.run("portalBirthDate('', '4', '1990')"), e => e.code === 'invalid_portal_birth_date' && /اختار اليوم والشهر/.test(e.message));
-  assert.throws(() => app.run("portalBirthDate('31', '2', '1990')"), e => e.code === 'invalid_portal_birth_date' && /تاريخ الميلاد غير صحيح/.test(e.message));
-  assert.throws(() => app.run("portalBirthDate('7', '4', '90')"), e => e.code === 'invalid_portal_birth_date' && /4 أرقام/.test(e.message));
 });
 
 test('records and form data are cleared between patients on the same page', async () => {
   const app = harness();
-  await app.run("Portal.login('01000000001', '2000-01-01')");
+  await app.run("Portal.login('01000000001', 'SHB1-K7M2-9QX4-PL3T')");
   const first = await app.run('portalLoadRecords()');
   assert.equal(first[0].weight, 71);
   assert.equal((await app.run('portalLoadRecords()'))[0].weight, 71);
@@ -110,7 +103,7 @@ test('records and form data are cleared between patients on the same page', asyn
   assert.equal(app.$('#lgNote').value, '');
   assert.equal(app.$('#ptRows').innerHTML, '');
   assert.equal(destroyed, 1);
-  await app.run("Portal.login('01000000002', '2000-01-01')");
+  await app.run("Portal.login('01000000002', 'SHB1-K7M2-9QX4-PL3T')");
   const second = await app.run('portalLoadRecords()');
   assert.equal(second[0].weight, 82);
   assert.equal(app.calls.filter(x => x.name === 'patient_portal_records').length, 2);
@@ -125,10 +118,10 @@ test('late records response cannot populate the next patient session', async () 
     if (name === 'patient_portal_records') return { data: { ok: true, records: [{ weight: 82 }] } };
     return { data: null };
   });
-  await app.run("Portal.login('01000000001', '2000-01-01')");
+  await app.run("Portal.login('01000000001', 'SHB1-K7M2-9QX4-PL3T')");
   const oldRequest = app.run('portalLoadRecords()');
   await app.run('Portal.logout()');
-  await app.run("Portal.login('01000000002', '2000-01-01')");
+  await app.run("Portal.login('01000000002', 'SHB1-K7M2-9QX4-PL3T')");
   pending.resolve({ data: { ok: true, records: [{ weight: 71 }] } });
   assert.equal(await oldRequest, null);
   assert.equal((await app.run('portalLoadRecords()'))[0].weight, 82);
@@ -143,11 +136,11 @@ test('late portal data and appointments responses do not overwrite the new sessi
     if (name === 'patient_portal_appointments') return oldAppointments.promise;
     return { data: null };
   });
-  const loginA = app.run("Portal.login('01000000001', '2000-01-01')");
+  const loginA = app.run("Portal.login('01000000001', 'SHB1-K7M2-9QX4-PL3T')");
   await new Promise(resolve => setImmediate(resolve));
   const appointmentsA = app.run('portalRenderAppointments()');
   await app.run('Portal.logout()');
-  await app.run("Portal.login('01000000002', '2000-01-01')");
+  await app.run("Portal.login('01000000002', 'SHB1-K7M2-9QX4-PL3T')");
   oldData.resolve({ data: { ok: true, patient: { name: 'A' }, clinic: {} } });
   oldAppointments.resolve({ data: { ok: true, upcoming: [], past: [] } });
   await loginA; await appointmentsA;
@@ -157,7 +150,7 @@ test('late portal data and appointments responses do not overwrite the new sessi
 
 test('logout clears local data before an unresponsive server returns', async () => {
   const app = harness(), pending = deferred();
-  await app.run("Portal.login('01000000001', '2000-01-01')");
+  await app.run("Portal.login('01000000001', 'SHB1-K7M2-9QX4-PL3T')");
   app.setRpc((name) => name === 'patient_portal_logout' ? pending.promise : Promise.resolve({ data: null }));
   const logout = app.run('Portal.logout()');
   assert.equal(app.run('Portal.token'), null);
@@ -169,7 +162,7 @@ test('logout clears local data before an unresponsive server returns', async () 
 
 test('rejected portal data clears the session and its cached records', async () => {
   const app = harness();
-  await app.run("Portal.login('01000000001', '2000-01-01')");
+  await app.run("Portal.login('01000000001', 'SHB1-K7M2-9QX4-PL3T')");
   await app.run('portalLoadRecords()');
   app.setRpc(async () => ({ data: { ok: false, error: 'unavailable' } }));
   await app.run('Portal.load(true)');
@@ -198,7 +191,7 @@ test('SQL source guards every data and mutation RPC before its operation', () =>
 
 test('successful save followed by refresh failure does not invite a duplicate retry', async () => {
   const app = harness();
-  await app.run("Portal.login('01000000001', '2000-01-01')");
+  await app.run("Portal.login('01000000001', 'SHB1-K7M2-9QX4-PL3T')");
   await app.run('portalLoadRecords()');
   app.$('#lgWeight').value = '80';
   app.$('#lgDate').value = '2026-11-01';
@@ -221,7 +214,7 @@ test('successful save followed by refresh failure does not invite a duplicate re
 
 test('rejected save retains the form and reports the failure', async () => {
   const app = harness();
-  await app.run("Portal.login('01000000001', '2000-01-01')");
+  await app.run("Portal.login('01000000001', 'SHB1-K7M2-9QX4-PL3T')");
   app.$('#lgWeight').value = '80';
   app.$('#lgDate').value = '2026-11-01';
   app.setRpc(async () => ({ data: { ok: false, error: 'rejected' }, error: null }));
@@ -234,7 +227,7 @@ test('rejected save retains the form and reports the failure', async () => {
 
 test('successful save and refresh still clears the form and shows feedback', async () => {
   const app = harness();
-  await app.run("Portal.login('01000000001', '2000-01-01')");
+  await app.run("Portal.login('01000000001', 'SHB1-K7M2-9QX4-PL3T')");
   app.$('#lgWeight').value = '80';
   app.$('#lgDate').value = '2026-11-01';
   app.$('#ptProgressView').classList.add('hide');
@@ -248,7 +241,7 @@ test('successful save and refresh still clears the form and shows feedback', asy
 
 test('nutrition progress without weights shows the records and restores chart when weights appear', async () => {
   const app = harness();
-  await app.run("Portal.login('01000000001', '2000-01-01')");
+  await app.run("Portal.login('01000000001', 'SHB1-K7M2-9QX4-PL3T')");
   app.run("Portal.data.patient.type = 'nutrition'");
   let records = [{ date: '2026-11-01', weight: null, waist: 90, note: 'test' }];
   app.setRpc(async () => ({ data: { ok: true, records }, error: null }));
@@ -273,7 +266,7 @@ test('SQL source restricts portal cancellation to today or later in Cairo', () =
 
 test('appointment statuses are escaped in upcoming and past markup', async () => {
   const app = harness();
-  await app.run("Portal.login('01000000001', '2000-01-01')");
+  await app.run("Portal.login('01000000001', 'SHB1-K7M2-9QX4-PL3T')");
   const payload = '<img src=x onerror=alert(1)>';
   app.setRpc(async () => ({ data: { ok: true,
     upcoming: [{ id: 'up', date: '2026-11-01', time: '10:00', status: payload },
@@ -309,7 +302,7 @@ test('photo path validation is shared by setup SQL and standalone migration', ()
 
 test('photo upload uses the captured patient token and server-returned path', async () => {
   const app = harness();
-  await app.run("Portal.login('01000000001', '2000-01-01')");
+  await app.run("Portal.login('01000000001', 'SHB1-K7M2-9QX4-PL3T')");
   app.$('#lgWeight').value = '80'; app.$('#lgDate').value = '2026-11-01';
   const file = { type: 'image/png', size: 10 };
   app.$('#lgPhoto').files = [file];
@@ -327,13 +320,13 @@ test('photo upload uses the captured patient token and server-returned path', as
 
 test('switching patient during photo upload cannot send the old measurement or change the new form', async () => {
   const app = harness(), pending = deferred();
-  await app.run("Portal.login('01000000001', '2000-01-01')");
+  await app.run("Portal.login('01000000001', 'SHB1-K7M2-9QX4-PL3T')");
   app.$('#lgWeight').value = '80'; app.$('#lgDate').value = '2026-11-01';
   app.$('#lgPhoto').files = [{ type: 'image/png', size: 10 }];
   app.setInvoke(() => pending.promise);
   const oldSave = app.run('portalSubmitMeasurement()');
   await app.run('Portal.logout()');
-  await app.run("Portal.login('01000000002', '2000-01-01')");
+  await app.run("Portal.login('01000000002', 'SHB1-K7M2-9QX4-PL3T')");
   app.$('#lgWeight').value = '92';
   assert.equal(app.$('#lgSave').disabled, false);
   pending.resolve({ data: { path: 'doctor/patient/photo.png' }, error: null });
@@ -345,7 +338,7 @@ test('switching patient during photo upload cannot send the old measurement or c
 
 test('late measurement response does not clear a new patient form', async () => {
   const app = harness(), pending = deferred();
-  await app.run("Portal.login('01000000001', '2000-01-01')");
+  await app.run("Portal.login('01000000001', 'SHB1-K7M2-9QX4-PL3T')");
   app.$('#lgWeight').value = '80'; app.$('#lgDate').value = '2026-11-01';
   app.setRpc(async name => name === 'patient_portal_add_measurement' ? pending.promise : { data: null });
   const oldSave = app.run('portalSubmitMeasurement()');
@@ -353,7 +346,7 @@ test('late measurement response does not clear a new patient form', async () => 
   app.setRpc(async name => name === 'patient_portal_login'
     ? { data: { ok: true, token: 'B' } }
     : { data: { ok: true, patient: {}, clinic: {} } });
-  await app.run("Portal.login('01000000002', '2000-01-01')");
+  await app.run("Portal.login('01000000002', 'SHB1-K7M2-9QX4-PL3T')");
   app.$('#lgWeight').value = '92';
   pending.resolve({ data: { ok: true }, error: null });
   await oldSave;

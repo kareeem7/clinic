@@ -8,34 +8,24 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const setup = fs.readFileSync(path.join(root, 'js/config.js'), 'utf8');
 const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
-const migration = fs.readFileSync(path.join(root, 'sql/migrations/20261109_patient_portal_phone_otp_temporary_disable.sql'), 'utf8');
+const portal = fs.readFileSync(path.join(root, 'js/patient-portal.js'), 'utf8');
+const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const main = fs.readFileSync(path.join(root, 'js/main.js'), 'utf8');
+const codeMigration = fs.readFileSync(path.join(root, 'sql/migrations/20261112_patient_access_codes.sql'), 'utf8');
 const atomicMigration = fs.readFileSync(path.join(root, 'sql/migrations/20261103_patient_portal_login_atomic.sql'), 'utf8');
 const otpMigration = fs.readFileSync(path.join(root, 'sql/migrations/20261105_patient_portal_phone_otp.sql'), 'utf8');
+const stagingMigration = fs.readFileSync(path.join(root, 'sql/migrations/20261109_patient_portal_phone_otp_temporary_disable.sql'), 'utf8');
 const phoneNormalizationMigration = fs.readFileSync(path.join(root, 'sql/migrations/20261110_fix_portal_phone_normalization.sql'), 'utf8');
 
-const LOGIN_HEADER = 'create or replace function public.patient_portal_login(p_phone text, p_birth date)';
+const LOGIN_HEADER = 'create or replace function public.patient_portal_login(p_code text, p_phone text)';
 const END_MARKER = 'end; $$;';
 
-// Collect EVERY definition, not just the first one. In a SQL script the last
-// CREATE OR REPLACE is the effective rule, so a later OTP version would
-// silently override the staging rule even if the first one looks correct.
-function loginFunctions(source) {
-  const found = [];
-  let from = 0;
-  for (;;) {
-    const start = source.indexOf(LOGIN_HEADER, from);
-    if (start === -1) return found;
-    const end = source.indexOf(END_MARKER, start);
-    assert.notEqual(end, -1, 'patient portal login function terminates');
-    found.push(source.slice(start, end + END_MARKER.length));
-    from = end + END_MARKER.length;
-  }
-}
-
 function loginFunction(source) {
-  const all = loginFunctions(source);
-  assert.ok(all.length > 0, 'patient portal login function exists');
-  return all[0];
+  const start = source.indexOf(LOGIN_HEADER);
+  assert.notEqual(start, -1, 'code-based login function exists');
+  const end = source.indexOf(END_MARKER, start);
+  assert.notEqual(end, -1, 'code-based login function terminates');
+  return source.slice(start, end + END_MARKER.length);
 }
 
 test('SQL phone normalization strips the plus sign from E.164 numbers before matching', () => {
@@ -48,78 +38,75 @@ test('SQL phone normalization strips the plus sign from E.164 numbers before mat
   assert.match(phoneNormalizationMigration, /regexp_replace\(coalesce\(t,''\), '\[\^0-9\]', '', 'g'\)/);
 });
 
-test('portal login serializes per-phone attempts before counting or recording failures', () => {
-  const fn = loginFunction(migration);
-  const keyGuard = fn.indexOf("if v_key is null or btrim(v_key) = '' then");
-  const lock = fn.indexOf("pg_advisory_xact_lock(hashtextextended('patient-portal-login:' || v_key, 0))");
-  const count = fn.indexOf('select count(*) from public.portal_login_attempts');
-  const failedInsert = fn.indexOf('insert into public.portal_login_attempts (phone_key) values (v_key)');
-  assert.ok(keyGuard >= 0 && keyGuard < lock);
-  assert.ok(lock < count, 'lock must be acquired before checking the attempt count');
-  assert.ok(count < failedInsert, 'failed attempts must be counted only after acquiring the lock');
+test('the effective login rule is the permanent code, scoped by the clinic prefix', () => {
+  const fn = loginFunction(codeMigration);
+  assert.match(fn, /string_to_array\(v_input, '-'\)/);
+  assert.match(fn, /select \* into v_clinic from public\.clinics[\s\S]*?where code = v_prefix/);
+  assert.match(fn, /pg_advisory_xact_lock\(hashtextextended\('patient-portal-login:' \|\| v_lock_key, 0\)\)/);
+  assert.match(fn, /where clinic_id = v_clinic\.id and phone_key = v_key/);
   assert.match(fn, /tried_at > now\(\) - interval '15 minutes'\) >= 5/);
+  assert.match(fn, /join public\.patients p on p\.id = c\.patient_id and p\.deleted_at is null/);
+  assert.match(fn, /c\.code = v_input/);
+  assert.match(fn, /c\.disabled_at is null/);
+  assert.match(fn, /insert into public\.patient_sessions \(patient_id, doctor_id, clinic_id\)/);
+  // المطابقة محصورة في الفرع: لا عدّ عالمي ولا رفض بسبب تكرار الرقم
+  assert.doesNotMatch(fn, /duplicate-match/);
+  assert.doesNotMatch(fn, /select count\(\*\) into v_n from public\.patients/);
+  assert.doesNotMatch(fn, /birth_date|p_birth/);
+  assert.doesNotMatch(fn, /auth\.uid\(\)|phone_confirmed_at|auth\.users/);
 });
 
-test('the intermediate atomic migration fails closed until a later login migration grants execution', () => {
-  assert.match(atomicMigration, /pg_advisory_xact_lock/);
+test('the old phone + birthdate RPC is dropped and only (text, text) is granted to anon', () => {
+  assert.match(codeMigration, /drop function if exists public\.patient_portal_login\(text, date\)/);
+  assert.match(codeMigration, /grant execute on function public\.patient_portal_login\(text, text\) to anon, authenticated/);
+  assert.doesNotMatch(codeMigration, /grant execute on function public\.patient_portal_login\(text, date\)/);
+  assert.doesNotMatch(setup, /create or replace function public\.patient_portal_login\(p_phone text, p_birth date\)/);
+  assert.doesNotMatch(setup, /grant execute on function public\.patient_portal_login\(text, date\)/);
+  assert.match(setup, /create or replace function public\.patient_portal_login\(p_code text, p_phone text\)/);
+  assert.equal((setup.match(/create or replace function public\.patient_portal_login\(/g) || []).length, 1);
+  assert.doesNotMatch(setup, /phone_confirmed_at/, 'no verified-phone OTP gate survives in the setup script');
+});
+
+test('historical login migrations are preserved but superseded by 20261112', () => {
   assert.match(atomicMigration, /revoke all on function public\.patient_portal_login\(text, date\) from public, anon, authenticated/);
   assert.doesNotMatch(atomicMigration, /grant execute on function public\.patient_portal_login/);
-});
-
-test('temporary staging migration removes only the phone OTP gate and grants the portal RPC to anon', () => {
-  const fn = loginFunction(migration);
-  assert.doesNotMatch(fn, /auth\.uid\(\)|phone_confirmed_at|auth\.users/);
-  assert.match(fn, /birth_date = p_birth[\s\S]*?norm_phone_eg\(phone\) = v_key/);
-  assert.match(migration, /grant execute on function public\.patient_portal_login\(text, date\) to anon, authenticated/);
-  assert.match(migration, /TEMPORARY STAGING ONLY[\s\S]*?Do not apply to production/);
-
-  const portal = fs.readFileSync(path.join(root, 'js/patient-portal.js'), 'utf8');
-  assert.match(portal, /DB\.sb\.rpc\('patient_portal_login'/);
-  assert.doesNotMatch(portal, /signInWithOtp|verifyOtp/);
-  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-  assert.doesNotMatch(html, /ptOtpCode|ptOtpResend/);
-  assert.match(html, /id="ptBirthDay"/);
-  assert.match(html, /id="ptBirthMonth"/);
-  assert.match(html, /id="ptBirthYear" type="text" inputmode="numeric"/);
-  assert.match(portal, /function portalBirthDate\(dayValue, monthValue, yearValue\)/);
-});
-
-test('the effective (last) login rule in the fresh-install SQL is the staging one, not an OTP gate', () => {
-  const definitions = loginFunctions(setup);
-  const staging = loginFunction(migration);
-  assert.ok(definitions.length > 0, 'setup SQL defines portal login');
-  // Every definition, including the LAST one that actually takes effect,
-  // must be the phone + birth-date staging rule.
-  definitions.forEach((fn, i) => assert.equal(fn, staging, 'login definition #' + (i + 1) + ' matches staging'));
-  assert.doesNotMatch(setup, /phone_confirmed_at/, 'no verified-phone OTP gate survives in the setup script');
-
-  const grants = setup.match(/grant execute on function public\.patient_portal_login\(text, date\) to [^;]+;/g) || [];
-  assert.ok(grants.length > 0, 'setup SQL grants EXECUTE on portal login');
-  grants.forEach(line => assert.match(line, /anon, authenticated/, 'staging grant stays available to anon clients'));
-
-  // The activation path stays in its own migration, never inside this script.
-  assert.match(setup, /20261105_patient_portal_phone_otp\.sql/);
-});
-
-test('the OTP activation migration is preserved as the future switch', () => {
-  const fn = loginFunction(otpMigration);
-  assert.match(fn, /phone_confirmed_at/);
-  assert.match(fn, /auth\.users/);
-  assert.match(fn, /auth\.uid\(\) is null/);
+  assert.match(stagingMigration, /TEMPORARY STAGING ONLY/);
+  assert.match(otpMigration, /phone_confirmed_at/);
   assert.match(otpMigration, /grant execute on function public\.patient_portal_login\(text, date\) to authenticated;/);
-  assert.doesNotMatch(otpMigration, /grant execute on function public\.patient_portal_login\(text, date\) to anon/);
-  assert.match(otpMigration, /delete from public\.patient_sessions;/);
+  assert.match(readme, /تاريخية/);
+  assert.match(readme, /إعادة أساس/);
 });
 
-test('README records the deferred-OTP decision and the activation checklist', () => {
+test('the OTP activation migration is preserved as a FUTURE layer on top of the code', () => {
   assert.match(readme, /OTP مؤجّل/);
   assert.match(readme, /أول تجربة فعلية/);
-  assert.match(readme, /20261109_patient_portal_phone_otp_temporary_disable\.sql/);
-  assert.match(readme, /20261105_patient_portal_phone_otp\.sql/);
-  assert.match(readme, /20261110_fix_portal_phone_normalization\.sql/);
+  assert.match(readme, /طبقة|فوق الكود/);
   assert.match(readme, /signInWithOtp/);
   assert.match(readme, /verifyOtp/);
+  assert.doesNotMatch(readme, /بوابة المريض تتطلب الآن Supabase Auth Phone OTP/);
+});
+
+test('client sends the code (never a birth date) and displays it permanently', () => {
+  assert.match(portal, /DB\.sb\.rpc\('patient_portal_login'/);
+  assert.match(portal, /p_code:/);
+  assert.doesNotMatch(portal, /p_birth/);
+  assert.doesNotMatch(portal, /signInWithOtp|verifyOtp/);
+  assert.match(portal, /patient_portal_access_code/);
+  assert.match(portal, /#ptAccessCode/);
+  assert.match(html, /id="ptCode"/);
+  assert.match(html, /id="ptAccessCode"/);
+  assert.doesNotMatch(html, /id="ptBirthDay"|id="ptBirthMonth"|id="ptBirthYear"/);
+  assert.doesNotMatch(html, /ptOtpCode|ptOtpResend/);
+  assert.match(main, /#ptCode/);
+});
+
+test('README records the code decision, the no-rotation consequence and the readiness warning', () => {
+  assert.match(readme, /20261112_patient_access_codes\.sql/);
+  assert.match(readme, /20261111_multi_clinic_branches\.sql/);
+  assert.match(readme, /20261105_patient_portal_phone_otp\.sql/);
+  assert.match(readme, /20261110_fix_portal_phone_normalization\.sql/);
   assert.match(readme, /anon/);
   assert.match(readme, /غير جاهز لبيانات مرضى حقيقية/);
-  assert.doesNotMatch(readme, /بوابة المريض تتطلب الآن Supabase Auth Phone OTP/);
+  assert.match(readme, /ما لهوش استرجاع آمن|لا يوجد زر تغيير/);
+  assert.match(readme, /يُخزَّن كما هو|تخزين الكود/);
 });

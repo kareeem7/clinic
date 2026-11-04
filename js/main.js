@@ -37,6 +37,25 @@ const Actions = {
     }
     openPatientModal(p);
   },
+  // الدفعة ٣: مفتاح طوارئ — يوقف/يشغّل الدخول من غير ما يغيّر الكود نفسه
+  'pt-access-off': async ds => {
+    try {
+      const { data, error } = await DB.sb.rpc('set_patient_portal_access', { p_patient_id: ds.id, p_enabled: false });
+      if (error) throw error;
+      if (data && data.ok === false) throw { message: data.error || 'تعذّر الإيقاف' };
+      toast('تم إيقاف دخول البوابة لهذا المريض');
+      await renderPatientAccess(getPatient(ds.id) || { id: ds.id });
+    } catch (e) { logError(e, 'patient.accessOff'); toast('تعذّر الإيقاف — ' + explainError(e), 'error'); }
+  },
+  'pt-access-on': async ds => {
+    try {
+      const { data, error } = await DB.sb.rpc('set_patient_portal_access', { p_patient_id: ds.id, p_enabled: true });
+      if (error) throw error;
+      if (data && data.ok === false) throw { message: data.error || 'تعذّر التشغيل' };
+      toast('تم إعادة تشغيل دخول البوابة');
+      await renderPatientAccess(getPatient(ds.id) || { id: ds.id });
+    } catch (e) { logError(e, 'patient.accessOn'); toast('تعذّر التشغيل — ' + explainError(e), 'error'); }
+  },
   'del-patient':   ds => deletePatient(ds.id),
   'view-patient':  ds => go('patient', ds.id),
   'wa-patient':    ds => waPatient(ds.id),
@@ -190,6 +209,9 @@ async function routeAfterAuth(step, access) {
       await DB.signOut(); // a blocked account must never stay inside the app
       throw e;
     }
+    // الدفعة ٣: الفروع + الفرع الحالي قبل أي إدراج (ترايجر الوسم بيقرأ doctors.settings).
+    // الـ guard يسمح باختبارات الـ mock اللي ما تعرفش loadClinics.
+    if (typeof DB.loadClinics === 'function') await DB.loadClinics();
     await DB.loadAll();
   } catch (e) {
     // The login/MFA form owns the error message; do not leave it hidden behind
@@ -330,7 +352,7 @@ async function boot() {
     btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i><span>إرسال رابط الاستعادة</span>';
   };
 
-  // 7b) Patient portal login — temporary phone + birthdate flow for staging.
+  // 7b) Patient portal login — permanent clinic-issued access code + phone.
   $('#patientLink').onclick = () => switchAuthTab('patient');
   $('#ptBack').onclick = () => switchAuthTab('login');
   $('#ptLoginForm').onsubmit = async e => {
@@ -340,13 +362,15 @@ async function boot() {
     const phone = $('#ptPhone').value.trim();
     try { portalAuthPhone(phone); }
     catch (ex) { err.textContent = ex.message; err.classList.add('show'); return; }
-    let birth;
-    try { birth = portalBirthDate($('#ptBirthDay').value, $('#ptBirthMonth').value, $('#ptBirthYear').value); }
-    catch (ex) { err.textContent = ex.message; err.classList.add('show'); return; }
+    const code = String($('#ptCode').value || '').trim().toUpperCase();
+    if (!/^[A-Z0-9]{2,12}(-[A-Z0-9]{4}){3}$/.test(code)) {
+      err.textContent = 'اكتب الكود كامل زي ما هو مكتوب في كارت العيادة (مثال: SHB1-XXXX-XXXX-XXXX).';
+      err.classList.add('show'); return;
+    }
     btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>جارٍ التحقق...</span>';
     try {
-      await Portal.login(phone, birth);
+      await Portal.login(phone, code);
       toast('أهلاً بيك ' + (Portal.data && Portal.data.patient && Portal.data.patient.name.split(' ')[0] || ''));
     } catch (ex) {
       err.textContent = ex.message || explainError(ex);
@@ -467,6 +491,61 @@ async function boot() {
       btn.disabled = false;
       btn.innerHTML = oldLabel;
     }
+  };
+
+  // 14) الدفعة ٣: مُبدّل «الفرع الحالي» — الاختيار محفوظ في doctors.settings
+  // عبر RPC الموجودة save_clinic_settings، والترايجر يوسم الصفوف الجديدة تلقائياً.
+  const activeClinicSel = $('#activeClinic');
+  if (activeClinicSel) activeClinicSel.onchange = async e => {
+    const id = e.target.value || null, old = State.activeClinicId;
+    State.activeClinicId = id;
+    try {
+      const { error } = await DB.sb.rpc('save_clinic_settings', { patch: { activeClinicId: id } });
+      if (error) throw error;
+      if (State.settings) State.settings.activeClinicId = id;
+      State.pPage = 1;
+      await DB.loadAll();
+      syncShellIdentity();
+      refreshCurrent();
+      toast('تم تبديل الفرع الحالي');
+    } catch (ex) {
+      State.activeClinicId = old;
+      e.target.value = old || '';
+      toast('تعذّر تبديل الفرع — ' + explainError(ex), 'error');
+    }
+  };
+
+  // 15) الدفعة ٣: الدكتور يختار بادئة الفرع (مرة واحدة، وتُقفل بعد أول كود)
+  const prefixSave = $('#clinicPrefixSave');
+  if (prefixSave) prefixSave.onclick = async () => {
+    const cid = $('#clinicPrefixFor').value;
+    const code = ($('#clinicPrefixValue').value || '').trim().toUpperCase();
+    if (!cid) { toast('اختر الفرع الأول', 'error'); return; }
+    if (!/^[A-Z0-9]{2,12}$/.test(code)) { toast('البادئة لازم من ٢ لـ ١٢ حرف إنجليزي كبير أو رقم، بدون شرطات', 'error'); return; }
+    try {
+      const { error } = await DB.sb.rpc('set_clinic_prefix', { p_clinic_id: cid, p_code: code });
+      if (error) throw error;
+      if (typeof DB.loadClinics === 'function') await DB.loadClinics();
+      syncShellIdentity();
+      renderClinicBranches();
+      toast('تم حفظ البادئة ' + code);
+    } catch (ex) { toast('تعذّر حفظ البادئة — ' + explainError(ex), 'error'); }
+  };
+
+  // 16) الدفعة ٣: إضافة فرع جديد (نفس حساب الدكتور، لوج واحد)
+  const clinicAdd = $('#clinicAddSave');
+  if (clinicAdd) clinicAdd.onclick = async () => {
+    const name = ($('#newClinicName').value || '').trim();
+    if (!name) { toast('اكتب اسم الفرع', 'error'); return; }
+    try {
+      const { error } = await DB.sb.from('clinics').insert({ doctor_id: DB.uid, name: name, is_default: false });
+      if (error) throw error;
+      $('#newClinicName').value = '';
+      if (typeof DB.loadClinics === 'function') await DB.loadClinics();
+      syncShellIdentity();
+      renderClinicBranches();
+      toast('تم إضافة الفرع: ' + name);
+    } catch (ex) { toast('تعذّر إضافة الفرع — ' + explainError(ex), 'error'); }
   };
 
   // Restore the patient portal only after all UI handlers are bound. A rejected

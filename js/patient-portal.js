@@ -1,7 +1,7 @@
 /**
  * ========================================
  * patient-portal.js
- * الوظيفة: بوابة المريض (المراحل 14-17): دخول تجريبي برقم الهاتف وتاريخ الميلاد، جلسة التوكن، الصفحة الرئيسية، صفحة التقدم والمنحنيات، تسجيل القياسات من البيت مع رفع الصور، صفحة المواعيد والإلغاء بالسبب، وصفحة الخطة مع النصائح اليومية.
+ * الوظيفة: بوابة المريض (المراحل 14-17): دخول بالكود الدائم الصادر من العيادة + رقم الهاتف، جلسة التوكن، الصفحة الرئيسية، صفحة التقدم والمنحنيات، تسجيل القياسات من البيت مع رفع الصور، صفحة المواعيد والإلغاء بالسبب، وصفحة الخطة مع النصائح اليومية.
  * الدوال/الكيانات الرئيسية: Portal، portalGo، renderWeightStory، renderPainStory، sumCell، cutRange، drawPatientPortalChart، drawWaistChart، drawPainChart، renderMeasTable، portalPlanSheet، DAILY_TIPS
  * الاعتمادات: db.js, utils.js, app.js, state.js
  * آخر تعديل: 2026-10-31 — تقسيم من index.html الموحد (الكود منسوخ حرفياً وبلا أي تغيير)
@@ -25,32 +25,15 @@ function portalAuthPhone(value) {
   return '+' + digits;
 }
 
-function portalBirthDate(dayValue, monthValue, yearValue) {
-  const normalizeDigits = value => String(value || '').replace(/[٠-٩۰-۹]/g, digit => {
-    const code = digit.charCodeAt(0);
-    return String(code >= 0x06f0 ? code - 0x06f0 : code - 0x0660);
-  }).trim();
-  const dayText = normalizeDigits(dayValue), monthText = normalizeDigits(monthValue), yearText = normalizeDigits(yearValue);
-  if (!dayText || !monthText || !yearText) {
-    throw { code: 'invalid_portal_birth_date', message: 'اختار اليوم والشهر واكتب سنة الميلاد.' };
-  }
-  if (!/^\d{1,2}$/.test(dayText) || !/^\d{1,2}$/.test(monthText) || !/^\d{4}$/.test(yearText)) {
-    throw { code: 'invalid_portal_birth_date', message: 'اكتب سنة الميلاد كاملة من 4 أرقام.' };
-  }
-  const d = Number(dayText), m = Number(monthText), y = Number(yearText);
-  const date = new Date(Date.UTC(y, m - 1, d));
-  if (y < 1900 || y > new Date().getUTCFullYear() || date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) {
-    throw { code: 'invalid_portal_birth_date', message: 'تاريخ الميلاد غير صحيح؛ راجع اليوم والشهر والسنة.' };
-  }
-  return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-}
-
+// الدفعة ٣: أُزيلت دالة portalBirthDate() نهائياً — الدخول صار بالكود الدائم + الموبايل.
 const Portal = {
   token: sessionStorage.getItem('clinic_patient_token') || null,
   data: null,
-  async login(phone, birth) {
+  async login(phone, code) {
     const normalized = portalAuthPhone(phone);
-    const { data, error } = await DB.sb.rpc('patient_portal_login', { p_phone: normalized, p_birth: birth });
+    const { data, error } = await DB.sb.rpc('patient_portal_login', {
+      p_code: String(code || '').trim().toUpperCase(), p_phone: normalized
+    });
     if (error) throw error;
     if (!data || !data.ok) throw { message: (data && data.error) || 'تعذّر تسجيل الدخول' };
     resetPortalSessionState();
@@ -90,6 +73,21 @@ const Portal = {
     } catch (_) { /* feature state remains disabled if its secure RPC is unavailable */ }
     if (token !== this.token) return;
     data.patient.healthTracking = healthTracking;
+    // الكود الدائم يظهر للمريض دائماً عشان يفضل فاكره، مع اسم/تليفون الفرع
+    // الصحيح بدل اسم العيادة العام. الفشل هنا لا يمنع عرض البوابة.
+    try {
+      const codeResult = await DB.sb.rpc('patient_portal_access_code', { p_token: token });
+      if (token !== this.token) return;
+      const info = codeResult && codeResult.data;
+      if (info && info.ok === true) {
+        data.accessCode = info.code || '—';
+        if (!data.clinic) data.clinic = {};
+        if (info.clinicName) data.clinic.clinicName = info.clinicName;
+        if (info.clinicPhone) data.clinic.phone = info.clinicPhone;
+        if (info.doctorName) data.clinic.doctorName = info.doctorName;
+      }
+    } catch (_) { /* تعذّر جلب الكود لا يعطّل البوابة */ }
+    if (token !== this.token) return;
     this.data = data;
     document.body.classList.add('theme-patient');
     this.render();
@@ -112,6 +110,8 @@ const Portal = {
     const d = this.data, p = d.patient, c = d.clinic;
 
     $('#ptHello').textContent = 'أهلاً يا ' + (p.name || '').split(' ')[0]; // icon-free per design rule
+    const accessCodeEl = typeof $ !== 'undefined' ? $('#ptAccessCode') : null;
+    if (accessCodeEl) accessCodeEl.textContent = d.accessCode || '—';
     $('#ptClinicName').textContent = c.clinicName || 'عيادتك';
     $('#ptDoctorLine').textContent = c.doctorName || 'الدكتور';
     $('#ptWelcomeLine').textContent = 'كل اللي محتاج تعرفه عن زياراتك وتقدمك تحت إيدك';

@@ -58,10 +58,16 @@ function registerContext({ session = true, insertError = null } = {}) {
 test('registration inserts a new doctor profile before MFA enrollment', async () => {
   const { DB, calls } = registerContext();
   assert.equal(await DB.register('Test Doctor', 'nutrition', 'Test Clinic', 'test@example.com', 'password'), 'mfa-enroll');
-  assert.equal(calls.length, 2);
+  // الدفعة ٣: بعد صف الدكتور يُنشأ فرع افتراضي واحد (بلا بادئة) لنفس الحساب
+  assert.equal(calls.length, 4);
   assert.equal(calls[0].table, 'doctors');
   assert.equal(calls[1].row.id, 'doctor-test');
   assert.equal(calls[1].row.settings.clinicName, 'Test Clinic');
+  assert.equal(calls[2].table, 'clinics');
+  assert.equal(calls[3].row.doctor_id, 'doctor-test');
+  assert.equal(calls[3].row.name, 'Test Clinic');
+  assert.equal(calls[3].row.is_default, true);
+  assert.equal(calls[3].row.code, undefined, 'البادئة يختارها الدكتور لاحقاً، مش عند إنشاء الحساب');
 });
 
 test('registration preserves confirmation and insert failures', async () => {

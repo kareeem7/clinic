@@ -14,6 +14,7 @@
    ============================================================ */
 const State = {
   patients: [], appointments: [], plans: [], notes: [], healthAlerts: [],
+  clinics: [], activeClinicId: null, // الدفعة ٣: فروع العيادة والفرع الحالي
   isAdmin: false, // وضع إدارة المنصة — يفعّل أقسام الأدمن ويمنع أقسام الدكتور
   settings: {}, stats: { visits: [], revenue: [] },
   route: 'dashboard', param: null,
@@ -34,6 +35,8 @@ function resetClinicalState() {
   State.plans = [];
   State.notes = [];
   State.healthAlerts = [];
+  State.clinics = [];
+  State.activeClinicId = null;
   State.patientIndex = {};
   State.pTotal = 0;
   State.settings = {};
@@ -51,7 +54,12 @@ const Charts = {}; // سجل الرسوم البيانية لمنع التكرا
 // اختصارات وصول للبيانات
 const byId   = (arr, id) => arr.find(x => x.id === id);
 // (بند 31) كل صفوف الفهرس الخفيف — مصدر العدّادات والقوائم المجمعة
-const rosterArr = () => Object.values(State.patientIndex);
+// الدفعة ٣: كل الفروع مملوكة لنفس الدكتور، فالفصل هنا «عرض» لا عزل أمني.
+// الصفوف القديمة بلا clinic_id تظهر في الفرع النشط أثناء الانتقال.
+const rosterArr = () => {
+  const all = Object.values(State.patientIndex);
+  return State.activeClinicId ? all.filter(p => !p.clinic_id || p.clinic_id === State.activeClinicId) : all;
+};
 // الصف الكامل (صفحة القائمة الحالية) له الأولوية، وبعده الفهرس الخفيف
 const getPatient = id => byId(State.patients, id) || State.patientIndex[id] || null;
 const getPlan    = id => byId(State.plans, id);
