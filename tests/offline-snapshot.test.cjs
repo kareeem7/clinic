@@ -14,6 +14,7 @@ const offlineSrc = read('js/offline.js');
 const captureSrc = read('js/offline-capture.js');
 const snapshotSrc = read('js/offline-snapshot.js');
 const dbSrc = read('js/db.js');
+const stateSrc = read('js/state.js');
 const portalSrc = read('js/patient-portal.js');
 const sw = read('sw.js');
 const html = read('index.html');
@@ -32,7 +33,7 @@ function memoryStore() {
 }
 
 function harness(opts = {}) {
-  const store = memoryStore(), writes = [], toasts = [];
+  const store = memoryStore(), writes = [], toasts = [], session = {};
   let clipboardText = '';
   const rpcResults = opts.rpcResults || {};
   const State = { patients: [], patientIndex: {}, notes: [], appointments: [], plans: [],
@@ -50,7 +51,11 @@ function harness(opts = {}) {
     showScreen: s => writes.push({ showScreen: s }), switchAuthTab() {},
     todayISO: () => '2026-11-05', newRequestId: () => 'req-test', getPatient: () => null,
     normalizeClinicalFeatures: v => v || {}, State, Portal,
-    sessionStorage: { getItem: () => null, setItem() {}, removeItem() {} }
+    sessionStorage: {
+      getItem: k => (Object.prototype.hasOwnProperty.call(session, k) ? session[k] : null),
+      setItem: (k, v) => { session[k] = String(v); },
+      removeItem: k => { delete session[k]; }
+    }
   });
   vm.runInContext(offlineSrc, ctx, { filename: 'offline.js' });
   vm.runInContext(captureSrc, ctx, { filename: 'offline-capture.js' });
@@ -88,7 +93,7 @@ function harness(opts = {}) {
       return Promise.resolve({ data: { ok: true }, error: null });
     }
   };
-  return { ctx, store, writes, toasts, Offline, OfflineCapture, OfflineSnapshot, DB, State, Portal };
+  return { ctx, store, writes, toasts, session, Offline, OfflineCapture, OfflineSnapshot, DB, State, Portal };
 }
 
 const sampleData = () => ({
@@ -329,4 +334,95 @@ test('identity conflicts are never reported remotely with the wrong patient toke
     'daily-limit', 'حد يومي');
   assert.equal(h.writes.some(w => w.rpc === 'offline_report_conflict'), false,
     'cross-patient payload is refused even with another kind');
+});
+
+// --------------------------------------------- نسخة الدكتور + تنظيف الدفتر
+const doctorState = () => ({
+  settings: { doctorName: 'د. أحمد', clinicName: 'عيادة النور', accessCode: 'SHB1-1' },
+  clinics: [{ id: 'c1', name: 'الفرع الأول', code: 'SHB1' }],
+  activeClinicId: 'c1',
+  patientIndex: { p1: { id: 'p1', name: 'مريضة تجريبية', phone: '+201000000000', status: 'active' } },
+  pTotal: 1,
+  appointments: [{ id: 'a1', date: '2026-11-05', status: 'confirmed' }],
+  plans: [{ id: 'pl1', title: 'خطة' }],
+  healthAlerts: [], stats: { visits: [], revenue: [] }
+});
+
+test('doctor offline view, snapshot hygiene and server-only screen guard are wired', () => {
+  const main = read('js/main.js');
+  const app = read('js/app.js');
+  assert.match(snapshotSrc, /saveDoctor\(/);
+  assert.match(snapshotSrc, /readDoctor\(uid\)/);
+  assert.match(snapshotSrc, /clearAll\(/);
+  assert.match(snapshotSrc, /MAX_ROSTER/);
+  assert.match(dbSrc, /OfflineSnapshot\.saveDoctor\(State, this\.uid\)/);
+  assert.match(main, /tryOfflineDoctorFallback/);
+  assert.match(main, /OfflineSnapshot\.clearAll\(\)/);
+  assert.match(main, /window\.addEventListener\('online'/);
+  assert.match(stateSrc, /State\.offlineSnapshot = null/);
+  assert.match(app, /State\.offlineSnapshot && typeof Offline/);
+  assert.match(offlineSrc, /purgeOrphanPhotos\(\)/);
+  assert.match(offlineSrc, /data-offline-action="clear-snapshot"/);
+});
+
+test('the doctor snapshot is bound to the doctor uid and the session cache', async () => {
+  const h = harness();
+  assert.equal(await h.OfflineSnapshot.saveDoctor(doctorState(), 'doctor-A'), true);
+  // لا جلسة ولا uid مطابق → مفيش استرجاع (حتى لو النسخة موجودة على الجهاز)
+  assert.equal(await h.OfflineSnapshot.readDoctor('doctor-A'), null);
+  h.session['clinic_doctor'] = JSON.stringify({ uid: 'doctor-B' });
+  assert.equal(await h.OfflineSnapshot.readDoctor('doctor-A'), null);
+  h.session['clinic_doctor'] = JSON.stringify({ uid: 'doctor-A' });
+  const snap = await h.OfflineSnapshot.readDoctor('doctor-A');
+  assert.ok(snap);
+  assert.equal(snap.data.uid, 'doctor-A');
+  assert.equal(snap.data.settings.accessCode, undefined, 'no access codes in the snapshot');
+  assert.equal(snap.data.clinics[0].code, undefined, 'no clinic prefix code in the snapshot');
+  assert.equal(snap.data.patientIndex.p1.name, 'مريضة تجريبية');
+  assert.equal(snap.stale, false);
+  assert.equal(await h.OfflineSnapshot.readDoctor('doctor-B'), null, 'another doctor cannot read it');
+  const raw = JSON.stringify([...h.store.stores.get('meta').values()]);
+  assert.equal(raw.includes('مريضة تجريبية'), false);
+  assert.equal(raw.includes('SHB1-1'), false);
+});
+
+test('the doctor snapshot caps the roster and clearAll removes both snapshots', async () => {
+  const h = harness();
+  const st = doctorState();
+  for (let i = 0; i < 20; i++) st.patientIndex['x' + i] = { id: 'x' + i, name: 'م' };
+  const orig = h.OfflineSnapshot.MAX_ROSTER;
+  h.OfflineSnapshot.MAX_ROSTER = 5;
+  const d = h.OfflineSnapshot.doctorData(st, 'doctor-A');
+  h.OfflineSnapshot.MAX_ROSTER = orig;
+  assert.equal(Object.keys(d.patientIndex).length, 5);
+  assert.equal(d.rosterTruncated, true);
+  await h.OfflineSnapshot.save(sampleData());
+  await h.OfflineSnapshot.saveDoctor(doctorState(), 'doctor-A');
+  await h.OfflineSnapshot.clearAll();
+  assert.equal(await h.OfflineSnapshot.read(), null);
+  assert.equal(h.store.stores.get('meta').size, 1); // مفتاح الجهاز بس
+});
+
+test('orphan encrypted photos are purged while referenced ones survive', async () => {
+  const h = harness();
+  await h.Offline.putPhoto('orphan', new Uint8Array([1, 2]).buffer, 'image/png');
+  await h.Offline.putPhoto('req-kept', new Uint8Array([3, 4]).buffer, 'image/png');
+  await h.Offline.enqueue({ kind: 'rpc', name: 'x', requestId: 'req-kept' });
+  assert.equal(await h.Offline.purgeOrphanPhotos(), 1);
+  assert.equal(h.store.stores.get('photos').size, 1);
+  assert.ok(await h.Offline.getPhoto('req-kept'));
+  assert.equal(await h.Offline.getPhoto('orphan'), null);
+});
+
+test('clearing the offline snapshot never deletes pending queued data', async () => {
+  const h = harness({ online: false });
+  await h.OfflineSnapshot.save(sampleData());
+  await h.Offline.enqueue({ kind: 'rpc', name: 'x', requestId: 'r1' });
+  const before = (await h.Offline.all()).length;
+  h.Offline.snapshotNote = 'نسخة أوفلاين';
+  await h.Offline.clearSnapshot();
+  assert.equal((await h.Offline.all()).length, before);
+  assert.equal(await h.OfflineSnapshot.read(), null);
+  assert.equal(h.Offline.snapshotNote, null);
+  assert.ok(h.toasts.some(t => /التسجيلات المعلّقة ما اتمسّتش/.test(t[0])));
 });

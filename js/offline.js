@@ -46,6 +46,7 @@ const Offline = {
     }
     Offline.bindUI();
     Offline.refreshCount().catch(e => Offline.log(e, 'offline.count'));
+    if (Offline.encryption) Offline.purgeOrphanPhotos().catch(e => Offline.log(e, 'offline.photos.purge'));
     Offline.render();
   },
 
@@ -196,6 +197,32 @@ const Offline = {
     await db.del('photos', requestId);
   },
 
+  /** تنظيف تلقائي: صورة مشفّرة من غير عملية في الدفتر (عنصر اتمسح أو تلف)
+   *  ما تفضلش على الجهاز للأبد. يتنادى عند الإقلاع وبعد كل رفع. */
+  async purgeOrphanPhotos() {
+    try {
+      const db = await Offline._openDB();
+      const used = new Set((await Offline.all()).map(i => i.requestId));
+      let removed = 0;
+      for (const r of await db.getAll('photos')) {
+        if (!used.has(r.k)) { await db.del('photos', r.k); removed++; }
+      }
+      return removed;
+    } catch (e) { Offline.log(e, 'offline.photos.purge'); return 0; }
+  },
+
+  /** مسح النسخ المشفّرة للقراءة فقط — **من غير** لمس الدفتر المعلّق. */
+  async clearSnapshot() {
+    if (typeof OfflineSnapshot !== 'undefined') {
+      try { await OfflineSnapshot.clearAll(); } catch (e) { Offline.log(e, 'offline.snapshot.clear'); }
+    }
+    Offline.snapshotNote = null;
+    Offline.render();
+    if (typeof toast === 'function') {
+      toast('اتمسحت النسخة الأوفلاين من الجهاز — التسجيلات المعلّقة ما اتمسّتش', 'info');
+    }
+  },
+
   // «نسخة أوفلاين» بتاعة البوابة (الدفعة ٤) — بتظهر في شريط الحالة
   snapshotNote: null,
 
@@ -315,6 +342,7 @@ const Offline = {
     } finally {
       Offline._flushing = false;
       await Offline.refreshCount();
+      if (Offline.encryption) Offline.purgeOrphanPhotos().catch(e => Offline.log(e, 'offline.photos.purge'));
     }
     return { sent, conflicts, skipped, stopped };
   },
@@ -417,6 +445,7 @@ const Offline = {
       else if (act === 'copy-report') Offline.copyReport();
       else if (act === 'refresh-remote') Offline.refreshRemoteTickets().catch(e => Offline.log(e, 'offline.remote.refresh'));
       else if (act === 'ack-remote') Offline.ackRemoteTicket(id).catch(e => Offline.log(e, 'offline.remote.ack'));
+      else if (act === 'clear-snapshot') Offline.clearSnapshot().catch(e => Offline.log(e, 'offline.snapshot.clear'));
     });
   },
 
@@ -481,7 +510,8 @@ const Offline = {
     if (flushBtn) flushBtn.style.display = (!offline && pending > 0) ? '' : 'none';
     const panel = document.getElementById('offlinePanel');
     if (panel) {
-      const hasPanel = conflicts > 0 || (Offline.role === 'clinic' && Offline.remoteTickets.length > 0);
+      const hasPanel = conflicts > 0 || !!Offline.snapshotNote ||
+        (Offline.role === 'clinic' && Offline.remoteTickets.length > 0);
       panel.style.display = (Offline._panelOpen && hasPanel) ? 'block' : 'none';
       // على موبايل المريض: ما نديهوش زر «حذف» لتسجيل محتاج مراجعة الدكتور
       const canDiscard = Offline.role !== 'patient';
@@ -495,6 +525,12 @@ const Offline = {
             ' · ' + safeText(t.requestId) + '</small></span>' +
             '<button class="btn btn-outline sm" type="button" data-offline-action="ack-remote" data-offline-id="' +
             safeText(t.id) + '">تمت المراجعة</button></div>').join('') +
+          '</div>'
+        : '';
+      const snapshotRow = Offline.snapshotNote
+        ? '<div class="sys-row" style="display:block;margin:8px 0">' +
+          '<b>نسخة أوفلاين للقراءة</b> <small class="muted">' + safeText(Offline.snapshotNote) + '</small> ' +
+          '<button class="btn btn-outline sm" type="button" data-offline-action="clear-snapshot">مسح النسخة من الجهاز</button>' +
           '</div>'
         : '';
       panel.innerHTML = conflicts
@@ -513,8 +549,8 @@ const Offline = {
             '<button class="btn btn-ghost sm" type="button" data-offline-action="retry" data-offline-id="' + safeText(c.id) + '">إعادة المحاولة</button>' +
             (canDiscard ? '<button class="btn btn-outline sm" type="button" data-offline-action="discard" data-offline-id="' + safeText(c.id) + '">حذف</button>' : '') +
             '</div>';
-          }).join('') + remoteTickets
-        : remoteTickets;
+          }).join('') + remoteTickets + snapshotRow
+        : (remoteTickets + snapshotRow);
     }
   },
 

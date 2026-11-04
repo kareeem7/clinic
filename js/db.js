@@ -402,6 +402,11 @@ const DB = {
       }
     }
     State.loaded = true;
+    // نسخة مشفّرة للقراءة فقط على جهاز العيادة، تتجدّد بعد كل تحميل ناجح.
+    // الفشل هنا ما يوقفش الدخول أبداً.
+    if (typeof OfflineSnapshot !== 'undefined' && typeof OfflineSnapshot.saveDoctor === 'function') {
+      OfflineSnapshot.saveDoctor(State, this.uid).catch(() => {});
+    }
     // Audit the bulk read without any PHI: counts only
     this.audit('view', 'patients', null, { scope: 'list', count: Object.keys(State.patientIndex).length });
   },
