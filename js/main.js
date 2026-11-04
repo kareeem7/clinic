@@ -181,6 +181,11 @@ function showMfaPane(isEnroll, qr, secret) {
 /* ═══════════════════ Central post-auth router ═══════════════════
    Every auth path ends here. Decides doctor app / admin console / 2FA. */
 async function routeAfterAuth(step, access) {
+  // الدفعة ٢: الجهاز ده جهاز عيادة → التنبيهات للدكتور، ونرفع المعلّق فور الدخول
+  if (typeof OfflineCapture !== 'undefined') {
+    OfflineCapture.enter('clinic');
+    OfflineCapture.syncWhenReady();
+  }
   if (step === 'mfa-verify') { mfaPending = { factorId: null, access }; showMfaPane(false); return; }
   if (step === 'mfa-enroll') {
     const en = await DB.mfaEnroll();
@@ -255,7 +260,8 @@ async function boot() {
   // Close modals with Escape
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-  // 1) HARD GATE: no Supabase = no app. Patient data must never touch localStorage.
+  // 1) HARD GATE: لازم عميل Supabase مضبوط. الأوفلاين يعني «نسخة واجهة + دفتر مشفّر
+  //    على جهاز المستخدم»، مش وضع ديمو ولا بيانات مرضى دائمة في المتصفح (راجع js/offline.js).
   const ok = await DB.init();
   if (!ok) {
     if (DB.configError === 'setup-required' || DB.configError) {

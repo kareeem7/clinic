@@ -26,6 +26,19 @@ function portalAuthPhone(value) {
 }
 
 // الدفعة ٣: أُزيلت دالة portalBirthDate() نهائياً — الدخول صار بالكود الدائم + الموبايل.
+
+/* ---- الدفعة ٢: التقاط أوفلاين على موبايل المريض -----------------------
+   🚫 التوكن عمره ما يدخل الدفتر: بنخزّن علامة __session بداله، ووقتها
+   الرفع بيقرأ Portal.token الحالي ويحقنه. لو الملف مش محمّل (اختبارات)
+   المسار المباشر يشتغل زي ما هو. */
+function portalIsOffline() {
+  return typeof Offline !== 'undefined' && !Offline.isOnline;
+}
+function portalOfflineCall(ops, live, fake) {
+  if (typeof Offline === 'undefined' || typeof OfflineCapture === 'undefined') return live();
+  return OfflineCapture.call(ops, live, fake);
+}
+
 const Portal = {
   token: sessionStorage.getItem('clinic_patient_token') || null,
   data: null,
@@ -39,6 +52,7 @@ const Portal = {
     resetPortalSessionState();
     sessionStorage.setItem('clinic_patient_token', data.token);
     this.token = data.token;
+    if (typeof OfflineCapture !== 'undefined') OfflineCapture.enter('patient');
     await this.load();
   },
 
@@ -92,6 +106,11 @@ const Portal = {
     document.body.classList.add('theme-patient');
     this.render();
     showScreen('portal');
+    // الدفعة ٢: بعد ما الجلسة اتأكدت، ارفع أي تسجيل معلّق على هذا الجهاز
+    if (typeof OfflineCapture !== 'undefined') {
+      OfflineCapture.enter('patient');
+      OfflineCapture.syncWhenReady();
+    }
   },
 
   async logout() {
@@ -148,9 +167,18 @@ const Portal = {
       $('#ptCancelBtn').onclick = async () => {
         const ok = await confirmDlg('إلغاء الموعد', 'متأكد إنك عايز تلغي موعد يوم ' + relDay(a.date) + ' الساعة ' + fmtTime(a.time) + '؟', 'نعم، إلغاء');
         if (!ok) return;
-        const { data: r } = await DB.sb.rpc('patient_portal_cancel', { p_token: this.token, p_appt: a.id, p_reason: '' });
-        if (r && r.ok) { toast('تم إلغاء الموعد — لو احتجت موعد تاني كلّم العيادة'); await this.load(); }
-        else toast(r && r.error ? r.error : 'تعذّر الإلغاء — كلّم العيادة', 'error');
+        const cancelArgs = { __session: true, p_appt: a.id, p_reason: '' };
+        const { data: r } = await portalOfflineCall(
+          { kind: 'rpc', name: 'patient_portal_cancel', args: cancelArgs,
+            origin: 'patient', label: 'إلغاء موعد' },
+          () => DB.sb.rpc('patient_portal_cancel', { p_token: this.token, p_appt: a.id, p_reason: '' }),
+          { data: { ok: true }, error: null });
+        if (r && r.ok) {
+          toast(portalIsOffline()
+            ? 'طلب الإلغاء اتحفظ على جهازك وهيترفع أول ما النت يرجع'
+            : 'تم إلغاء الموعد — لو احتجت موعد تاني كلّم العيادة');
+          if (!portalIsOffline()) await this.load();
+        } else toast(r && r.error ? r.error : 'تعذّر الإلغاء — كلّم العيادة', 'error');
       };
     }
 
@@ -291,7 +319,10 @@ async function portalSubmitMeasurement() {
     // optional photo upload first (its path is stored with the measurement)
     let photoPath = null;
     const file = $('#lgPhoto').files && $('#lgPhoto').files[0];
-    if (file) {
+    // الدفعة ٢: الصور لسه مش جوه الدفتر (الدفعة ٤) — القياس يُسجّل بدونها
+    if (file && portalIsOffline()) {
+      toast('الصورة مش هتتحفظ أوفلاين — القياس هيتسجّل بدونها', 'info');
+    } else if (file) {
       try { photoPath = await portalUploadPhoto(file, token); }
       catch (pe) {
         if (token !== Portal.token) return;
@@ -300,12 +331,18 @@ async function portalSubmitMeasurement() {
     }
 
     if (token !== Portal.token) return;
-    const payload = {
-      p_token: token, p_weight: w,
+    const queuedArgs = {
+      __session: true, p_weight: w,
       p_waist: wa || null, p_hips: hips || null, p_arm: arm || null,
       p_note: note, p_date: date, p_photo_path: photoPath
     };
-    const { data: r, error } = await DB.sb.rpc('patient_portal_add_measurement', payload);
+    const liveArgs = Object.assign({}, queuedArgs, { p_token: token });
+    delete liveArgs.__session;
+    const { data: r, error } = await portalOfflineCall(
+      { kind: 'rpc', name: 'patient_portal_add_measurement', args: queuedArgs,
+        origin: 'patient', label: 'قياس وزن من المريض' },
+      () => DB.sb.rpc('patient_portal_add_measurement', liveArgs),
+      { data: { ok: true }, error: null });
     if (token !== Portal.token) return;
     if (error) throw error;
     if (!r || !r.ok) { err.textContent = r && r.error ? r.error : 'تعذّر الحفظ'; err.classList.add('show'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check"></i> حفظ القياس'; return; }
@@ -319,11 +356,13 @@ async function portalSubmitMeasurement() {
     $('#lgPhotoTxt').textContent = 'اضغط للتصوير أو اختيار صورة (حتى 5MB)';
 
     let refreshed = true;
-    try { await Portal.load(); }
-    catch (refreshError) { refreshed = false; }
+    if (portalIsOffline()) refreshed = false;
+    else { try { await Portal.load(); } catch (refreshError) { refreshed = false; } }
     if (token !== Portal.token) return;
     if (!refreshed) {
-      toast('تم حفظ القياس، لكن تعذّر تحديث البيانات — حدّث الصفحة لاحقاً', 'info');
+      toast(portalIsOffline()
+        ? 'اتحفظ على جهازك (مشفّر) وهيترفع أول ما النت يرجع'
+        : 'تم حفظ القياس، لكن تعذّر تحديث البيانات — حدّث الصفحة لاحقاً', 'info');
     } else if (Portal.token) {
       let msg;
       if (lastW != null) {
@@ -484,13 +523,20 @@ async function portalSubmitHealthReading(kind) {
   }
   form.dataset.requestId = requestId;
   try { sessionStorage.setItem(portalHealthPendingKey(patientId, typeKey), requestId); } catch (_) { /* server-side idempotency remains active for this page */ }
-  args.p_token = token; args.p_request_id = requestId;
+  args.p_request_id = requestId;
+  // __session بدل p_token: التوكن بيتحقن وقت الرفع فقط، مش في الدفتر
+  const queuedArgs = Object.assign({}, args, { __session: true });
+  const liveArgs = Object.assign({}, args, { p_token: token });
   form.dataset.submitting = 'true'; button.disabled = true;
   button.dataset.originalText = button.textContent;
   button.textContent = 'جارٍ الحفظ…';
   message.textContent = ''; message.classList.remove('error', 'success', 'warning', 'critical');
   try {
-    const { data, error } = await DB.sb.rpc('patient_portal_add_health_reading', args);
+    const { data, error } = await portalOfflineCall(
+      { kind: 'rpc', name: 'patient_portal_add_health_reading', args: queuedArgs,
+        origin: 'patient', label: 'قراءة سكر/ضغط من المريض' },
+      () => DB.sb.rpc('patient_portal_add_health_reading', liveArgs),
+      { data: { ok: true }, error: null });
     if (token !== Portal.token || !Portal.data || patientId !== Portal.data.patient.id) return;
     if (error) throw error;
     if (!data || data.ok !== true) {
@@ -515,7 +561,9 @@ async function portalSubmitHealthReading(kind) {
     form.dataset.requestId = '';
     portalRemovePendingHealthRequest(patientId, typeKey);
     const alert = portalHealthAlert({ readingType: kind, glucoseValue: args.p_glucose_value, systolic: args.p_systolic, diastolic: args.p_diastolic });
-    message.textContent = alert ? alert.text : (data.duplicate ? 'هذه القراءة محفوظة بالفعل؛ لم تُسجّل مرة أخرى.' : 'تم حفظ القراءة بنجاح.');
+    message.textContent = portalIsOffline()
+      ? 'اتحفظت على جهازك (مشفّرة) وهتترفع أول ما النت يرجع.'
+      : (alert ? alert.text : (data.duplicate ? 'هذه القراءة محفوظة بالفعل؛ لم تُسجّل مرة أخرى.' : 'تم حفظ القراءة بنجاح.'));
     message.classList.add(alert ? (alert.level === 'critical' ? 'critical' : 'warning') : 'success');
     message.classList.remove('error');
   } catch (_) {
@@ -987,18 +1035,26 @@ async function portalRenderAppointments() {
         '<button class="btn btn-danger" id="ptCancelConfirm"><i class="fa-solid fa-ban"></i> تأكيد الإلغاء</button></div>', 520);
       $('#ptCancelConfirm').onclick = async () => {
         const btn = $('#ptCancelConfirm'); btn.disabled = true;
-        const { data: r } = await DB.sb.rpc('patient_portal_cancel', {
-          p_token: Portal.token,
-          p_appt: a.id,
-          p_reason: $('#ptCancelReason').value.trim()
-        });
+        const reason = $('#ptCancelReason').value.trim();
+        const cancelArgs = { __session: true, p_appt: a.id, p_reason: reason };
+        const { data: r } = await portalOfflineCall(
+          { kind: 'rpc', name: 'patient_portal_cancel', args: cancelArgs,
+            origin: 'patient', label: 'إلغاء موعد' },
+          () => DB.sb.rpc('patient_portal_cancel', {
+            p_token: Portal.token, p_appt: a.id, p_reason: reason
+          }),
+          { data: { ok: true }, error: null });
         btn.disabled = false;
         if (r && r.ok) {
-          toast('تم إلغاء الموعد — الدكتور عرف وأنشأ حجزتك متاحة لغيره');
+          toast(portalIsOffline()
+            ? 'طلب الإلغاء اتحفظ على جهازك وهيترفع أول ما النت يرجع'
+            : 'تم إلغاء الموعد — الدكتور عرف وأنشأ حجزتك متاحة لغيره');
           closeModal();
-          portalRenderAppointments();
-          // الـ home تنعش عشان كارت الموأ تتحدث فوراً
-          Portal.load && Portal.load();
+          if (!portalIsOffline()) {
+            portalRenderAppointments();
+            // الـ home تنعش عشان كارت الموأ تتحدث فوراً
+            Portal.load && Portal.load();
+          }
         } else {
           closeModal();
           toast(r && r.error ? r.error : 'تعذّر الإلغاء — كلّم العيادة', 'error');
