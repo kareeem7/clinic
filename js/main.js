@@ -56,6 +56,9 @@ const Actions = {
       await renderPatientAccess(getPatient(ds.id) || { id: ds.id });
     } catch (e) { logError(e, 'patient.accessOn'); toast('تعذّر التشغيل — ' + explainError(e), 'error'); }
   },
+  // زراير الكود في ملف المريض: لا يوجد أي تدوير/تغيير للكود
+  'pt-code-wa':    ds => sendPatientCodeWA(ds.id),
+  'pt-code-copy':  () => copyPatientCode(),
   'del-patient':   ds => deletePatient(ds.id),
   'view-patient':  ds => go('patient', ds.id),
   'wa-patient':    ds => waPatient(ds.id),
@@ -363,8 +366,9 @@ async function boot() {
     try { portalAuthPhone(phone); }
     catch (ex) { err.textContent = ex.message; err.classList.add('show'); return; }
     const code = String($('#ptCode').value || '').trim().toUpperCase();
-    if (!/^[A-Z0-9]{2,12}(-[A-Z0-9]{4}){3}$/.test(code)) {
-      err.textContent = 'اكتب الكود كامل زي ما هو مكتوب في كارت العيادة (مثال: SHB1-XXXX-XXXX-XXXX).';
+    // يقبل الكود القصير الجديد PREFIX-###### والكود القديم الطويل اللي استلمه المريض
+    if (!/^[A-Z0-9]{2,12}(?:-\d{6}|(?:-[A-Z0-9]{4}){3})$/.test(code)) {
+      err.textContent = 'اكتب الكود زي ما هو مكتوب في كارت العيادة (مثال: SHB1-482913).';
       err.classList.add('show'); return;
     }
     btn.disabled = true;
