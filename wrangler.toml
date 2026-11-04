@@ -1,0 +1,11 @@
+# Cloudflare Workers Builds — clinic-staging
+# الموقع تطبيق ثابت (HTML/CSS/JS) بلا bundler ولا خطوة بناء، فالـ Worker
+# يقدّم ملفات المستودع كأصول ثابتة مباشرة. ملف `.assetsignore` يستبعد كل
+# ما ليس واجهة (SQL، اختبارات، إعدادات Supabase، Git، المستندات).
+# إن كان في لوحة Cloudflare أمر build قديم مضبوط، امسحه أو اجعله no-op:
+# لا يوجد مجلد dist هنا ولا حاجة لـ npm install.
+name = "clinic-staging"
+compatibility_date = "2026-11-05"
+
+[assets]
+directory = "./"
