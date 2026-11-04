@@ -230,8 +230,8 @@ test('schema-cache errors now produce an actionable Arabic message instead of th
   assert.match(run('explainError({code:"totally-unknown"})'), /حدث خطأ غير متوقع/);
 });
 
-test('README records the offline decisions, both device kinds and the remaining limits', () => {
-  assert.match(readme, /الأوفلاين \(الدفعة ١ \+ ٢ من ٤\)/);
+test('README records the offline decisions, all three batches and the remaining limits', () => {
+  assert.match(readme, /الأوفلاين \(الدفعة ١ \+ ٢ \+ ٣ من ٤\)/);
   assert.match(readme, /جهاز صاحبه فقط/);
   assert.match(readme, /جهاز العيادة وموبايل المريض معاً/);
   assert.match(readme, /تنبيه للدكتور/);
@@ -239,5 +239,8 @@ test('README records the offline decisions, both device kinds and the remaining 
   assert.match(readme, /لا يتدخل ولا يخزّن أي طلب لـ `supabase\.co`/);
   assert.match(readme, /مفيش توكن ولا كود دخول ولا صور جوه الدفتر/);
   assert.match(readme, /الصور لسه مش جوه الدفتر/);
+  assert.match(readme, /measurementLooksUploaded/);
+  assert.match(readme, /بلا أي اسم مريض ولا قيم سريرية/);
+  assert.match(readme, /الدفعة ٤/);
   assert.match(readme, /OTP\/SMS لسه مؤجّل/);
 });

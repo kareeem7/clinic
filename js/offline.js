@@ -134,9 +134,10 @@ const Offline = {
       try {
         const plain = await crypto.subtle.decrypt(
           { name: 'AES-GCM', iv: new Uint8Array(r.iv) }, key, new Uint8Array(r.data));
+        const decoded = JSON.parse(new TextDecoder().decode(plain));
         out.push({
           id: r.id, requestId: r.requestId, createdAt: r.createdAt,
-          conflict: r.conflict || null, payload: JSON.parse(new TextDecoder().decode(plain))
+          conflict: r.conflict || null, forced: !!decoded.forced, payload: decoded
         });
       } catch (_) {
         out.push({ id: r.id, requestId: r.requestId, createdAt: r.createdAt,
@@ -151,11 +152,34 @@ const Offline = {
     await db.del('queue', id);
   },
 
-  async markConflict(id, reason) {
+  // تعديل علم جوه العملية المشفّرة (مثلاً «الدكتور أكّد الرفع»).
+  // بنعيد التشفير بـ iv جديد، والبيانات ما تطلعش من الذاكرة أبداً.
+  async setFlag(id, name, value) {
     const db = await Offline._openDB();
     const rows = await db.getAll('queue');
     const row = rows.find(r => r.id === id);
-    if (row) { row.conflict = String(reason || 'محتاج مراجعة').slice(0, 300); await db.put('queue', row); }
+    if (!row) return;
+    const key = await Offline.deviceKey();
+    const plain = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: new Uint8Array(row.iv) }, key, new Uint8Array(row.data));
+    const obj = JSON.parse(new TextDecoder().decode(plain));
+    obj[name] = value;
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const buf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key,
+      new TextEncoder().encode(JSON.stringify(obj)));
+    row.iv = Array.from(iv); row.data = Array.from(new Uint8Array(buf));
+    await db.put('queue', row);
+  },
+
+  async markConflict(id, reason, kind) {
+    const db = await Offline._openDB();
+    const rows = await db.getAll('queue');
+    const row = rows.find(r => r.id === id);
+    if (row) {
+      row.conflict = String(reason || 'محتاج مراجعة').slice(0, 400);
+      row.conflictKind = String(kind || 'unknown').slice(0, 40);
+      await db.put('queue', row);
+    }
     await Offline.refreshCount();
     Offline.alertDoctor();
   },
@@ -166,12 +190,13 @@ const Offline = {
     if (action === 'discard') {
       await db.del('queue', id);
     } else {
+      if (action === 'force') await Offline.setFlag(id, 'forced', true);
       const rows = await db.getAll('queue');
       const row = rows.find(r => r.id === id);
-      if (row) { delete row.conflict; await db.put('queue', row); }
+      if (row) { delete row.conflict; delete row.conflictKind; await db.put('queue', row); }
     }
     await Offline.refreshCount();
-    if (action === 'retry') await Offline.flush();
+    if (action === 'retry' || action === 'force') await Offline.flush();
   },
 
   async refreshCount() {
@@ -179,9 +204,17 @@ const Offline = {
       const db = await Offline._openDB();
       const rows = await db.getAll('queue');
       Offline.pending = rows.length;
-      Offline.conflicts = rows.filter(r => r.conflict).map(r => ({
-        id: r.id, reason: r.conflict, createdAt: r.createdAt
-      }));
+      const meta = Offline.encryption ? await Offline.all() : [];
+      const byId = new Map(meta.map(x => [x.id, x]));
+      // التذكرة فيها وصف العملية والسبب ورقم الطلب فقط — بلا اسم مريض ولا قيم سريرية
+      Offline.conflicts = rows.filter(r => r.conflict).map(r => {
+        const m = byId.get(r.id), p = (m && m.payload) || {};
+        return {
+          id: r.id, reason: r.conflict, kind: r.conflictKind || 'unknown',
+          createdAt: r.createdAt, label: p.label || 'تسجيل بيانات',
+          origin: p.origin || 'clinic', requestId: p.requestId || r.requestId
+        };
+      });
     } catch (_) {
       Offline.pending = 0; Offline.conflicts = [];
     }
@@ -214,15 +247,18 @@ const Offline = {
         try { res = await send(item.payload, item); }
         catch (e) {
           if (Offline.isNetworkError(e)) { stopped = true; break; }
-          await Offline.markConflict(item.id, Offline.reasonFor(e));
+          const c = (typeof OfflineCapture !== 'undefined' && OfflineCapture.classifyThrown)
+            ? OfflineCapture.classifyThrown(e) : { kind: 'unknown', reason: Offline.reasonFor(e) };
+          await Offline.markConflict(item.id, c.reason, c.kind);
           conflicts++; continue;
         }
         // «معلّق» (جلسة لسه مش جاهزة): ما يتعلّمش تعارض وما يتحذفش
         if (res && res.skipped) { skipped++; continue; }
         if (res && res.conflict) {
-          await Offline.markConflict(item.id, res.reason || 'تعارض في البيانات');
+          await Offline.markConflict(item.id, res.reason || 'تعارض في البيانات', res.kind);
           conflicts++; continue;
         }
+        // alreadyApplied: السيرفر حقّق المطلوب فعلاً في محاولة سابقة (رد ضايع)
         await Offline.remove(item.id);
         sent++;
       }
@@ -293,8 +329,40 @@ const Offline = {
       if (act === 'toggle') { Offline._panelOpen = !Offline._panelOpen; Offline.render(); }
       else if (act === 'flush') Offline.flush().catch(err => Offline.log(err, 'offline.flush.manual'));
       else if (act === 'retry') Offline.resolveConflict(id, 'retry').catch(err => Offline.log(err, 'offline.retry'));
+      else if (act === 'force') Offline.resolveConflict(id, 'force').catch(err => Offline.log(err, 'offline.force'));
       else if (act === 'discard') Offline.resolveConflict(id, 'discard').catch(err => Offline.log(err, 'offline.discard'));
+      else if (act === 'copy-report') Offline.copyReport();
     });
+  },
+
+  // تذكرة مراجعة قابلة للنقل بين الأجهزة: **بلا أي بيانات مرضى**
+  // (وصف العملية + السبب + رقم الطلب فقط). المريض يقدر يوريها للدكتور،
+  // والدكتور يعرف إن البيانات لسه على الجهاز وما وصلتش للسيرفر.
+  reportText() {
+    const lines = ['تذكرة مراجعة أوفلاين — عيادتي', '────────────────────'];
+    for (const c of Offline.conflicts) {
+      lines.push('العملية: ' + c.label);
+      lines.push('نوع التعارض: ' + (c.kind || 'unknown'));
+      lines.push('السبب: ' + c.reason);
+      lines.push('التوقيت: ' + c.createdAt);
+      lines.push('رقم الطلب: ' + c.requestId);
+      lines.push('الجهاز: ' + (c.origin === 'patient' ? 'موبايل المريض' : 'جهاز العيادة'));
+      lines.push('────────────────────');
+    }
+    lines.push('⚠️ البيانات دي لسه على الجهاز، مش على السيرفر. اعرض التذكرة على الدكتور.');
+    return lines.join('\n');
+  },
+
+  async copyReport() {
+    const text = Offline.reportText();
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        if (typeof toast === 'function') toast('اتنسخ تقرير المراجعة — احتفظ بيه ووريه للدكتور', 'info');
+      } else if (typeof toast === 'function') {
+        toast('النسخ مش متاح في المتصفح ده — افتح شريط الحالة واكتب رقم الطلب للدكتور', 'info');
+      }
+    } catch (e) { Offline.log(e, 'offline.report'); }
   },
 
   render() {
@@ -329,13 +397,22 @@ const Offline = {
       // على موبايل المريض: ما نديهوش زر «حذف» لتسجيل محتاج مراجعة الدكتور
       const canDiscard = Offline.role !== 'patient';
       panel.innerHTML = conflicts
-        ? (canDiscard ? '' : '<p class="p-small" style="margin:0 0 6px">البيانات دي محتاجة مراجعة الدكتور — احتفظ بيها على جهازك ولا تمسحها.</p>') +
-          Offline.conflicts.map(c =>
-          '<div class="sys-row"><span>' + safeText(c.reason) +
-          ' <small class="muted ltr">' + safeText(c.createdAt) + '</small></span>' +
-          '<button class="btn btn-ghost sm" type="button" data-offline-action="retry" data-offline-id="' + safeText(c.id) + '">إعادة المحاولة</button>' +
-          (canDiscard ? '<button class="btn btn-outline sm" type="button" data-offline-action="discard" data-offline-id="' + safeText(c.id) + '">حذف</button>' : '') +
-          '</div>').join('')
+        ? '<p class="p-small" style="margin:0 0 6px">' +
+          (canDiscard
+            ? 'التسجيلات دي محتاجة قرارك — ما بيترفعش ولا بيتحذف أوتوماتيك.'
+            : 'البيانات دي محتاجة مراجعة الدكتور — احتفظ بيها على جهازك ولا تمسحها، واعرض التذكرة على العيادة.') +
+          '</p>' +
+          '<button class="btn btn-ghost sm" type="button" data-offline-action="copy-report" style="margin-bottom:6px"><i class="fa-solid fa-copy"></i> نسخ تذكرة المراجعة</button>' +
+          Offline.conflicts.map(c => {
+            const duplicate = /duplicate/i.test(c.kind || '');
+            return '<div class="sys-row"><span><b>' + safeText(c.label) + '</b> — ' + safeText(c.reason) +
+            '<br><small class="muted ltr">' + safeText(c.createdAt) + ' · ' + safeText(c.kind) +
+            ' · ' + safeText(c.requestId) + '</small></span>' +
+            (duplicate ? '<button class="btn btn-ghost sm" type="button" data-offline-action="force" data-offline-id="' + safeText(c.id) + '">تأكيد الرفع</button>' : '') +
+            '<button class="btn btn-ghost sm" type="button" data-offline-action="retry" data-offline-id="' + safeText(c.id) + '">إعادة المحاولة</button>' +
+            (canDiscard ? '<button class="btn btn-outline sm" type="button" data-offline-action="discard" data-offline-id="' + safeText(c.id) + '">حذف</button>' : '') +
+            '</div>';
+          }).join('')
         : '';
     }
   },

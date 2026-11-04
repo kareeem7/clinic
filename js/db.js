@@ -556,11 +556,19 @@ const DB = {
 
   // Bring a soft-deleted row back from the archive
   async restore(col, id) {
-    const { error } = await this.sb.from(col)
-      .update({ deleted_at: null, deleted_by: null })
-      .eq('id', id).eq('doctor_id', this.uid);
+    const row = { deleted_at: null, deleted_by: null };
+    const { error } = await offlineCall(
+      { kind: 'update', table: col, row, label: 'استعادة من الأرشيف', clinicId: offlineClinicId(),
+        where: [{ col: 'id', op: 'eq', val: id }, { col: 'doctor_id', op: 'eq', val: this.uid }] },
+      () => this.sb.from(col).update(row).eq('id', id).eq('doctor_id', this.uid),
+      { data: null, error: null });
     if (error) throw error;
     await this.audit('restore', col, id);
+    // loadAll محتاج سيرفر؛ أوفلاين بنسيب الطلب في الدفتر والشاشة هتتحدّث بعد الرفع
+    if (typeof Offline !== 'undefined' && !Offline.isOnline) {
+      if (typeof toast === 'function') toast('طلب الاستعادة اتحفظ على الجهاز وهيظهر بعد ما النت يرجع', 'info');
+      return;
+    }
     await this.loadAll();
   },
 
@@ -577,7 +585,13 @@ const DB = {
     const clinic = { ...clinicInput, clinicalFeatures: normalizeClinicalFeatures(featureInput) };
     const nextSettings = { ...current, ...clinic };
     // Commit the local state only after the server accepts the clinic-scoped patch.
-    const { error } = await this.sb.rpc('save_clinic_settings', { patch: clinic });
+    // الدفعة ٣: الإعدادات shallow-merge على السيرفر، فإعادة الرفع آمنة نسبياً،
+    // لكن لو دكتور تاني غيّر نفس المفتاح وقت الأوفلاين هيظهر تعارض للمراجعة.
+    const { error } = await offlineCall(
+      { kind: 'rpc', name: 'save_clinic_settings', args: { patch: clinic },
+        label: 'إعدادات العيادة', clinicId: offlineClinicId() },
+      () => this.sb.rpc('save_clinic_settings', { patch: clinic }),
+      { data: null, error: null });
     if (error) throw error;
     State.settings = nextSettings;
     await this.audit('edit', 'doctors', this.uid, { scope: 'settings' });
@@ -740,20 +754,31 @@ const DB = {
     const safePatch = {};
     for (const key of allowed) if (Object.prototype.hasOwnProperty.call(patch, key)) safePatch[key] = patch[key];
     if (!Object.keys(safePatch).length) throw { code: 'empty_update' };
-    const { data: current, error: readError } = await this.sb.from('patient_health_readings').select('*')
-      .eq('id', id).eq('patient_id', pid).eq('doctor_id', this.uid).is('deleted_at', null).maybeSingle();
-    if (readError) throw readError;
-    if (!current) throw { code: 'clinical_record_not_found' };
-    const normalized = validateHealthReading({ ...fromRow('patient_health_readings', current), ...safePatch });
-    const row = toRow('patient_health_readings', normalized);
-    const { data, error } = await this.sb.from('patient_health_readings').update(row)
-      .eq('id', id).eq('patient_id', pid).eq('doctor_id', this.uid).is('deleted_at', null)
-      .select().maybeSingle();
-    if (error) throw error;
-    if (!data) throw { code: 'clinical_record_not_found' };
-    const saved = fromRow('patient_health_readings', data);
-    await this.audit('edit', 'patient_health_readings', id, { patientRef: true });
-    return saved;
+    // الدفعة ٣: الميثود دي لازم تقرأ الصف الحالي من السيرفر قبل التعديل عشان
+    // validateHealthReading. مش هنخزّن تعديل سريري غير متحقّق منه، فبنأجّل
+    // **العملية كلها** (kind: method) ووقت الرفع بتتنفّذ كاملة على السيرفر؛
+    // لو التحقق فشل ساعتها بيظهر تعارض للدكتور بدل ما يتكتب بيانات غلط.
+    return offlineCall(
+      { kind: 'method', method: 'updateHealthReading', args: [pid, id, safePatch],
+        label: 'تعديل قراءة سكر/ضغط', clinicId: offlineClinicId() },
+      async () => {
+        const { data: current, error: readError } = await this.sb.from('patient_health_readings').select('*')
+          .eq('id', id).eq('patient_id', pid).eq('doctor_id', this.uid).is('deleted_at', null).maybeSingle();
+        if (readError) throw readError;
+        if (!current) throw { code: 'clinical_record_not_found' };
+        const normalized = validateHealthReading({ ...fromRow('patient_health_readings', current), ...safePatch });
+        const row = toRow('patient_health_readings', normalized);
+        const { data, error } = await this.sb.from('patient_health_readings').update(row)
+          .eq('id', id).eq('patient_id', pid).eq('doctor_id', this.uid).is('deleted_at', null)
+          .select().maybeSingle();
+        if (error) throw error;
+        if (!data) throw { code: 'clinical_record_not_found' };
+        const saved = fromRow('patient_health_readings', data);
+        await this.audit('edit', 'patient_health_readings', id, { patientRef: true });
+        return saved;
+      },
+      Object.assign({ id }, safePatch) // تفاؤلي للواجهة فقط، والتحقق الحقيقي وقت الرفع
+    );
   },
 
   async deleteHealthReading(pid, id) {
