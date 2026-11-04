@@ -34,6 +34,13 @@ function go(route, param) {
     route = 'dashboard';
   }
   if (State.isAdmin && !ADMIN_ROUTES.includes(route) && ROUTES[route]) route = 'admin-dashboard';
+  // نسخة الأوفلاين للقراءة: شاشتا المرضى/ملف المريض بيجيبوا صفحات من السيرفر،
+  // فما نسيبهمش يطلعوا خطأ شبكة — بنوجّه للرئيسية اللي بتتغذى من النسخة.
+  if (State.offlineSnapshot && typeof Offline !== 'undefined' && !Offline.isOnline &&
+      (route === 'patients' || route === 'patient')) {
+    toast('الشاشة دي محتاجة نت — النسخة الأوفلاين للقراءة من الرئيسية', 'info');
+    route = 'dashboard';
+  }
   State.route = route; if (param !== undefined) State.param = param;
   $$('.view').forEach(v => v.classList.remove('active'));
   const v = $('#view-' + route); if (v) v.classList.add('active');

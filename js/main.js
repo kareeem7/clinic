@@ -138,6 +138,10 @@ function cacheDoctor() {
 
 async function doLogout() {
   sessionStorage.removeItem('clinic_doctor'); // مسح الكاش عند الخروج
+  if (typeof OfflineSnapshot !== 'undefined') {
+    try { await OfflineSnapshot.clearAll(); } catch (_) { /* no-op */ }
+  }
+  if (typeof Offline !== 'undefined') Offline.snapshotNote = null;
   await DB.signOut();
   showScreen('login');
   toast('تم تسجيل الخروج — إلى اللقاء يا دكتور', 'info');
@@ -180,7 +184,56 @@ function showMfaPane(isEnroll, qr, secret) {
 
 /* ═══════════════════ Central post-auth router ═══════════════════
    Every auth path ends here. Decides doctor app / admin console / 2FA. */
+/** نسخة أوفلاين **للقراءة فقط** لشاشة الدكتور على جهاز العيادة.
+ *  مش بديل عن الدخول ولا MFA: `readDoctor` بيتأكد إن `uid` الجلسة الحالية
+ *  يطابق `uid` النسخة، وإن كاش `clinic_doctor` لسه موجود في نفس المتصفح.
+ *  بنرجّع true لو قدرنا نفتح النسخة، فالـ catch الأصلي ما يرميش خطأ. */
+async function tryOfflineDoctorFallback(err) {
+  if (typeof Offline === 'undefined' || typeof OfflineSnapshot === 'undefined') return false;
+  if (!Offline.isNetworkError(err) || !DB.uid) return false;
+  let snap;
+  try { snap = await OfflineSnapshot.readDoctor(DB.uid); } catch (_) { return false; }
+  if (!snap || !snap.data) return false;
+  const d = snap.data;
+  resetClinicalState();
+  State.settings = d.settings || {};
+  State.clinics = d.clinics || [];
+  State.activeClinicId = d.activeClinicId || null;
+  State.patientIndex = d.patientIndex || {};
+  State.pTotal = d.pTotal || 0;
+  State.appointments = d.appointments || [];
+  State.plans = d.plans || [];
+  State.healthAlerts = d.healthAlerts || [];
+  State.stats = d.stats || { visits: [], revenue: [] };
+  State.loaded = true;
+  State.offlineSnapshot = snap.savedAt;
+  Offline.snapshotNote = '📴 نسخة أوفلاين للقراءة لبيانات العيادة من ' +
+    OfflineSnapshot.fmt(snap.savedAt) +
+    (snap.stale ? ' — قديمة، راجع لما النت يرجع' : '') +
+    (d.rosterTruncated ? ' (فهرس مختصر)' : '') +
+    '؛ أي تسجيل جديد هيتحفظ ويُرفع أول ما النت يرجع';
+  if (typeof Offline.setRole === 'function') Offline.setRole('clinic');
+  try {
+    buildNav();
+    syncShellIdentity();
+    showScreen('app');
+    go('dashboard');
+  } catch (e) { logError(e, 'offline.doctor.render'); }
+  toast('النت مقطوع — بتشوف نسخة مشفّرة للقراءة من جهازك', 'info');
+  return true;
+}
+
 async function routeAfterAuth(step, access) {
+  // الدفعة ٢: الجهاز ده جهاز عيادة → التنبيهات للدكتور، ونرفع المعلّق فور الدخول
+  // رجعنا أونلاين فعلاً → النسخة للقراءة ما تفضلش معلّمة على الشاشة
+  if (State.offlineSnapshot) {
+    State.offlineSnapshot = null;
+    if (typeof Offline !== 'undefined') Offline.snapshotNote = null;
+  }
+  if (typeof OfflineCapture !== 'undefined') {
+    OfflineCapture.enter('clinic');
+    OfflineCapture.syncWhenReady();
+  }
   if (step === 'mfa-verify') { mfaPending = { factorId: null, access }; showMfaPane(false); return; }
   if (step === 'mfa-enroll') {
     const en = await DB.mfaEnroll();
@@ -217,6 +270,7 @@ async function routeAfterAuth(step, access) {
     if (typeof DB.loadClinics === 'function') await DB.loadClinics();
     await DB.loadAll();
   } catch (e) {
+    if (await tryOfflineDoctorFallback(e)) return;
     // The login/MFA form owns the error message; do not leave it hidden behind
     // a dashboard that will otherwise stay in the loading state forever.
     showScreen('login');
@@ -255,7 +309,8 @@ async function boot() {
   // Close modals with Escape
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-  // 1) HARD GATE: no Supabase = no app. Patient data must never touch localStorage.
+  // 1) HARD GATE: لازم عميل Supabase مضبوط. الأوفلاين يعني «نسخة واجهة + دفتر مشفّر
+  //    على جهاز المستخدم»، مش وضع ديمو ولا بيانات مرضى دائمة في المتصفح (راجع js/offline.js).
   const ok = await DB.init();
   if (!ok) {
     if (DB.configError === 'setup-required' || DB.configError) {
@@ -563,6 +618,24 @@ async function boot() {
 
   // Keep the patient portal in front of an existing doctor session, but always
   // register the listener so it remains available after the patient logs out.
+  // أول ما النت يرجع: استنّى عامل الرفع يخلص، ثم حدّث الشاشة من السيرفر
+  // وامسح علامة «نسخة أوفلاين» (Offline.init سجّل مستمع الرفع قبل boot).
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('online', async () => {
+      if (!State.offlineSnapshot || typeof Offline === 'undefined') return;
+      for (let i = 0; i < 20 && Offline._flushing; i++) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+      State.offlineSnapshot = null;
+      Offline.snapshotNote = null;
+      try {
+        await DB.loadAll();
+        cacheDoctor(); syncShellIdentity(); refreshCurrent();
+        toast('النت رجع — اتحدّثت بيانات العيادة من السيرفر', 'info');
+      } catch (e) { logError(e, 'offline.doctor.refresh'); }
+    });
+  }
+
   DB.sb.auth.onAuthStateChange(async (_evt, session) => {
     if (Portal.token) return;
     if (_evt === 'INITIAL_SESSION' && session && session.user && !DB.uid) {
@@ -572,6 +645,8 @@ async function boot() {
         await routeAfterAuth(step, 'auto'); // role detection is the router's job
       } catch (ex) {
         logError(ex, 'session.restore');
+        // الدفعة ٤+: جلسة مخزّنة + فشل شبكي في MFA/التحميل → النسخة المشفّرة
+        if (await tryOfflineDoctorFallback(ex)) return;
         switchAuthTab('login');
         $('#loginError').textContent = explainError(ex);
         $('#loginError').classList.add('show');
@@ -581,6 +656,8 @@ async function boot() {
     if (_evt === 'SIGNED_OUT') {
       DB.uid = null;
       resetClinicalState();
+      // انتهاء/إلغاء الجلسة من السيرفر → النسخ المشفّرة ما تفضلش متاحة
+      if (typeof OfflineSnapshot !== 'undefined') OfflineSnapshot.clearAll().catch(() => {});
       sessionStorage.removeItem('clinic_doctor');
       leaveAdmin();
       showScreen('login');

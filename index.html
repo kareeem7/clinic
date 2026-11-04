@@ -29,6 +29,17 @@
 </head>
 <body>
 
+<!-- ====== شريط حالة الأوفلاين (الدفعة ١) ======
+     مخفي افتراضياً؛ Offline.render() بيضبط hidden + display مع بعض -->
+<div id="offlineBar" hidden style="position:fixed;top:0;left:0;right:0;z-index:9999;display:none;gap:10px;align-items:center;flex-wrap:wrap;background:#fff7ed;color:#9a3412;border-bottom:1px solid #fed7aa;padding:8px 14px;font-size:13px;font-weight:700">
+  <i class="fa-solid fa-cloud-slash" aria-hidden="true"></i>
+  <span id="offlineLabel" style="flex:1;min-width:200px">…</span>
+  <span id="offlinePending" class="chip" style="display:none"></span>
+  <button class="btn btn-ghost sm" type="button" id="offlineFlushBtn" data-offline-action="flush" style="display:none"><i class="fa-solid fa-upload"></i> رفع دلوقتي</button>
+  <button class="btn btn-outline sm" type="button" id="offlineReviewBtn" data-offline-action="toggle" style="display:none"><i class="fa-solid fa-triangle-exclamation"></i> <span id="offlineConflictCount">0</span> محتاج مراجعة</button>
+  <div id="offlinePanel" hidden style="flex-basis:100%;display:none;margin-top:6px;border-top:1px solid #fed7aa;padding-top:8px"></div>
+</div>
+
 <!-- ============================================================
      شاشة تسجيل الدخول — المرحلة 2
      ============================================================ -->
@@ -257,7 +268,7 @@
       <div class="brand-logo" style="background:var(--teal-50);color:var(--teal-700)"><i class="fa-solid fa-plug-circle-exclamation"></i></div>
       <div>
         <h2>خطوة واحدة قبل التشغيل: ربط Supabase</h2>
-        <p class="muted">هذا النظام لا يعمل ببيانات وهمية — بيانات المرضى لن تُحفظ محلياً إطلاقاً. اربط مشروع Supabase مرة واحدة فقط:</p>
+        <p class="muted">هذا النظام لا يعمل ببيانات وهمية — بيانات المرضى تُحفظ على السيرفر، ولو انقطع النت تُحفظ مؤقتاً على هذا الجهاز فقط بصيغة مشفّرة حتى تُرفع تلقائياً. اربط مشروع Supabase مرة واحدة فقط:</p>
       </div>
       <ol class="steps-list setup-steps">
         <li>أنشئ مشروعاً مجانياً من <b>supabase.com</b></li>
@@ -971,6 +982,9 @@
 <!-- ملاحظة ترتيب: app.js (خرائط ROUTES/RENDERERS) بتشير لدوال العرض وقت التقييم،
      ففي الملف الموحد كان الـhoisting بيغطيها — هنا لازم تتحمل بعد كل ملفات العرض
      وقبل main.js مباشرة (نفس السلوك بالظبط، ترتيب التحميل بس اللي اتظبط) -->
+<script src="js/offline.js"></script>
+<script src="js/offline-capture.js"></script>
+<script src="js/offline-snapshot.js"></script>
 <script src="js/app.js"></script>
 <script src="js/main.js"></script>
 

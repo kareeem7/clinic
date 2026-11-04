@@ -42,6 +42,7 @@ function resetClinicalState() {
   State.settings = {};
   State.stats = { visits: [], revenue: [] };
   State.loaded = false;
+  State.offlineSnapshot = null; // نسخة الأوفلاين للقراءة (تتحط في main.js)
   State.isAdmin = false;
   State.route = 'dashboard';
   State.param = null;
