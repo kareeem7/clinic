@@ -67,6 +67,12 @@ test('Cloudflare Workers Builds config serves only the static web shell', () => 
   const wrangler = read('wrangler.toml');
   assert.match(wrangler, /^name\s*=\s*"clinic-staging"$/m);
   assert.match(wrangler, /^compatibility_date\s*=\s*"\d{4}-\d{2}-\d{2}"$/m);
+  // Cloudflare يرفض compatibility_date في المستقبل (يُقارن بـ UTC لا بالتوقيت المحلي).
+  const compat = wrangler.match(/^compatibility_date\s*=\s*"(\d{4}-\d{2}-\d{2})"$/m)[1];
+  assert.equal(new Date(compat + 'T00:00:00Z').toISOString().slice(0, 10), compat,
+    'compatibility_date must be a real calendar date');
+  assert.ok(Date.parse(compat + 'T00:00:00Z') <= Date.now(),
+    'compatibility_date must never be in the future relative to UTC');
   assert.match(wrangler, /\[assets\]/);
   assert.match(wrangler, /directory\s*=\s*"\.\/"/);
   const ignore = read('.assetsignore');
