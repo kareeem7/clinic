@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.join(__dirname, '..');
-const config = fs.readFileSync(path.join(root, 'js/config.js'), 'utf8');
+const config = fs.readFileSync(path.join(root, 'sql/baseline.sql'), 'utf8');
 const migration = fs.readFileSync(path.join(root, 'sql/migrations/20261107_patient_portal_daily_write_limit.sql'), 'utf8');
 
 function body(source, name, last = false) {

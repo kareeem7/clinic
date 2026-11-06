@@ -9,7 +9,7 @@ const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
 const migration = fs.readFileSync(path.join(root, 'sql/migrations/20261101_require_mfa.sql'), 'utf8').trim();
-const config = fs.readFileSync(path.join(root, 'js/config.js'), 'utf8');
+const config = fs.readFileSync(path.join(root, 'sql/baseline.sql'), 'utf8');
 const dbSource = fs.readFileSync(path.join(root, 'js/db.js'), 'utf8');
 
 test('setup SQL includes the MFA migration without committing an outer transaction', () => {

@@ -7,6 +7,7 @@ tests/
 node_modules/
 dist/
 package.json
+site.config.json
 package-lock.json
 wrangler.toml
 .assetsignore

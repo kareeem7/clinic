@@ -14,7 +14,7 @@ const patient = read('js/patient.js');
 const main = read('js/main.js');
 const html = read('index.html');
 const migration = read('sql/migrations/20261112_patient_access_codes.sql');
-const setup = read('js/config.js');
+const setup = read('sql/baseline.sql');
 const seed = read('sql/demo_seed_synthetic.sql');
 const readme = read('README.md');
 const block = migration.slice(migration.indexOf('begin;') + 6, migration.lastIndexOf('commit;')).trim();
@@ -59,7 +59,7 @@ test('client accepts the new short numeric code AND the old long card code', () 
 
 test('SQL issues six digits, retries collisions, and still accepts long codes', () => {
   assert.ok(block.length > 1000);
-  assert.ok(setup.includes(block), 'SUPABASE_SQL still embeds 20261112 verbatim');
+  assert.ok(setup.includes(block), 'baseline.sql still embeds 20261112 verbatim');
   assert.match(migration, /PREFIX-######/);
   assert.match(migration, /for v_try in 1\.\.12 loop/);
   assert.match(migration, /exit when not exists \(select 1 from public\.patient_portal_credentials where code = v_code\)/);

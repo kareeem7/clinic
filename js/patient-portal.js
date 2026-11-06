@@ -9,6 +9,8 @@
  */
 'use strict';
 
+const PORTAL_BRAND = (typeof APP_BRAND !== 'undefined' && APP_BRAND) || {};
+
 /* ============================================================
    js/patient-portal.js — المرحلة 14: بوابة المريض
    ------------------------------------------------------------
@@ -159,8 +161,8 @@ const Portal = {
     $('#ptHello').textContent = 'أهلاً يا ' + (p.name || '').split(' ')[0]; // icon-free per design rule
     const accessCodeEl = typeof $ !== 'undefined' ? $('#ptAccessCode') : null;
     if (accessCodeEl) accessCodeEl.textContent = d.accessCode || '—';
-    $('#ptClinicName').textContent = c.clinicName || 'عيادتك';
-    $('#ptDoctorLine').textContent = c.doctorName || 'الدكتور';
+    $('#ptClinicName').textContent = c.clinicName || PORTAL_BRAND.patientClinic || 'عيادتك';
+    $('#ptDoctorLine').textContent = c.doctorName || PORTAL_BRAND.doctor || 'الدكتور';
     $('#ptWelcomeLine').textContent = 'كل اللي محتاج تعرفه عن زياراتك وتقدمك تحت إيدك';
     $('#ptAvatar').textContent = (() => { const p0 = p.name.trim().split(/\s+/); return (p0[0]?.[0] || '') + (p0[1]?.[0] || ''); })();
 

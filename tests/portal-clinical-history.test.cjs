@@ -8,7 +8,7 @@ const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
 const migration = fs.readFileSync(path.join(root, 'sql/migrations/20261108_patient_portal_clinical_history.sql'), 'utf8');
-const config = fs.readFileSync(path.join(root, 'js/config.js'), 'utf8');
+const config = fs.readFileSync(path.join(root, 'sql/baseline.sql'), 'utf8');
 const portalSource = fs.readFileSync(path.join(root, 'js/patient-portal.js'), 'utf8');
 
 function portalHarness(rpc) {

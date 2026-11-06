@@ -9,12 +9,14 @@
    ===================================================================== */
 'use strict';
 
-const CACHE_NAME = 'clinic-shell-v2';
+const CACHE_NAME = 'clinic-shell-v4';
 
 const SHELL = [
   './',
   './index.html',
   './reset.html',
+  './favicon.svg',
+  './preview.png',
   './css/admin.css',
   './css/appointments.css',
   './css/auth.css',

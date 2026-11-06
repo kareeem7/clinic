@@ -1,0 +1,17 @@
+# HSTS: يُفرض HTTPS لمدة سنة. لا includeSubDomains ولا preload لأن
+# النطاق عام/مرحلي على workers.dev؛ أضفهما فقط بعد ربط نطاق نهائي تملكه.
+# _headers يُطبّق بواسطة Cloudflare Workers ولا يُقدَّم كملف عام.
+/*
+  Strict-Transport-Security: max-age=31536000
+  X-Frame-Options: SAMEORIGIN
+  Content-Security-Policy: frame-ancestors 'self'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Cross-Origin-Resource-Policy: same-origin
+
+/favicon.svg
+  Cache-Control: public, max-age=604800
+
+/preview.png
+  Cache-Control: public, max-age=604800

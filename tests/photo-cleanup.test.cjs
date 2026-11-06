@@ -8,7 +8,7 @@ const { pathToFileURL } = require('node:url');
 
 const root = path.join(__dirname, '..');
 const migration = fs.readFileSync(path.join(root, 'sql/migrations/20261106_patient_photo_cleanup_queue.sql'), 'utf8');
-const config = fs.readFileSync(path.join(root, 'js/config.js'), 'utf8');
+const config = fs.readFileSync(path.join(root, 'sql/baseline.sql'), 'utf8');
 const configToml = fs.readFileSync(path.join(root, 'supabase/config.toml'), 'utf8');
 const handlerModule = import(pathToFileURL(path.join(root, 'supabase/functions/purge-patient-photos/handler.mjs')).href);
 

@@ -12,7 +12,7 @@ const dbSource = fs.readFileSync(path.join(root, 'js/db.js'), 'utf8');
 const uiSource = fs.readFileSync(path.join(root, 'js/health-monitoring.js'), 'utf8');
 const migration = fs.readFileSync(path.join(root, 'sql/migrations/20261102_patient_health_tracking.sql'), 'utf8');
 const clinicalMigration = fs.readFileSync(path.join(root, 'sql/migrations/20261102_clinical_records.sql'), 'utf8');
-const setup = fs.readFileSync(path.join(root, 'js/config.js'), 'utf8');
+const setup = fs.readFileSync(path.join(root, 'sql/baseline.sql'), 'utf8');
 const patientSource = fs.readFileSync(path.join(root, 'js/patient.js'), 'utf8');
 const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 

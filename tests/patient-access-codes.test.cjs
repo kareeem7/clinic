@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.join(__dirname, '..');
-const setup = fs.readFileSync(path.join(root, 'js/config.js'), 'utf8');
+const setup = fs.readFileSync(path.join(root, 'sql/baseline.sql'), 'utf8');
 const migration = fs.readFileSync(path.join(root, 'sql/migrations/20261112_patient_access_codes.sql'), 'utf8');
 const seed = fs.readFileSync(path.join(root, 'sql/demo_seed_synthetic.sql'), 'utf8');
 const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
@@ -18,7 +18,7 @@ const block = migration.slice(migration.indexOf('begin;') + 6, migration.lastInd
 
 test('the fresh-install SQL embeds the access-code migration verbatim', () => {
   assert.ok(block.length > 1000);
-  assert.ok(setup.includes(block), 'SUPABASE_SQL is byte-identical to the migration body');
+  assert.ok(setup.includes(block), 'baseline.sql is byte-identical to the migration body');
   assert.match(migration, /^begin;/m);
   assert.match(migration, /^commit;/m);
 });
