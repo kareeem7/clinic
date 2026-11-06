@@ -483,6 +483,16 @@ async function boot() {
     } catch (ex) {
       err.textContent = explainError(ex);
       err.classList.add('show');
+      // الجلسة المنتهية/رمز منتهي الصلاحية → مسار واحد واضح بدل تكرار الكود على شاشة خطأ.
+      const restart = /session_not_found|mfa_challenge_expired|insufficient_aal|reauthentication_needed/i
+        .test(String((ex && ex.code) || '') + ' ' + String((ex && ex.message) || ''));
+      if (restart) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'btn btn-ghost sm'; b.id = 'mfaRestart';
+        b.textContent = 'سجّل الدخول من جديد';
+        b.onclick = async () => { await DB.signOut(); switchAuthTab('login'); $('#loginError').classList.remove('show'); };
+        err.appendChild(document.createElement('br')); err.appendChild(b);
+      }
     }
     btn.disabled = false;
     btn.innerHTML = '<i class="fa-solid fa-check"></i><span>تأكيد ودخول</span>';

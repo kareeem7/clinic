@@ -229,12 +229,16 @@ const DB = {
     if (!fid) {
       const { data, error } = await this.sb.auth.mfa.listFactors();
       if (error) throw error;
-      const totp = (data.totp || []).find(f => f.status === 'verified') || (data.totp || [])[0];
-      if (!totp) throw { code: 'mfa_no_factor' };
+      const totp = (data && data.totp || []).find(f => f.status === 'verified')
+        || (data && data.totp || [])[0];
+      if (!totp || !totp.id) throw { code: 'mfa_no_factor' };
       fid = totp.id;
     }
     const ch = await this.sb.auth.mfa.challenge({ factorId: fid });
     if (ch.error) throw ch.error;
+    // GoTrue قد يُرجع data:null بلا error عند انتهاء الجلسة أو إلغاء الطلب.
+    // قراءة ch.data.id مباشرة كانت ترمي TypeError → «حدث خطأ غير متوقع».
+    if (!ch.data || !ch.data.id) throw { code: 'session_not_found' };
     const vr = await this.sb.auth.mfa.verify({ factorId: fid, challengeId: ch.data.id, code });
     if (vr.error) throw vr.error;
     return 'ready'; // caller decides the next screen (doctor loads data, admin doesn't)

@@ -78,7 +78,7 @@
 - `DB.readDoctorSettings()` → عند غياب الصف يستدعي `ensureDoctorProfile()` مرة واحدة، يعيد القراءة، ثم يكمّل.
 - `ensureDoctorProfile()` → `upsert(..., { onConflict:'id', ignoreDuplicates:true })` من بيانات المستخدم (`doctor_name` / `specialty` / `clinic_name`) + فرع افتراضي واحد، بفترة تجربة 14 يوماً. **لا يكتب فوق صف موجود** فلا يُعاد ضبط اشتراك موقوف أبداً.
 - `register()` بقى يحفظ `clinic_name` في `user_metadata` عشان الإصلاح يرجّع اسم العيادة الأصلي.
-- نسخة الكاش `clinic-shell-v5`، و9 اختبارات جديدة في `tests/profile-self-heal.test.cjs` (283/283).
+- نسخة الكاش `clinic-shell-v6`، و9 اختبارات جديدة في `tests/profile-self-heal.test.cjs`، و10 في `tests/mfa-login-errors.test.cjs` (293/293).
 
 كمان اتعمل إصلاح فوري لبيانات الحساب الحالي على السيرفر (INSERT فقط، بدون حذف أو تعديل أي بيانات موجودة) ⇒ الدخول يشتغل دلوقتي حتى قبل نشر الكود.
 
@@ -330,3 +330,24 @@ node --check supabase/functions/portal-photo-upload/standalone.ts
 ```
 
 فحوص صياغة PostgreSQL تحتاج محللًا خارجيًا أو قاعدة اختبار، ولا يوجد أمر لها ضمن `package.json` حاليًا. لا تُشغّل أي migration على الإنتاج كجزء من الاختبارات.
+
+
+### حادثة 2026-11-06 (٣) — «حدث خطأ غير متوقع» بعد كتابة كود TOTP
+
+| البند | الحقيقة |
+|---|---|
+| بيانات الحساب | ✅ سليمة بعد الحادثة (٢): دكتور + فرع + `clinic_active()=true` + تجربة حتى 2026-11-20 |
+| Supabase | ✅ 3 جلسات جديدة و3 تحدّيات MFA ناجحة؛ `plans=0` و`audit_logs=0` ⇒ `loadAll()` **لم يُستدعى إطلاقاً** |
+| موضع الفشل | داخل `DB.mfaVerify()` نفسها، قبل `routeAfterAuth('ready')` |
+| الرسالة | `explainError()` → `authErrorAr(null)` = الرسالة العامة |
+
+**السبب:** `authErrorAr()` كان يعرف `invalid_totp` و`mfa_no_factor` فقط، بينما GoTrue يُصدر أكواداً حقيقية مثل `mfa_verification_failed`، `mfa_challenge_expired`، `mfa_ip_address_mismatch`، `mfa_verification_rejected`، `insufficient_aal`، `session_not_found`. ولا `AuthSessionMissingError` (بلا `code`، رسالته `Auth session missing!`) كان مُترجماً. فوق ذلك `mfaVerify` كان يقرأ `ch.data.id` مباشرة: لو `data:null` بلا `error` يرمي `TypeError`. كل هذه الحالات كانت تسقط في الرسالة العامة، فلا يعرف الدكتور هل الكود غلط، انتهى، اتغيرت الشبكة، أو انتهت الجلسة.
+
+**الإصلاح (مركزي، بلا أي تغيير في Supabase أو SQL أو البيانات):**
+- `js/utils.js` → ترجمة 14 كود MFA/جلسة إلى رسائل عربية **تقول إيه المطلوب عمله**، وشبكة أنماط للرسائل التي تصل بلا `error_code`؛ أي خطأ غير معروف يبقى آمناً لكنه يحمل **رقم مرجع** `req-…` يربطه بسطر الـ Console.
+- `js/db.js` → `mfaVerify()` يتحقق من `data.totp` و`ch.data.id` قبل الاستخدام، ويرمي `mfa_no_factor` / `session_not_found` بدل `TypeError`.
+- `js/main.js` → عند أخطاء الجلسة/انتهاء الرمز يظهر زر **«سجّل الدخول من جديد»** بدل تكرار الكود على شاشة خطأ.
+- `js/config.js` → `logError()` يسجّل `code` / `name` / `status` / تصنيفاً محدوداً `shape` (مثل `mfa-challenge-expired`) **بدون نص الرسالة ولا أي بيانات مرضى**.
+- `sw.js` → `clinic-shell-v6` لضمان تحميل النسخة الجديدة؛ 10 اختبارات في `tests/mfa-login-errors.test.cjs` تمنع عودة التعمية.
+
+> لم يُغيّر أي إعداد Auth، ولم تُطبّق ترحيلات، ولم تُعد بيانات، ولم تُنشر Edge Functions.

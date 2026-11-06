@@ -91,6 +91,22 @@ function authErrorAr(code) {
     'not_admin':                   'هذا الحساب ليس حساب إدارة نظام — الحسابات المصرّح لها فقط تدخل',
     'invalid_totp':                'كود التحقق غير صحيح — تأكد من ضبط الوقت على جهازك وأعد المحاولة',
     'mfa_no_factor':               'لا يوجد مُعرّف تحقق مسجّل — سجّل الدخول مجدداً',
+    // أكواد GoTrue الحقيقية للتحقق بخطوتين. قبل إضافتها كان أي فشل بعد كتابة
+    // الكود يُترجم خطأً إلى «حدث خطأ غير متوقع»، فلا يعرف الدكتور ماذا يفعل.
+    'mfa_verification_failed':     'كود التحقق غير صحيح أو استُخدم بالفعل — انتظر الرمز الجديد في تطبيق المصادقة ثم أعد المحاولة',
+    'mfa_challenge_expired':       'انتهت صلاحية رمز التحقق — اكتب الرمز الجديد الظاهر في تطبيق المصادقة وأعد المحاولة',
+    'mfa_verification_rejected':   'تم رفض التحقق بخطوتين — أعد المحاولة بعد لحظات أو سجّل الدخول من جديد',
+    'mfa_ip_address_mismatch':     'تغيّرت شبكة الإنترنت أثناء التحقق — ارجع لنفس الشبكة وسجّل الدخول من جديد',
+    'mfa_factor_not_found':        'لم يُعثر على تطبيق المصادقة المرتبط بهذا الحساب — تواصل مع إدارة النظام',
+    'mfa_totp_verify_not_enabled': 'التحقق برمز التطبيق غير مفعّل لهذا الحساب — تواصل مع إدارة النظام',
+    'mfa_totp_enroll_not_enabled': 'تسجيل تطبيق المصادقة غير مفعّل — تواصل مع إدارة النظام',
+    'mfa_verified_factor_exists':  'تطبيق المصادقة مسجّل بالفعل — سجّل الدخول واكتب الرمز',
+    'too_many_enrolled_mfa_factors': 'تم بلوغ الحد الأقصى لتطبيقات المصادقة — تواصل مع إدارة النظام',
+    'insufficient_aal':            'لازم إكمال التحقق بخطوتين أولاً — سجّل الدخول من جديد واكتب الرمز',
+    'session_not_found':           'انتهت جلسة الدخول — سجّل الدخول من جديد واكتب رمزاً جديداً',
+    'reauthentication_needed':     'انتهت صلاحية الجلسة — سجّل الدخول من جديد',
+    'otp_expired':                 'انتهت صلاحية الرمز — اطلب رمزاً جديداً وأعد المحاولة',
+    'validation_failed':           'الرمز المدخل غير مقبول — تأكد أنه 6 أرقام من تطبيق المصادقة',
     // ترحيلات ناقصة (جدول/عمود/دالة مش موجودة في الـ schema cache)
     'PGRST205': SCHEMA_HINT,
     'PGRST204': SCHEMA_HINT,
@@ -100,7 +116,7 @@ function authErrorAr(code) {
     '42703':    SCHEMA_HINT,
     '42883':    SCHEMA_HINT
   };
-  return M[code] || 'حدث خطأ غير متوقع — حاول مرة أخرى';
+  return M[code] || 'حدث خطأ غير متوقع — حدّث الصفحة وأعد المحاولة، ولو تكرّر تواصل مع إدارة النظام';
 }
 
 // Central error explainer: Supabase error codes + message fallbacks, all in clear Arabic.
@@ -112,13 +128,20 @@ function explainError(ex) {
   if (direct && !direct.startsWith('حدث خطأ غير متوقع')) return direct;
   if (/Could not find the table|Could not find the function|schema cache|relation .* does not exist|column .* does not exist|function .* does not exist/i.test(msg)) return SCHEMA_HINT;
   if (/Invalid login credentials/i.test(msg)) return authErrorAr('invalid_credentials');
-  if (/Invalid TOTP|Invalid verification code/i.test(msg)) return authErrorAr('invalid_totp');
+  // GoTrue أحياناً يُرجع الرسالة بلا error_code صالح — نترجم النص نفسه كشبكة أمان.
+  if (/Invalid TOTP|Invalid MFA|Invalid verification code|Invalid code entered/i.test(msg)) return authErrorAr('invalid_totp');
+  if (/MFA challenge .*expired|challenge .*expired|challenge_expired/i.test(msg)) return authErrorAr('mfa_challenge_expired');
+  if (/IP addresses? mismatch|IP address.*mismatch/i.test(msg)) return authErrorAr('mfa_ip_address_mismatch');
+  if (/MFA verification is disabled|verify is not enabled/i.test(msg)) return authErrorAr('mfa_totp_verify_not_enabled');
+  if (/AAL2 required|insufficient.*aal/i.test(msg)) return authErrorAr('insufficient_aal');
+  if (/Auth session missing|session_not_found|session.*(not found|expired|missing)|JWT expired|refresh.*(expired|invalid)|invalid.*refresh token/i.test(msg)) return authErrorAr('session_not_found');
   if (/Email not confirmed/i.test(msg)) return authErrorAr('email_not_confirmed');
   if (/forbidden/i.test(msg)) return 'ليس لديك صلاحية لهذا الإجراء';
   if (/violates foreign key|23503/i.test(msg)) return 'عملية غير مكتملة: العنصر مرتبط ببيانات غير متوافقة';
   if (/Failed to fetch|NetworkError|network request/i.test(msg)) return 'تعذّر الاتصال بالخادم — تحقق من الإنترنت وأعد المحاولة';
-  logError(ex, 'unmapped');
-  return authErrorAr(null);
+  // رقم المرجع يُربط بين ما يراه الدكتور وسطر console.error الفني، بلا أي بيانات مرضى.
+  const requestId = logError(ex, 'unmapped');
+  return authErrorAr(null) + (requestId ? ' (رقم المرجع: ' + requestId + ')' : '');
 }
 
 // ---- الصور الرمزية والألوان ----

@@ -58,12 +58,29 @@ function newRequestId() {
 }
 
 /* Central error reporting. PHI (names, phones, weights, diagnoses,
-   notes) is never written to the console or to any log sink. */
+   notes) is never written to the console or to any log sink. Raw server
+   messages are deliberately NOT logged: PostgREST/GoTrue can echo row
+   values, and a doctor's browser console is not a safe PHI sink. */
+function errorShape(err) {
+  const msg = String((err && err.message) || '');
+  if (/Failed to fetch|NetworkError|network request|AuthRetryableFetchError/i.test(msg)) return 'network';
+  if (/session.*(missing|expired|not found)|refresh.*(expired|invalid)|JWT expired/i.test(msg)) return 'session';
+  if (/challenge.*expired/i.test(msg)) return 'mfa-challenge-expired';
+  if (/Invalid TOTP|Invalid MFA|Invalid code entered/i.test(msg)) return 'mfa-code';
+  if (/IP addresses? mismatch/i.test(msg)) return 'mfa-ip';
+  if (/schema cache|Could not find the (table|function)|does not exist/i.test(msg)) return 'schema';
+  if (/row-level security|permission denied|forbidden/i.test(msg)) return 'rls';
+  if (/violates foreign key|23503|unique constraint|23505/i.test(msg)) return 'constraint';
+  if (/Cannot read propert|is not a function|undefined/i.test(msg)) return 'client-typeerror';
+  return msg ? 'other' : 'no-message';
+}
 function logError(err, context) {
   const requestId = newRequestId();
   const code = (err && (err.code || err.status)) || 'unknown';
-  // Only the technical shape of the failure is logged, never the payload
-  console.error('[clinic]', { requestId, context, code });
+  const name = (err && err.name) || 'unknown';
+  const status = (err && err.status) || null;
+  // Only a bounded technical shape is logged: no message, no payload, no PHI.
+  console.error('[clinic]', { requestId, context, code, name, status, shape: errorShape(err) });
   return requestId;
 }
 
