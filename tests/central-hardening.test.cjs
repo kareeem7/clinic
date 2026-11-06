@@ -224,6 +224,11 @@ test('الأصول العامة الجديدة تُرفع، وملفات الب�
   // (ب) كاش Service Worker قديم بيقدّم js/config.js القديم بعد تحديثه على السيرفر.
   const headers = read('_headers');
   assert.match(headers, /Strict-Transport-Security: max-age=31536000/);
+  // config.js يجب أن يكون آخر قاعدة: "! Cache-Control" يلغي قيم /js/* و /*
+  const rules = headers.split('\n').filter(l => /^\//.test(l));
+  assert.equal(rules[rules.length - 1], '/js/config.js');
+  assert.match(headers, /\/js\/config\.js\n  ! Cache-Control\n  Cache-Control: no-store/);
+  assert.ok(!ignore.includes('_headers'), '_headers must reach Cloudflare to be applied');
   assert.match(read('sw.js'), /CACHE_NAME = 'clinic-shell-v4'/);
   assert.match(read('js/config.js'), /xfppempsztxidjmlwrza/);
   assert.doesNotMatch(read('js/config.js'), /phmkvbszyaqagezpaduz/);

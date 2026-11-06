@@ -2,11 +2,6 @@
 # يجب أن يبقى هذا الملف داخل الأصول (لا يُستبعد في .assetsignore/.cfignore)
 # ولا يُقدَّم كملف عام. راجع tests/central-hardening.test.cjs.
 
-/js/config.js
-  ! Cache-Control
-  Cache-Control: no-store
-  X-Content-Type-Options: nosniff
-
 /js/*
   Cache-Control: public, max-age=300, must-revalidate
   X-Content-Type-Options: nosniff
@@ -28,6 +23,8 @@
 /preview.png
   Cache-Control: public, max-age=604800
 
+# HSTS: سنة كاملة. لا includeSubDomains ولا preload لأن النطاق
+# workers.dev عام/مرحلي؛ أضفهما فقط بعد ربط نطاق نهائي تملكه.
 /*
   X-Content-Type-Options: nosniff
   X-Frame-Options: SAMEORIGIN
@@ -35,6 +32,11 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(), microphone=(), camera=(self)
   Cross-Origin-Resource-Policy: same-origin
-  # HSTS: سنة كاملة. لا includeSubDomains ولا preload لأن النطاق
-  # workers.dev عام/مرحلي؛ أضفهما فقط بعد ربط نطاق نهائي تملكه.
   Strict-Transport-Security: max-age=31536000
+
+# config.js: لا يُخزَّن أبداً (حادثة 2026-11-06 — كاش قديم أعاد عنوان مشروع محذوف).
+# قاعدة أخيرة عمداً: "! Cache-Control" يشيل أي قيمة ورثناها من /js/* أو /*.
+/js/config.js
+  ! Cache-Control
+  Cache-Control: no-store
+  X-Content-Type-Options: nosniff
