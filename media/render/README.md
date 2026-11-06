@@ -6,8 +6,11 @@
 | ملف | وظيفته |
 |---|---|
 | `artext.py` | تشكيل وترتيب العربي (uharfbuzz + freetype-py) |
-| `render.py` | المشاهد الثمانية + الانتقالات |
-| `encode.py` | يبني MP4 بـ ffmpeg مع الصوت |
+| `ui.py` | **إعادة بناء شاشات التطبيق** (Cairo + ألوان css/variables.css) |
+| `music.py` | موسيقى خلفية متولّدة (128 BPM، Am–F–C–G) |
+| `render2.py` | المشاهد + حركة الكاميرا + الكابشنات |
+| `encode2.py` | يبني MP4 مع الصوت الميكس |
+| `render.py` / `encode.py` | النسخة الأولى (بدون لقطات ولا موسيقى) — محفوظة للمرجع |
 
 ## المتطلبات
 ```
@@ -29,3 +32,13 @@ python3 encode.py     # → clinic_demo.mp4
 - داخل نص RTL، HarfBuzz بيرصّف الأرقام لاتيني LTR فبتطلع معكوسة → `artext._fix_digits()`.
   لكن لو النص كله أرقام (`"250"`) لازم مايتعكشش → `_has_rtl()` بتتحقق الأول.
 - قيم `hbf.scale` = 26.6 fixed point → اقسم على 64، **مش** على upem.
+
+
+## ليه مفيش سكرين شوت حقيقي؟
+البيئة فيها `@sparticuz/chromium` و PySide6 WebEngine، بس **الاتنين بيفشلوا**:
+- كروميوم: `libnspr4/libnss3` ناقصة → اتبنت بدائل، وبعدها segfault عند الـ GPU process.
+- Qt WebEngine: نفس مشكلة NSS، وبعد حلّها segfault في التحميل.
+
+مفيش `Xvfb`، ومفيش `apt` network. فالحل: **إعادة بناء الواجهة بالكود** من نفس الـ CSS.
+لو شغّلت المشروع على جهازك، تقدر تصوّر سكرين شوت حقيقي بـ
+`npx playwright screenshot --viewport-size=1280,720 <url> shot.png` وتستبدله.
