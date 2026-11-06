@@ -57,10 +57,11 @@ function contrast(a, b) {
 
 test('mobile.css مستورد آخراً ومُخزّن في الـ service worker بكاش جديدة', () => {
   const imports = [...mainCss.matchAll(/@import\s+url\('([^']+)'\)/g)].map(m => m[1]);
-  assert.equal(imports[imports.length - 1], 'mobile.css', 'لازم يبقى آخر ورقة عشان يغلّب responsive.css');
+  assert.ok(imports.indexOf('mobile.css') > imports.indexOf('responsive.css'),
+    'لازم يتحمّل بعد responsive.css عشان يغلّبها');
   assert.equal(new Set(imports).size, imports.length, 'مفيش استيراد مكرر');
   assert.match(sw, /'\.\/css\/mobile\.css',/);
-  assert.match(sw, /CACHE_NAME = 'clinic-shell-v9'/);
+  assert.match(sw, /CACHE_NAME = 'clinic-shell-v10'/);
 });
 
 test('منع التكبير التلقائي في iOS: كل حقول الإدخال ≥ 16px على الهاتف', () => {

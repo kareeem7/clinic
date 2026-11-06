@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>معاينة شريط «النت مقطوع» — قبل / بعد</title>
+<!-- معاينة ثابتة داخل tests/ (مستبعدة من النشر) — بلا CDN ولا بيانات حقيقية -->
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;padding:26px 16px 46px;background:#eef3f2;font-family:Tahoma,"Segoe UI",Arial,sans-serif;color:#0f2b29;line-height:1.65}
+  h1{margin:0 0 4px;font-size:21px}
+  .lead{margin:0 0 20px;color:#4b6a67;font-size:13px}
+  .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:center;align-items:flex-start}
+  .col{width:340px;max-width:100%}
+  .col>h2{margin:0 0 10px;font-size:14px;text-align:center;padding:8px;border-radius:10px}
+  .before h2{background:#fde8ec;color:#9f1239}
+  .after h2{background:#dcf5ee;color:#0f766e}
+  .phone{position:relative;width:320px;height:560px;margin:auto;background:#f3f8f7;border:8px solid #1c3331;border-radius:34px;overflow:hidden;box-shadow:0 16px 36px rgba(8,40,38,.2)}
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:92px;height:16px;background:#1c3331;border-radius:0 0 12px 12px;z-index:20}
+  .topbar{height:52px;background:rgba(255,255,255,.94);border-bottom:1px solid #e0ebe9;display:flex;align-items:center;gap:9px;padding:16px 12px 0;font-size:13px;font-weight:800;position:relative}
+  .menu{font-size:17px;color:#0f766e}
+  .add{margin-inline-start:auto;width:42px;height:38px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff;font-size:17px;font-weight:900;flex:none}
+  .scr{padding:12px}
+  .card{background:#fff;border:1px solid #e0ebe9;border-radius:13px;padding:14px;margin-bottom:9px}
+  .card h3{margin:0 0 8px;font-size:12.5px}
+  .row{height:11px;border-radius:6px;background:#e9f1f0;margin-bottom:7px}
+  .row.w{width:62%}
+  .nav{position:absolute;bottom:0;inset-inline:0;background:#fff;border-top:1px solid #e0ebe9;display:flex;justify-content:space-around;padding:6px 4px 14px;font-size:10px;color:#7a9491;font-weight:800}
+  .nav div{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1}
+  .nav i{font-style:normal;font-size:17px}
+  .nav .on{color:#0f766e;background:#eefaf8;border-radius:11px}
+  .bar{background:#fff7ed;color:#9a3412;border-bottom:1px solid #fed7aa;font-size:12px;font-weight:700}
+  /* «قبل»: fixed + wrap → بيغطي الـ topbar */
+  .before .bar{position:absolute;top:0;left:0;right:0;z-index:9999;padding:8px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-height:146px}
+  .before .bar .lbl{flex:1;min-width:200px;line-height:1.6}
+  .chip,.bbtn{padding:4px 9px;border-radius:8px;border:1px solid #fed7aa;background:#fff;font-size:10.5px;font-weight:800;white-space:nowrap}
+  .cover{position:absolute;top:0;left:0;right:0;height:146px;background:repeating-linear-gradient(45deg,rgba(190,18,60,.07),rgba(190,18,60,.07) 8px,transparent 8px,transparent 16px);z-index:9998;pointer-events:none}
+  .before .add{opacity:.18;filter:grayscale(1)}
+  /* «بعد»: sticky في الـ flow + سطر واحد */
+  .after .bar{position:relative;display:flex;align-items:center;gap:7px;flex-wrap:nowrap;min-height:46px;padding:12px 12px 5px;z-index:70}
+  .after .bar .lbl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .after .bar i{font-style:normal;flex:none}
+  .sheet{position:absolute;bottom:0;inset-inline:0;height:180px;background:#fff;border-top:2px solid #fed7aa;border-radius:18px 18px 0 0;box-shadow:0 -10px 26px rgba(8,40,38,.18);z-index:120;padding:0 14px;display:none}
+  .caps{margin-top:12px;font-size:11.5px;color:#41605d}
+  .caps b{color:#0f2b29}
+  .caps li{margin-bottom:5px}
+  table{margin:26px auto 0;border-collapse:collapse;width:min(740px,100%);background:#fff;font-size:12.5px;border-radius:14px;overflow:hidden;box-shadow:0 6px 18px rgba(8,40,38,.08)}
+  th,td{padding:9px 12px;border-bottom:1px solid #e8f0ee;text-align:start}
+  th{background:#0f766e;color:#fff}
+  tr:last-child td{border-bottom:none}
+  td:nth-child(2){color:#9f1239}td:nth-child(3){color:#0f766e;font-weight:800}
+  .tag{display:inline-block;background:#0f766e;color:#fff;font-size:10px;padding:2px 7px;border-radius:6px;margin-inline-start:5px}
+</style>
+</head>
+<body>
+  <h1>شريط «النت مقطوع» — قبل / بعد</h1>
+  <p class="lead">مقاس هاتف 320px. معاينة ثابتة توضيحية داخل <code>tests/</code>، لا تتصل بأي خدمة ولا تعرض بيانات مرضى.</p>
+
+  <div class="wrap">
+    <section class="col before">
+      <h2>قبل — بيغطي جزء كبير من الشاشة</h2>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="topbar"><span class="menu">☰</span><span>الرئيسية</span><span class="add">+</span></div>
+        <div class="scr">
+          <div class="card"><h3>إجراءات سريعة</h3><div class="row"></div><div class="row w"></div></div>
+          <div class="card"><h3>مرضى اليوم</h3><div class="row"></div><div class="row"></div><div class="row w"></div></div>
+        </div>
+        <div class="cover"></div>
+        <div class="bar">
+          <i>☁︎</i>
+          <span class="lbl">النت مقطوع — الكتابة هتتحفظ على هذا الجهاز فقط (مشفّرة) وهتترفع أول ما النت يرجع</span>
+          <span class="chip">معلّق: 2</span>
+          <span class="bbtn">⬆ رفع دلوقتي</span>
+          <span class="bbtn">⚠ 1 محتاج مراجعة</span>
+          <div style="flex-basis:100%;border-top:1px solid #fed7aa;padding-top:6px;margin-top:4px">لوحة المراجعة بتكبر جوّه الشريط نفسه…</div>
+        </div>
+        <div class="nav"><div class="on"><i>⌂</i>الرئيسية</div><div><i>☰</i>المرضى</div><div><i>▦</i>المواعيد</div><div><i>◈</i>الخطط</div><div><i>⚙</i>الإعدادات</div></div>
+      </div>
+      <ul class="caps">
+        <li><b>position:fixed; top:0; z-index:9999</b> → فوق الشريط العلوي كله</li>
+        <li>زر «إضافة مريض جديد» <b>مغطّي / غير قابل للضغط</b></li>
+        <li><b>flex-wrap:wrap</b> + <b>min-width:200px</b> → ٣–٤ صفوف ≈ 146px</li>
+        <li>لوحة المراجعة <b>flex-basis:100%</b> جوّه الشريط فبيكبر أكتر</li>
+      </ul>
+    </section>
+
+    <section class="col after">
+      <h2>بعد — css/offline-bar.css</h2>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="bar"><i>☁︎</i><span class="lbl" title="النت مقطوع — الكتابة هتتحفظ على هذا الجهاز فقط (مشفّرة) وهتترفع أول ما النت يرجع">النت مقطوع — الكتابة هتتحفظ على هذا الجهاز فقط (مشفّرة) وهتترفع أول ما النت يرجع</span></div>
+        <div class="topbar"><span class="menu">☰</span><span>الرئيسية</span><span class="add">+</span></div>
+        <div class="scr">
+          <div class="card"><h3>إجراءات سريعة <span class="tag">الزر ظاهر</span></h3><div class="row"></div><div class="row w"></div></div>
+          <div class="card"><h3>مرضى اليوم</h3><div class="row"></div><div class="row"></div><div class="row w"></div></div>
+          <div class="card" style="font-size:11px;color:#4b6a67">المحتوى اترزّح لأسفل طبيعياً — ولا عنصر اتغطى.</div>
+        </div>
+        <div class="nav"><div class="on"><i>⌂</i>الرئيسية</div><div><i>☰</i>المرضى</div><div><i>▦</i>المواعيد</div><div><i>◈</i>الخطط</div><div><i>⚙</i>الإعدادات</div></div>
+      </div>
+      <ul class="caps">
+        <li><b>position:sticky</b> في تدفّق الصفحة → يزيح المحتوى بدل ما يغطيه</li>
+        <li><b>سطر واحد</b> بارتفاع ثابت 46px + مساحة الـ notch</li>
+        <li><b>min-width:0 + ellipsis</b>: النص بيقّصر بصرياً، والكامل في <code>title</code> + <code>aria-label</code></li>
+        <li>لوحة المراجعة <b>bottom sheet مستقلة</b> (حد أقصى 70dvh) فالشريط يفضل رفيع</li>
+        <li><code>body.offline-bar-visible</code> بيزاح بيه الـ <code>#topbar</code> عند السكرول</li>
+      </ul>
+    </section>
+  </div>
+
+  <table>
+    <tr><th>البند</th><th>قبل</th><th>بعد</th></tr>
+    <tr><td>الموضع</td><td>fixed / top:0 / z-index:9999</td><td>sticky / top:0 / z-index:70</td></tr>
+    <tr><td>الارتفاع على الموبايل</td><td>≈146px (٣–٤ صفوف)</td><td>46px + safe-area</td></tr>
+    <tr><td>زر «إضافة مريض جديد»</td><td>مغطّي</td><td>ظاهر وقابل للضغط</td></tr>
+    <tr><td>التفاف المحتوى</td><td>flex-wrap:wrap</td><td>nowrap + ellipsis</td></tr>
+    <tr><td>أصغر عرض للتسمية</td><td>min-width:200px</td><td>min-width:0</td></tr>
+    <tr><td>لوحة المراجعة</td><td>داخل الشريط (flex-basis:100%)</td><td>طبقة مستقلة من الأسفل</td></tr>
+    <tr><td>الـ topbar عند السكرول</td><td>يتراكب مع الشريط</td><td>يتزاح بـ --offline-bar-h</td></tr>
+    <tr><td>النص التحذيري الكامل</td><td>ظاهر بس بيبوّظ الشكل</td><td>محفوظ في title + aria-label</td></tr>
+  </table>
+</body>
+</html>
