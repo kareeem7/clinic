@@ -13,6 +13,18 @@ settings.css
 .sys-row i{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:15px;flex:none}
 .sys-row b{font-size:14px;font-weight:800;display:block}
 .sys-row small{color:var(--muted);font-size:12px}
+
+/* ====== قائمة الفروع وأكوادها ======
+   الحاوية تحمل class="muted" فكان اسم الفرع والكود يظهران باهتين معاً.
+   نرفع تباين الاسم، ونجعل الكود chip تركوازياً، ونُبقي الوسوم الثانوية باهتة. */
+#clinicBranchesList{color:var(--ink)}
+#clinicBranchesList .sys-row > span{color:var(--ink);font-weight:700}
+#clinicBranchesList .sys-row > b.ltr{
+  display:inline-block;color:var(--teal-700);background:var(--teal-50);
+  border:1px solid #c9f0ec;padding:3px 10px;border-radius:8px;
+  font-size:12px;font-weight:800;white-space:nowrap
+}
+#clinicBranchesList .sys-row > span .muted{color:var(--muted);font-weight:600}
 .feature-settings{min-width:0;margin:2px 0 0;padding:14px;border:1px solid var(--line);border-radius:var(--r-md)}
 .feature-settings legend{padding:0 8px;color:#274b49;font-size:14px;font-weight:900}
 .feature-settings legend i{color:var(--teal-700);margin-inline-end:5px}

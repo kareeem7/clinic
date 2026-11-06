@@ -49,7 +49,7 @@ function harness(store = memoryStore()) {
 }
 
 test('service worker precaches every local shell file and never touches Supabase', () => {
-  assert.match(sw, /CACHE_NAME = 'clinic-shell-v7'/);
+  assert.match(sw, /CACHE_NAME = 'clinic-shell-v8'/);
   assert.match(sw, /self\.addEventListener\('install'/);
   assert.match(sw, /self\.addEventListener\('activate'/);
   assert.match(sw, /self\.skipWaiting\(\)/);
