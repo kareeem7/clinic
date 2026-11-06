@@ -688,28 +688,49 @@ def sc_offhours_summary(lt):
     return img
 
 
+
+def sc_plans(lt):
+    """مكتبة الخطط — عشر خطط جاهزة."""
+    src = ui.SCREENS["plans"]().convert("RGB").resize((W, H), Image.LANCZOS)
+    k = ease((lt - 0.5) / 1.6) if lt > 0.5 else 0.0
+    zoom = 1.01 + 0.03 * k
+    img = zoom_pan(src, 1.0, z0=zoom, z1=zoom, p0=(-0.02 * k, -0.02 * k), p1=(-0.02 * k, -0.02 * k))
+    return frame_ui(img, lt, "عشر خطط تغذية… جاهزة")
+
+
+def sc_assign_plan(lt):
+    """ربط الخطة بمريض + تواريخ."""
+    src = ui.SCREENS["assign_plan"]().convert("RGB").resize((W, H), Image.LANCZOS)
+    return frame_ui(src, lt, "اربطها بأي مريض… وتاريخ البدء")
+
+
+def sc_portal_plan(lt):
+    """المريض يشوف خطته: يوم كام من كام + وجبات النهاردة."""
+    shot = ui.SCREENS["portal_plan"]().convert("RGB")
+    return frame_portal(shot, lt, "والمريض شايف خطته ويومه كام")
+
 SCENES = [
-    (0.0, 2.10, sc_pain),
-    (2.10, 3.03, sc_question),
-    (3.03, 6.32, sc_after_hours),
-    (6.32, 9.36, sc_offhours_summary),
-    (9.36, 10.93, sc_intro),
-    (10.93, 12.87, sc_ui_dashboard),
-    (12.87, 16.04, sc_labs),
-    (16.04, 17.76, sc_portal_intro),
-    (17.76, 18.90, sc_portal_home),
-    (18.90, 19.93, sc_portal_log),
-    (19.93, 21.87, sc_portal_health),
-    (21.87, 26.79, sc_health),
-    (26.79, 31.92, sc_meds),
-    (31.92, 35.11, sc_doctor_bond),
-    (35.11, 39.44, sc_referral),
-    (39.44, 47.76, sc_price),
-    (47.76, 54.40, sc_end),
+    (0.00, 2.04, sc_pain),
+    (2.04, 2.82, sc_question),
+    (2.82, 5.22, sc_after_hours),
+    (5.22, 7.60, sc_offhours_summary),
+    (7.60, 10.68, sc_intro),
+    (10.68, 12.50, sc_labs),
+    (12.50, 17.20, sc_plans),
+    (17.20, 21.34, sc_assign_plan),
+    (21.34, 25.14, sc_portal_plan),
+    (25.14, 26.32, sc_portal_intro),
+    (26.32, 29.80, sc_portal_health),
+    (29.80, 36.28, sc_health),
+    (36.28, 40.78, sc_meds),
+    (40.78, 44.60, sc_doctor_bond),
+    (44.60, 49.16, sc_referral),
+    (49.16, 52.58, sc_price),
+    (52.58, 53.75, sc_end),
 ]
 
 
-DURATION = 54.4
+DURATION = 53.75
 
 
 def frame_at(t):

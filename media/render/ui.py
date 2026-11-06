@@ -105,6 +105,27 @@ def icon(dst, kind, cx, cy, size, color):
     elif kind == "plus":
         line(d, (cx - s * 0.6, cy), (cx + s * 0.6, cy), color, s * 0.26)
         line(d, (cx, cy - s * 0.6), (cx, cy + s * 0.6), color, s * 0.26)
+    elif kind == "link":
+        # حلقتين أفقيتين متشابكتين (زي أيقونة الرابط)
+        d.rounded_rectangle([px(cx - s), px(cy - s * 0.42), px(cx + s * 0.2), px(cy + s * 0.42)],
+                            radius=px(s * 0.42), outline=color, width=max(2, int(s * 0.24)))
+        d.rounded_rectangle([px(cx - s * 0.2), px(cy - s * 0.42), px(cx + s), px(cy + s * 0.42)],
+                            radius=px(s * 0.42), outline=color, width=max(2, int(s * 0.24)))
+    elif kind == "star":
+        pts = []
+        import math as _m
+        for k in range(10):
+            ang = -_m.pi / 2 + k * _m.pi / 5
+            rr = s if k % 2 == 0 else s * 0.45
+            pts.append((cx + rr * _m.cos(ang), cy + rr * _m.sin(ang)))
+        d.polygon([(px(x), px(y)) for x, y in pts], fill=color)
+    elif kind == "meal":
+        d.ellipse([px(cx - s * 0.95), px(cy - s * 0.5), px(cx + s * 0.95), px(cy + s * 0.9)],
+                  outline=color, width=max(2, int(s * 0.18)))
+        d.ellipse([px(cx - s * 0.55), px(cy - s * 0.15), px(cx + s * 0.55), px(cy + s * 0.55)],
+                  fill=color)
+        line(d, (cx - s * 0.2, cy - s * 0.9), (cx - s * 0.2, cy - s * 0.3), color, s * 0.16)
+        line(d, (cx + s * 0.2, cy - s * 0.9), (cx + s * 0.2, cy - s * 0.3), color, s * 0.16)
     elif kind == "flask":
         line(d, (cx - s * 0.2, cy - s * 0.9), (cx - s * 0.2, cy - s * 0.1), color, s * 0.2)
         line(d, (cx + s * 0.2, cy - s * 0.9), (cx + s * 0.2, cy - s * 0.1), color, s * 0.2)
@@ -1046,6 +1067,198 @@ def screen_portal_health():
     return img
 
 
+
+# ═════════════════ شاشات v6: خطط التغذية ═════════════════
+
+def screen_plans():
+    """مكتبة خطط التغذية — 10 خطط جاهزة + عدد المرضى المربوطين بكل خطة.
+
+    مطابق لـ js/plans.js → renderPlans() و js/defaults.js (10 خطط).
+    """
+    img, d = shell("خطط التغذية", "خطط التغذية", "مكتبة الخطط — 10 خطط جاهزة")
+    x0 = 26
+    xr = 1014 - 26
+    cw = xr - x0
+
+    # تنويه الاسترشادية (موجود حرفيًا في plans.js)
+    rrect(d, (x0, 88, xr, 130), 14, fill=(253, 251, 247), outline=(229, 216, 184), width=1.5)
+    icon(img, "alert", xr - 26, 104, 6.5, (146, 96, 10))
+    text_r(img, "خطط استرشادية — راجع الموانع وحالة كل مريض قبل الصرف", xr - 40, 110, 10.5, (138, 109, 29), 800)
+
+    # زر خطة جديدة
+    rrect(d, (x0, 140, x0 + 156, 176), 11, fill=TEAL600)
+    text_c(img, "+ خطة جديدة", x0 + 78, 164, 11, (255, 255, 255), 900)
+
+    plans = [
+        ("خطة 1200 سعر — نحافة سريعة", "1200", "4 أسابيع", 3,
+         ["فطار: بيض + جبن قريش", "غدا: فراخ مشوية + سلطة", "عشا: زبادي + فاكهة"], False),
+        ("خطة 1500 سعر — نحافة معتدلة", "1500", "8 أسابيع", 12,
+         ["فطار: شوفان + لبن + موز", "غدا: سمك + رز بني", "عشا: جبن + خضار سوتيه"], False),
+        ("خطة 2000 سعر — تثبيت الوزن", "2000", "6 أسابيع", 5,
+         ["فطار: فول + جبن + عيش بلدي", "غدا: لحمة + رز + سلطة", "عشا: تونة + خضار"], False),
+        ("خطة مرضى السكر — 1600 سعر", "1600", "12 أسبوع", 7,
+         ["فطار: بيض + خبز أسمر", "غدا: فراخ + كوسة + سلطة", "عشا: زبادي يوناني"], True),
+        ("خطة مرضى الضغط — 1700 (DASH)", "1700", "12 أسبوع", 4,
+         ["فطار: شوفان + موز", "غدا: سمك + بطاطا مشوية", "عشا: سلطة تونة"], True),
+        ("خطة عالية البروتين — 1800 سعر", "1800", "6 أسابيع", 2,
+         ["فطار: 3 بيضات + لبن", "غدا: صدور فراخ + برغل", "عشا: جبن قريش + لوز"], False),
+    ]
+
+    pw = (cw - 18) / 2
+    ph = 250
+    for i, (title, kcal, dur, used, meals, contra) in enumerate(plans):
+        col = i % 2
+        row = i // 2
+        bx = xr - (col + 1) * pw - col * 18
+        by = 192 + row * (ph + 14)
+        rrect(d, (bx, by, bx + pw, by + ph), 18, fill=SURFACE, outline=LINE, width=1)
+
+        # العنوان — أقصى اليمين
+        text_r(img, title, bx + pw - 18, by + 34, 13.5, INK, 900)
+        # شارة السعرات شمال العنوان
+        kcalw = T.measure(kcal + " سعر", BLACK, px(11))[0] + 46
+        rrect(d, (bx + 14, by + 12, bx + 14 + kcalw, by + 46), 11, fill=(253, 241, 222))
+        icon(img, "meal", bx + 32, by + 29, 5.5, AMBER)
+        text_c(img, kcal + " سعر", bx + 14 + (kcalw + 22) / 2, by + 36, 11, (146, 96, 10), 900)
+
+        # شرائح المدة / الموانع
+        chip_y = by + 58
+        cxp = bx + pw - 18
+        cw2 = T.measure(dur, BOLD, px(10))[0] + 26
+        rrect(d, (cxp - cw2, chip_y, cxp, chip_y + 26), 9, fill=(233, 240, 253))
+        text_c(img, dur, cxp - cw2 / 2, chip_y + 18, 10, (37, 99, 235), 800)
+        cxp -= cw2 + 7
+        if contra:
+            cw3 = T.measure("لها موانع", BOLD, px(10))[0] + 26
+            rrect(d, (cxp - cw3, chip_y, cxp, chip_y + 26), 9, fill=(254, 232, 232))
+            text_c(img, "لها موانع", cxp - cw3 / 2, chip_y + 18, 10, (190, 60, 60), 800)
+
+        # الوجبات الثلاثة
+        for j, m in enumerate(meals):
+            my = by + 104 + j * 30
+            d.ellipse([px(bx + pw - 26), px(my - 9), px(bx + pw - 18), px(my - 1)], fill=TEAL500)
+            text_r(img, m, bx + pw - 34, my + 4, 10.5, (60, 84, 82), 700)
+
+        # التذييل
+        line(d, (bx + 14, by + ph - 44), (bx + pw - 14, by + ph - 44), (237, 243, 242), 1)
+        icon(img, "users", bx + 30, by + ph - 24, 6, TEAL600 if used else (170, 186, 184))
+        text_r(img, (f"مربوطة بـ {used} مريض" if used else "غير مربوطة"),
+               bx + pw - 18, by + ph - 18, 10.5, TEAL700 if used else (150, 168, 166), 800)
+    return img
+
+
+def screen_assign_plan():
+    """نافذة «ربط خطة غذائية» — المريض + الخطة + تاريخ البدء والانتهاء.
+
+    مطابق لـ js/plans.js → openAssignModal().
+    """
+    img, d = shell("خطط التغذية", "خطط التغذية", "مكتبة الخطط — 10 خطط جاهزة")
+
+    # تعتيم الخلفية
+    ov = Image.new("RGBA", img.size, (8, 20, 24, 150))
+    img.alpha_composite(ov)
+    d = ImageDraw.Draw(img)
+
+    # المودال في النص
+    mw, mh = 560, 400
+    mx0 = (1280 - mw) / 2
+    my0 = (720 - mh) / 2
+    rrect(d, (mx0, my0, mx0 + mw, my0 + mh), 22, fill=SURFACE, outline=LINE, width=1)
+    text_r(img, "ربط خطة غذائية", mx0 + mw - 26, my0 + 40, 17, INK, 900)
+    line(d, (mx0 + 22, my0 + 58), (mx0 + mw - 22, my0 + 58), (237, 243, 242), 1)
+
+    # المريض
+    text_r(img, "المريض", mx0 + mw - 26, my0 + 96, 11, (43, 92, 63), 900)
+    rrect(d, (mx0 + 26, my0 + 106, mx0 + mw - 26, my0 + 152), 12, fill=(247, 250, 249), outline=LINE, width=1)
+    text_r(img, "منى عبد الرحمن", mx0 + mw - 44, my0 + 136, 13, INK, 800)
+    d.polygon([(px(mx0 + 44), px(my0 + 126)), (px(mx0 + 64), px(my0 + 126)),
+               (px(mx0 + 54), px(my0 + 138))], fill=(120, 140, 138))
+
+    # الخطة
+    text_r(img, "الخطة الغذائية", mx0 + mw - 26, my0 + 186, 11, (43, 92, 63), 900)
+    rrect(d, (mx0 + 26, my0 + 196, mx0 + mw - 26, my0 + 242), 12, fill=(247, 250, 249), outline=TEAL600, width=1.5)
+    text_r(img, "خطة 1500 سعر — نحافة معتدلة", mx0 + mw - 44, my0 + 220, 12.5, INK, 800)
+    text_r(img, "1500 سعر", mx0 + mw - 44, my0 + 238, 9.5, (146, 96, 10), 800)
+    d.polygon([(px(mx0 + 44), px(my0 + 216)), (px(mx0 + 64), px(my0 + 216)),
+               (px(mx0 + 54), px(my0 + 228))], fill=(120, 140, 138))
+
+    # التواريخ
+    text_r(img, "تاريخ البدء", mx0 + mw - 26, my0 + 276, 11, (43, 92, 63), 900)
+    text_r(img, "تاريخ الانتهاء", mx0 + mw / 2 - 6, my0 + 276, 11, (43, 92, 63), 900)
+    for i, v in enumerate(["6 نوفمبر 2025", "6 ديسمبر 2025"]):
+        bx1 = mx0 + mw - 26 - i * (mw / 2 - 8)
+        bx0 = bx1 - (mw / 2 - 34)
+        rrect(d, (bx0, my0 + 286, bx1, my0 + 330), 12, fill=(255, 255, 255), outline=LINE, width=1)
+        text_r(img, v, bx1 - 16, my0 + 314, 11.5, INK, 700)
+
+    # الأزرار
+    rrect(d, (mx0 + 26, my0 + 348, mx0 + 200, my0 + 388), 11, fill=(240, 244, 243))
+    text_c(img, "إلغاء", mx0 + 113, my0 + 373, 11.5, (91, 118, 115), 800)
+    rb0, rb1 = mx0 + 212, mx0 + mw - 26
+    rrect(d, (rb0, my0 + 348, rb1, my0 + 388), 11, fill=TEAL600)
+    icon(img, "link", rb0 + 44, my0 + 368, 5.5, (255, 255, 255))
+    text_c(img, "ربط الخطة", (rb0 + 78 + rb1) / 2, my0 + 374, 12, (255, 255, 255), 900)
+    return img
+
+
+def screen_portal_plan():
+    """صفحة الخطة عند المريض — اليوم كام من كام + الوجبات + تعليمات.
+
+    مطابق لـ portalPlanSheet() في js/patient-portal.js.
+    """
+    img, d = _portal_base()
+    cx0, cx1 = _portal_top(img, d)
+    w = cx1 - cx0
+    R = 22
+
+    text_r(img, "خطتك الغذائية", cx1, 100, 20, INK, 900)
+    text_r(img, "خطة 1500 سعر — نحافة معتدلة", cx1, 122, 12.5, GREEN_D, 800)
+
+    # شرائح
+    chips = [("1500 سعر/يوم", (253, 241, 222), (146, 96, 10)),
+             ("8 أسابيع", (233, 240, 253), (37, 99, 235)),
+             ("6 نوفمبر — 6 ديسمبر", (238, 243, 242), (91, 118, 115))]
+    cxp = cx1
+    for lab, bg, fg in chips:
+        cw = T.measure(lab, BOLD, px(10))[0] + 26
+        rrect(d, (cxp - cw, 138, cxp, 166), 9, fill=bg)
+        text_c(img, lab, cxp - cw / 2, 158, 10, fg, 800)
+        cxp -= cw + 8
+
+    # اليوم 12 من 56 + شريط التقدم
+    _p_card(img, d, cx0, 178, w, 92)
+    text_r(img, "اليوم 12 من 56", cx1 - R, 208, 15, INK, 900)
+    text_l(img, "21% من البرنامج", cx0 + R, 208, 11.5, GREEN_D, 800)
+    rrect(d, (cx0 + R, 224, cx1 - R, 240), 8, fill=(229, 237, 230))
+    rrect(d, (cx0 + R, 224, cx0 + R + (w - 2 * R) * 0.21, 240), 8, fill=GREEN_P)
+
+    # الوجبات
+    meals = [("الفطار", "بيض مسلوق + جبن قريش + خيار وطماطم", True),
+             ("الغدا", "فراخ مشوية + رز بني + سلطة خضراء", True),
+             ("العشا", "زبادي + تفاحة + حفنة لوز", False)]
+    y = 284
+    for name, desc, alt in meals:
+        _p_card(img, d, cx0, y, w, 84)
+        rrect(d, (cx1 - R - 40, y + 14, cx1 - R, y + 54), 12, fill=(238, 247, 236))
+        icon(img, "meal", cx1 - R - 20, y + 34, 8, GREEN_D)
+        text_r(img, name, cx1 - R - 52, y + 38, 13.5, INK, 900)
+        text_r(img, desc, cx1 - R - 52, y + 62, 11.5, (60, 84, 82), 700)
+        if alt:
+            rrect(d, (cx0 + R, y + 26, cx0 + R + 84, y + 56), 10, fill=(247, 250, 249))
+            text_c(img, "شوف بدائل", cx0 + R + 42, y + 46, 9.5, GREEN_D, 800)
+        y += 94
+
+    # نصيحة اليوم
+    rrect(d, (cx0, y + 4, cx1, y + 62), 14, fill=(255, 248, 230), outline=(244, 227, 177), width=1.5)
+    icon(img, "star", cx1 - 28, y + 24, 6.5, AMBER)
+    text_r(img, "نصيحة اليوم: كل ببطء — الشبع بياخد 20 دقيقة", cx1 - 44, y + 28, 10.5, (138, 109, 29), 800)
+
+    # توقيع الدكتور
+    rrect(d, (cx0, y + 70, cx1, y + 118), 14, fill=(236, 249, 240), outline=(180, 232, 205), width=1.5)
+    text_r(img, "الخطة دي مخصصة ليك من د. أحمد سامي", cx1 - 20, y + 98, 11, GREEN_D, 800)
+    return img
+
+
 SCREENS = {
     "dashboard": screen_dashboard,
     "patients": screen_patients,
@@ -1060,6 +1273,9 @@ SCREENS = {
     "meds": screen_meds,
     "after_hours": screen_after_hours,
     "portal_health": screen_portal_health,
+    "plans": screen_plans,
+    "assign_plan": screen_assign_plan,
+    "portal_plan": screen_portal_plan,
 }
 
 if __name__ == "__main__":
