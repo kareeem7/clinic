@@ -8,7 +8,7 @@ SR = 44100
 BPM = 128.0
 BEAT = 60.0 / BPM
 BAR = BEAT * 4
-DUR = 42.6
+DUR = 54.4
 N = int(SR * DUR)
 
 def t_axis(n):

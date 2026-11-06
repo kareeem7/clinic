@@ -612,23 +612,104 @@ def frame_ui_caption(img, lt, caption, _x):
     return img
 
 
+def sc_after_hours(lt):
+    """سؤال بعد مواعيد العيادة — بيوصل، مش بيضيع."""
+    shot = ui.SCREENS["after_hours"]().convert("RGB")
+    img = frame_portal(shot, lt, "مريض بيسأل الساعة 11 بالليل")
+    return img
+
+
+def sc_labs(lt):
+    """التحاليل — سجل لكل تحليل بتاريخه ونتايجه."""
+    src = ui.SCREENS["labs"]().convert("RGB").resize((W, H), Image.LANCZOS)
+    k = ease((lt - 0.6) / 1.6) if lt > 0.6 else 0.0
+    zoom = 1.02 + 0.07 * k
+    img = zoom_pan(src, 1.0, z0=zoom, z1=zoom,
+                   p0=(0.0, -0.05 * k), p1=(0.0, -0.05 * k))
+    return frame_ui(img, lt, "كل تحليل… بتاريخه ونتايجه")
+
+
+def sc_health(lt):
+    """السكر والضغط من البيت — للطبيب."""
+    src = ui.SCREENS["health"]().convert("RGB").resize((W, H), Image.LANCZOS)
+    k = ease((lt - 0.8) / 1.8) if lt > 0.8 else 0.0
+    zoom = 1.02 + 0.06 * k
+    img = zoom_pan(src, 1.0, z0=zoom, z1=zoom,
+                   p0=(0.0, 0.06 * k), p1=(0.0, 0.06 * k))
+    return frame_ui(img, lt, "قراءات البيت… وتنبيه على الخطر")
+
+
+def sc_portal_health(lt):
+    """المريض يسجّل السكر والضغط من موبايله."""
+    shot = ui.SCREENS["portal_health"]().convert("RGB")
+    return frame_portal(shot, lt, "ويسجّلها لوحده… من البيت")
+
+
+def sc_meds(lt):
+    """الأدوية في ملف المريض — الطبيب شايفها مع كل زيارة."""
+    src = ui.SCREENS["meds"]().convert("RGB").resize((W, H), Image.LANCZOS)
+    k = ease((lt - 0.7) / 1.6) if lt > 0.7 else 0.0
+    zoom = 1.02 + 0.06 * k
+    img = zoom_pan(src, 1.0, z0=zoom, z1=zoom,
+                   p0=(0.0, -0.04 * k), p1=(0.0, -0.04 * k))
+    return frame_ui(img, lt, "والأدوية… مكتوبة في ملفه")
+
+
+def sc_offhours_summary(lt):
+    """مفيش مكالمات فايتة — كل سؤال في مكانه."""
+    img = bg((8, 32, 30), (14, 60, 54))
+    glow(img, 640, 380, 480, TEAL, 50)
+    grid(img, 46, (255, 255, 255), 7)
+
+    t1 = text_block("مش هتضيّع وقتك", 60, WHITE)
+    paste_center(img, t1, 190, ease(lt / 0.5))
+    t2 = text_block("ولا سؤال هيضيع", 44, TEAL_L)
+    paste_center(img, t2, 268, ease((lt - 0.3) / 0.5))
+
+    items = [("سؤال بعد المواعيد", "يوصل في قايمة الصبح", "38.0?"),
+             ("قراءة خطر", "تنبيه فوري على الموبايل", ""),
+             ("متابعة مستمرة", "المريض حاسس إنك معاه", "")]
+    for i, (k, v, _) in enumerate(items):
+        a = ease((lt - 0.8 - i * 0.25) / 0.45)
+        if a <= 0:
+            continue
+        cy = 360 + i * 78
+        lay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        d = ImageDraw.Draw(lay)
+        d.rounded_rectangle([300, cy, 980, cy + 64], radius=18, fill=(255, 255, 255, 246))
+        d.ellipse([932, cy + 12, 972, cy + 52], fill=(230, 246, 237))
+        d.line([(940, cy + 32), (948, cy + 41), (963, cy + 23)],
+               fill=(21, 128, 61), width=4, joint="curve")
+        T.draw_right(lay, k, BLACK_F, 20, (18, 33, 31), 872, cy + 40)
+        T.draw_right(lay, v, BOLD_F, 14, (95, 118, 115), 640, cy + 40)
+        b = with_alpha(lay, a)
+        if b:
+            img.alpha_composite(b)
+    return img
+
+
 SCENES = [
-    (0.0, 7.6, sc_pain),
-    (7.6, 11.0, sc_intro),
-    (11.0, 13.6, sc_ui_dashboard),
-    (13.6, 16.0, sc_ui_patients),
-    (16.0, 19.4, sc_ui_patient),
-    (19.4, 23.0, sc_portal_intro),
-    (23.0, 26.2, sc_portal_home),
-    (26.2, 29.0, sc_portal_log),
-    (29.0, 31.4, sc_portal_progress),
-    (31.4, 35.4, sc_referral),
-    (35.4, 39.6, sc_price),
-    (39.6, 42.6, sc_end),
+    (0.0, 2.10, sc_pain),
+    (2.10, 3.03, sc_question),
+    (3.03, 6.32, sc_after_hours),
+    (6.32, 9.36, sc_offhours_summary),
+    (9.36, 10.93, sc_intro),
+    (10.93, 12.87, sc_ui_dashboard),
+    (12.87, 16.04, sc_labs),
+    (16.04, 17.76, sc_portal_intro),
+    (17.76, 18.90, sc_portal_home),
+    (18.90, 19.93, sc_portal_log),
+    (19.93, 21.87, sc_portal_health),
+    (21.87, 26.79, sc_health),
+    (26.79, 31.92, sc_meds),
+    (31.92, 35.11, sc_doctor_bond),
+    (35.11, 39.44, sc_referral),
+    (39.44, 47.76, sc_price),
+    (47.76, 54.40, sc_end),
 ]
 
 
-DURATION = 42.6
+DURATION = 54.4
 
 
 def frame_at(t):

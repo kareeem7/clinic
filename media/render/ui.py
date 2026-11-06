@@ -105,6 +105,31 @@ def icon(dst, kind, cx, cy, size, color):
     elif kind == "plus":
         line(d, (cx - s * 0.6, cy), (cx + s * 0.6, cy), color, s * 0.26)
         line(d, (cx, cy - s * 0.6), (cx, cy + s * 0.6), color, s * 0.26)
+    elif kind == "flask":
+        line(d, (cx - s * 0.2, cy - s * 0.9), (cx - s * 0.2, cy - s * 0.1), color, s * 0.2)
+        line(d, (cx + s * 0.2, cy - s * 0.9), (cx + s * 0.2, cy - s * 0.1), color, s * 0.2)
+        d.line([(px(cx - s * 0.7), px(cy + s * 0.85)), (px(cx - s * 0.2), px(cy - s * 0.1)),
+                (px(cx + s * 0.2), px(cy - s * 0.1)), (px(cx + s * 0.7), px(cy + s * 0.85)),
+                (px(cx - s * 0.7), px(cy + s * 0.85))], fill=color,
+               width=max(2, int(s * 0.2)), joint="curve")
+    elif kind == "pill":
+        d.rounded_rectangle([px(cx - s * 0.95), px(cy - s * 0.45), px(cx + s * 0.95), px(cy + s * 0.45)],
+                            radius=px(s * 0.45), outline=color, width=max(2, int(s * 0.18)))
+        line(d, (cx, cy - s * 0.45), (cx, cy + s * 0.45), color, s * 0.16)
+    elif kind == "drop":
+        d.ellipse([px(cx - s * 0.62), px(cy - s * 0.1), px(cx + s * 0.62), px(cy + s * 0.95)], fill=color)
+        d.polygon([(px(cx), px(cy - s * 0.95)), (px(cx - s * 0.55), px(cy + s * 0.15)),
+                   (px(cx + s * 0.55), px(cy + s * 0.15))], fill=color)
+    elif kind == "alert":
+        d.polygon([(px(cx), px(cy - s)), (px(cx + s), px(cy + s * 0.8)), (px(cx - s), px(cy + s * 0.8))],
+                  outline=color, width=max(2, int(s * 0.18)))
+        line(d, (cx, cy - s * 0.35), (cx, cy + s * 0.28), color, s * 0.22)
+        d.ellipse([px(cx - s * 0.09), px(cy + s * 0.45), px(cx + s * 0.09), px(cy + s * 0.63)], fill=color)
+    elif kind == "moon":
+        d.ellipse([px(cx - s * 0.9), px(cy - s * 0.9), px(cx + s * 0.9), px(cy + s * 0.9)],
+                  outline=color, width=max(2, int(s * 0.18)))
+        d.ellipse([px(cx - s * 0.25), px(cy - s * 1.05), px(cx + s * 1.05), px(cy + s * 0.35)],
+                  fill=(255, 255, 255))
     elif kind == "whatsapp":
         d.ellipse([px(cx - s), px(cy - s), px(cx + s), px(cy + s)], fill=color)
         pts = [(cx - s * 0.42, cy + s * 0.05), (cx - s * 0.1, cy - s * 0.42),
@@ -716,6 +741,311 @@ def screen_portal_appointments():
     return img
 
 
+
+# ═════════════════ شاشات v5: التحاليل / السكر والضغط / الأدوية ═════════════════
+
+def screen_labs():
+    """تبويب «التحاليل» في ملف المريض — سجل تحاليل بتاريخ ونتائج.
+
+    مطابق لـ js/labs.js: COMMON_LAB_TESTS (سكر تراكمي HbA1c / دهون الدم / وظائف كلى).
+    """
+    img, d = shell("المرضى", "ملف المريض", "منى عبد الرحمن — سمنة ونحافة")
+    x0 = 26
+    cw = 1014 - 26
+
+    # ترويسة المريض المختصرة
+    rrect(d, (x0, 88, x0 + cw - 26, 146), 18, fill=SURFACE, outline=LINE, width=1)
+    d.ellipse([px(x0 + 16), px(98), px(x0 + 66), px(138)], fill=TEAL50)
+    text_c(img, "م", x0 + 41, 126, 18, TEAL600, 900)
+    text_r(img, "منى عبد الرحمن", x0 + cw - 44, 116, 16, INK, 900)
+    text_r(img, "34 سنة · سمنة ونحافة · 8 جلسات", x0 + cw - 44, 136, 11, MUTED, 600)
+
+    # التبويبات — التحاليل مفعّلة
+    tabs = ["الخطة الغذائية", "الملاحظات", "متابعة السكر والضغط", "التحاليل", "الزيارات"]
+    tw = (cw - 26) / len(tabs)
+    for i, t in enumerate(tabs):
+        bx = x0 + cw - 26 - (i + 1) * tw
+        on = t == "التحاليل"
+        if on:
+            rrect(d, (bx + 4, 158, bx + tw - 4, 196), 12, fill=TEAL600)
+        text_c(img, t, bx + tw / 2, 183, 11.5, (255, 255, 255) if on else (91, 118, 115), 800)
+
+    # كارت سجل التحاليل — الارتفاع محسوب على أساس 3 تحاليل
+    card(img, d, x0, 210, cw - 26, 520, "سجل التحاليل")
+    rrect(d, (x0 + 20, 250, x0 + 176, 288), 12, fill=TEAL600)
+    text_c(img, "+ إضافة تحليل", x0 + 98, 274, 11.5, (255, 255, 255), 900)
+
+    labs = [
+        ("سكر تراكمي", "(HbA1c)", "6 نوفمبر 2025", [("HbA1c", "6.4", "%", "bad"),
+                                               ("الجلوكوز الصائم", "104", "mg/dL", "warn")]),
+        ("دهون الدم", "(Lipid profile)", "9 أكتوبر 2025", [("الكوليسترول الكلي", "212", "mg/dL", "bad"),
+                                                       ("LDL", "138", "mg/dL", "bad"),
+                                                       ("HDL", "46", "mg/dL", "ok")]),
+        ("وظائف كلى", "(Renal profile)", "11 سبتمبر 2025", [("الكرياتينين", "0.9", "mg/dL", "ok"),
+                                                        ("اليوريا", "28", "mg/dL", "ok")]),
+    ]
+    y = 292
+    for name, en, date, rows in labs:
+        h = 50 + len(rows) * 30
+        rrect(d, (x0 + 20, y, x0 + cw - 46, y + h), 16, fill=(247, 250, 249), outline=LINE, width=1)
+        # رأس التحليل — العربي يمين، اللاتيني شمال منه، التاريخ على الشمال
+        text_r(img, name, x0 + cw - 66, y + 26, 13.5, INK, 900)
+        nw = T.measure(name, BLACK, px(13.5))[0]
+        ew = T.measure(en, BOLD, px(10.5))[0]
+        text_r(img, en, x0 + cw - 66 - nw - 10, y + 26, 10.5, (130, 150, 148), 700)
+        text_r(img, date, x0 + cw - 66 - nw - ew - 26, y + 26, 10.5, MUTED, 700)
+        icon(img, "flask", x0 + 44, y + 20, 9, TEAL600)
+        # النتائج
+        for j, (comp, val, unit, lvl) in enumerate(rows):
+            ry = y + 54 + j * 30
+            col = {"ok": TEAL700, "warn": AMBER, "bad": (190, 60, 60)}[lvl]
+            line(d, (x0 + 34, ry - 12), (x0 + cw - 60, ry - 12), (237, 243, 242), 1)
+            text_r(img, comp, x0 + cw - 66, ry + 12, 11.5, (40, 62, 60), 700)
+            # القيمة والوحدة مقطوعين (اللاتيني جوه العربي بيتعكس)
+            vw = T.measure(val, BLACK, px(12.5))[0]
+            text_l(img, val, x0 + 40, ry + 12, 12.5, col, 900)
+            text_l(img, unit, x0 + 40 + vw + 8, ry + 12, 9.5, (140, 158, 156), 700)
+            if lvl != "ok":
+                d.ellipse([px(x0 + 40 + vw + 8 + T.measure(unit, BOLD, px(9.5))[0] + 10),
+                           px(ry + 2),
+                           px(x0 + 40 + vw + 8 + T.measure(unit, BOLD, px(9.5))[0] + 20),
+                           px(ry + 12)], fill=col)
+        y += h + 12
+    return img
+
+
+def screen_health():
+    """تبويب «متابعة السكر والضغط» للطبيب — قراءات من البيت + تنبيه.
+
+    مطابق لـ js/health-monitoring.js: قراءة سكر / ضغط انقباضي وانبساطي.
+    القاعدة: كل حاجة متثبتة على الحافة اليمين للكارت بتاعها (RTL).
+    """
+    img, d = shell("المرضى", "ملف المريض", "منى عبد الرحمن — سمنة ونحافة")
+    x0 = 26
+    xr = 1014 - 26
+    cw = xr - x0
+
+    rrect(d, (x0, 88, xr, 146), 18, fill=SURFACE, outline=LINE, width=1)
+    d.ellipse([px(x0 + 16), px(98), px(x0 + 66), px(138)], fill=TEAL50)
+    text_c(img, "م", x0 + 41, 126, 18, TEAL600, 900)
+    text_r(img, "منى عبد الرحمن", xr - 18, 116, 16, INK, 900)
+    text_r(img, "أمراض مزمنة: السكري · ضغط الدم", xr - 18, 136, 11, MUTED, 600)
+
+    tabs = ["الخطة الغذائية", "الملاحظات", "متابعة السكر والضغط", "التحاليل", "الزيارات"]
+    tw = cw / len(tabs)
+    for i, t in enumerate(tabs):
+        bx = xr - (i + 1) * tw
+        on = t == "متابعة السكر والضغط"
+        if on:
+            rrect(d, (bx + 4, 158, bx + tw - 4, 196), 12, fill=TEAL600)
+        text_c(img, t, bx + tw / 2, 183, 11.5, (255, 255, 255) if on else (91, 118, 115), 800)
+
+    # ── كارتين: السكر يمين، الضغط شمال (اتجاه RTL) ──
+    half = (cw - 14) / 2
+    gx0 = xr - half                     # السكر — يمين
+    px0 = x0                            # الضغط — شمال
+    R = 26                              # مسافة الحافة اليمين الداخلية
+
+    # السكر
+    card(img, d, gx0, 210, half, 238, "متابعة السكر")
+    icon(img, "drop", gx0 + half - 30, 268, 8, (225, 29, 72))
+    text_r(img, "آخر قراءة صائم", gx0 + half - R, 300, 10.5, MUTED, 800)
+    text_r(img, "104", gx0 + half - R, 336, 24, (190, 30, 60), 900)
+    w104 = T.measure("104", BLACK, px(24))[0]
+    text_r(img, "mg/dL", gx0 + half - R - w104 - 8, 336, 9.5, (140, 158, 156), 700)
+    text_r(img, "بتنازل — كويس", gx0 + half - R, 358, 10.5, TEAL700, 800)
+
+    # منحنى السكر — تحت الأرقام
+    gx, gy, gw, gh = gx0 + 26, 372, half - 2 * R, 60
+    vals = [128, 121, 116, 112, 108, 104]
+    pts = [(gx + i * (gw / (len(vals) - 1)), gy + gh - ((v - 90) / 50) * gh)
+           for i, v in enumerate(vals)]
+    d.line([(px(x), px(y)) for x, y in pts], fill=(225, 29, 72), width=int(2.4 * S), joint="curve")
+    for x, y2 in pts:
+        d.ellipse([px(x - 3.5), px(y2 - 3.5), px(x + 3.5), px(y2 + 3.5)], fill=(255, 255, 255),
+                  outline=(225, 29, 72), width=int(1.8 * S))
+
+    # الضغط
+    card(img, d, px0, 210, half, 238, "متابعة ضغط الدم")
+    icon(img, "pulse", px0 + half - 30, 268, 9, (37, 99, 235))
+    text_r(img, "آخر قراءة", px0 + half - R, 300, 10.5, MUTED, 800)
+    text_r(img, "124 / 82", px0 + half - R, 336, 24, (37, 99, 235), 900)
+    text_r(img, "mmHg", px0 + half - R, 358, 9.5, (140, 158, 156), 700)
+    text_l(img, "النبض", px0 + R, 358, 10.5, MUTED, 700)
+    text_l(img, "76", px0 + R + T.measure("النبض", BOLD, px(10.5))[0] + 6, 358, 10.5, INK, 800)
+
+    ptx, pty, ptw, pth = px0 + 26, 372, half - 2 * R, 60
+    sysv = [148, 138, 132, 128, 124]
+    pts2 = [(ptx + i * (ptw / (len(sysv) - 1)), pty + pth - ((v - 110) / 50) * pth)
+            for i, v in enumerate(sysv)]
+    d.line([(px(x), px(y)) for x, y in pts2], fill=(37, 99, 235), width=int(2.4 * S), joint="curve")
+    for x, y2 in pts2:
+        d.ellipse([px(x - 3.5), px(y2 - 3.5), px(x + 3.5), px(y2 + 3.5)], fill=(255, 255, 255),
+                  outline=(37, 99, 235), width=int(1.8 * S))
+
+    # ── قراءات واردة من البوابة ──
+    card(img, d, x0, 466, cw, 236, "قراءات المريض من البوابة")
+    rows = [("6 نوفمبر — 8:15 ص", "سكر صائم", "104", "mg/dL", "ok"),
+            ("5 نوفمبر — 11:40 م", "ضغط", "124 / 82", "mmHg", "ok"),
+            ("4 نوفمبر — 9:02 ص", "سكر صائم", "112", "mg/dL", "ok"),
+            ("3 نوفمبر — 10:20 م", "ضغط", "162 / 98", "mmHg", "warn")]
+    for i, (when, kind, val, unit, lvl) in enumerate(rows):
+        y = 510 + i * 44
+        rrect(d, (x0 + 18, y, xr - 18, y + 40), 12, fill=(247, 250, 249))
+        col = TEAL700 if lvl == "ok" else AMBER
+        text_r(img, when, xr - 34, y + 26, 10.5, MUTED, 700)
+        text_r(img, kind, xr - 210, y + 26, 11.5, (40, 62, 60), 800)
+        # القيمة + الوحدة على الشمال
+        text_l(img, val, x0 + 40, y + 26, 12.5, col, 900)
+        vw = T.measure(val, BLACK, px(12.5))[0]
+        text_l(img, unit, x0 + 40 + vw + 8, y + 26, 9.5, (140, 158, 156), 700)
+        if lvl != "ok":
+            icon(img, "alert", x0 + 40 + vw + 34, y + 20, 7, AMBER)
+    return img
+
+
+def screen_meds():
+    """ملاحظة زيارة فيها الأدوية الحالية — مطابق لـ js/notes.js (حقل meds)."""
+    img, d = shell("المرضى", "ملف المريض", "منى عبد الرحمن — سمنة ونحافة")
+    x0 = 26
+    cw = 1014 - 26
+
+    rrect(d, (x0, 88, x0 + cw - 26, 146), 18, fill=SURFACE, outline=LINE, width=1)
+    d.ellipse([px(x0 + 16), px(98), px(x0 + 66), px(138)], fill=TEAL50)
+    text_c(img, "م", x0 + 41, 126, 18, TEAL600, 900)
+    text_r(img, "منى عبد الرحمن", x0 + cw - 44, 116, 16, INK, 900)
+    text_r(img, "السكري · ضغط الدم · كوليسترول", x0 + cw - 44, 136, 11, MUTED, 600)
+
+    # بطاقة الأدوية الحالية
+    card(img, d, x0, 164, cw - 26, 300, "الأدوية الحالية")
+    icon(img, "pill", x0 + 40, 222, 11, TEAL600)
+
+    meds = [("ميتفورمين 500 مجم", "قرص بعد الفطار والعشا", "من 12 سبتمبر", TEAL600),
+            ("أملوديبين 5 مجم", "قرص مرة يوميًا — صباحًا", "من 20 أكتوبر", (37, 99, 235)),
+            ("أتورفاستاتين 20 مجم", "قرص مساءً قبل النوم", "من 2 نوفمبر", (147, 51, 234))]
+    for i, (name, dose, since, col) in enumerate(meds):
+        y = 246 + i * 66
+        rrect(d, (x0 + 18, y, x0 + cw - 44, y + 56), 14, fill=(247, 250, 249), outline=LINE, width=1)
+        d.rounded_rectangle([px(x0 + 18), px(y + 4), px(x0 + 24), px(y + 52)], radius=px(3), fill=col)
+        text_r(img, name, x0 + cw - 62, y + 26, 13.5, INK, 900)
+        text_r(img, dose, x0 + cw - 62, y + 44, 11, (91, 118, 115), 700)
+        rrect(d, (x0 + 30, y + 14, x0 + 150, y + 42), 10, fill=(236, 243, 242))
+        text_c(img, since, x0 + 90, y + 32, 10, (91, 118, 115), 800)
+
+    # آخر ملاحظة زيارة
+    card(img, d, x0, 482, cw - 26, 194, "آخر ملاحظة زيارة — 6 نوفمبر 2025")
+    text_r(img, "الالتزام ممتاز · الوِزن نازل 9.2 كجم في 6 شهور", x0 + cw - 46, 540, 13, INK, 800)
+    text_r(img, "السكر الصائم نزل من 128 لـ 104 — نكمل بنفس الجرعة", x0 + cw - 46, 566, 12, (40, 62, 60), 700)
+    text_r(img, "الضغط استقر على 124 / 82 · نتابع الأملوديبين شهر كمان", x0 + cw - 46, 590, 12, (40, 62, 60), 700)
+    rrect(d, (x0 + 24, 606, x0 + 300, 648), 12, fill=(253, 241, 222))
+    icon(img, "calendar", x0 + 46, 627, 8, AMBER)
+    text_c(img, "متابعة قادمة: 6 ديسمبر", x0 + 178, 633, 11, (146, 96, 10), 900)
+    return img
+
+
+def screen_after_hours():
+    """المريض بيسأل بعد مواعيد العيادة — السؤال بيوصل مش بيضيع.
+
+    بوابة المريض: «كلّم العيادة» + رسالة إن السؤال اتسجل، والطبيب يشوفه الصبح.
+    """
+    img, d = _portal_base()
+    cx0, cx1 = _portal_top(img, d)
+    w = cx1 - cx0
+
+    # شريط الوقت — برة مواعيد العيادة
+    rrect(d, (cx0, 84, cx1, 148), 18, fill=(30, 41, 59))
+    icon(img, "moon", cx0 + 32, 106, 9, (250, 204, 21))
+    text_r(img, "11:24 م", cx1 - 22, 108, 20, (255, 255, 255), 900)
+    text_r(img, "العيادة مقفولة — برة المواعيد", cx1 - 22, 130, 11.5, (203, 213, 225), 700)
+
+    # المحادثة
+    _p_card(img, d, cx0, 164, w, 118, fill=(255, 255, 255))
+    text_r(img, "منى عبد الرحمن", cx1 - 22, 192, 13, INK, 900)
+    text_r(img, "«دكتور، سكرى الصبح كان 148… أعمل إيه؟»", cx1 - 22, 220, 13, (40, 62, 60), 700)
+    text_r(img, "السؤال محفوظ ومش هيضيع", cx1 - 22, 246, 11, MUTED, 700)
+    d.rounded_rectangle([px(cx0 + 22), px(196), px(cx0 + 28), px(258)], radius=px(3), fill=(37, 99, 235))
+
+    # الرد التلقائي: وصل
+    _p_card(img, d, cx0, 294, w * 0.86, 96, fill=(236, 249, 240), outline=(180, 232, 205))
+    text_r(img, "تم الاستلام", cx0 + w * 0.86 - 20, 322, 12.5, GREEN_D, 900)
+    text_r(img, "د. أحمد هيرد عليك أول ما يفتح العيادة", cx0 + w * 0.86 - 20, 346, 11.5, (21, 128, 61), 700)
+    text_r(img, "الصبح · 9:00 ص", cx0 + w * 0.86 - 20, 372, 10.5, MUTED, 700)
+
+    # زر واتساب
+    _grad_card(img, cx0, 404, cx1, 484, GREEN_D, GREEN_P, 18)
+    text_r(img, "كلّم د. أحمد على واتساب", cx1 - 22, 434, 16, (255, 255, 255), 900)
+    text_r(img, "ضغطة واحدة — من غير ما تدوّر على الرقم", cx1 - 22, 458, 11.5, (212, 236, 217), 700)
+    rrect(d, (cx0 + 22, 424, cx0 + 226, 468), 14, fill=(255, 255, 255))
+    icon(img, "whatsapp", cx0 + 48, 446, 8, GREEN_P)
+    text_c(img, "واتساب العيادة", cx0 + 140, 452, 11.5, GREEN_D, 900)
+
+    # النتيجة للطبيب
+    rrect(d, (cx0, 500, cx1, 590), 18, fill=SURFACE, outline=LINE, width=1)
+    text_r(img, "عند الطبيب — الصبح", cx1 - 22, 532, 13.5, INK, 900)
+    text_r(img, "3 أسئلة من 3 مرضى — كلها في قايمة واحدة", cx1 - 22, 558, 12, (40, 62, 60), 700)
+    text_r(img, "مفيش مكالمات فايتة · مفيش وقت ضايع", cx1 - 22, 580, 11, TEAL700, 800)
+    return img
+
+
+
+def screen_portal_health():
+    """تبويب البوابة: المريض يسجّل قراءة سكر وقراءة ضغط من البيت.
+
+    مطابق لـ renderPortalHealthTracking في js/patient-portal.js
+    (قيمة السكر mg/dL + نوع التحليل، والضغط انقباضي/انبساطي + نبض اختياري).
+    """
+    img, d = _portal_base()
+    cx0, cx1 = _portal_top(img, d)
+    w = cx1 - cx0
+    R = 22
+
+    text_r(img, "قياساتك من البيت", cx1, 100, 20, INK, 900)
+    text_r(img, "بتوصل للدكتور على طول — مش محتاج تكلّمه", cx1, 122, 12, MUTED, 700)
+
+    # ── كارت السكر ──
+    _p_card(img, d, cx0, 140, w, 200)
+    icon(img, "drop", cx1 - 30, 172, 7.5, (225, 29, 72))
+    text_r(img, "تسجيل قراءة سكر", cx1 - 46, 178, 13.5, INK, 900)
+    text_r(img, "قيمة السكر", cx1 - R, 210, 11, (43, 92, 63), 900)
+    text_r(img, "mg/dL", cx1 - R - T.measure("قيمة السكر", BLACK, px(11))[0] - 6, 210, 10,
+           (140, 158, 156), 700)
+    rrect(d, (cx0 + R, 220, cx1 - R, 264), 12, fill=(255, 255, 255), outline=LINE, width=1.5)
+    text_r(img, "148", cx1 - R - 16, 250, 19, INK, 900)
+    text_r(img, "نوع التحليل", cx1 - R, 288, 11, (43, 92, 63), 900)
+    for i, (t, on) in enumerate([("صائم", False), ("بعد الأكل", False), ("عشوائي", True)]):
+        bw = 92
+        bx = cx1 - R - (i + 1) * bw - i * 8
+        rrect(d, (bx, 298, bx + bw, 326), 11, fill=(236, 249, 240) if on else (247, 250, 249),
+              outline=(180, 232, 205) if on else LINE, width=1.5)
+        text_c(img, t, bx + bw / 2, 317, 10.5, GREEN_D if on else (91, 118, 115), 800)
+
+    # ── كارت الضغط ──
+    _p_card(img, d, cx0, 356, w, 168)
+    icon(img, "pulse", cx1 - 30, 388, 8, (37, 99, 235))
+    text_r(img, "تسجيل قراءة ضغط", cx1 - 46, 394, 13.5, INK, 900)
+    text_r(img, "الانقباضي", cx1 - R, 424, 11, (43, 92, 63), 900)
+    text_r(img, "الانبساطي", cx1 - w / 2 - 4, 424, 11, (43, 92, 63), 900)
+    for i, v in enumerate(["124", "82"]):
+        bx1 = cx1 - R - i * (w / 2 - 8)
+        bx0 = bx1 - (w / 2 - R)
+        rrect(d, (bx0, 434, bx1, 474), 12, fill=(255, 255, 255), outline=LINE, width=1)
+        text_r(img, v, bx1 - 14, 462, 15, INK, 700)
+    text_l(img, "النبض (اختياري)", cx0 + R, 424, 10.5, MUTED, 700)
+
+    # ── زر الحفظ ──
+    rrect(d, (cx0 + R, 540, cx1 - R, 584), 14, fill=GREEN_P)
+    text_c(img, "حفظ القراءة", (cx0 + cx1) / 2, 566, 14, (255, 255, 255), 900)
+
+    # ── تأكيد + تنبيه ──
+    rrect(d, (cx0, 598, cx1, 638), 14, fill=(230, 246, 237), outline=(180, 232, 205), width=1.5)
+    text_r(img, "وصلت للدكتور — هيتابع معاك", cx1 - 20, 623, 12.5, GREEN_D, 800)
+    rrect(d, (cx0, 650, cx1, 700), 14, fill=(254, 242, 242), outline=(252, 202, 202), width=1.5)
+    icon(img, "alert", cx1 - 28, 668, 6.5, (200, 60, 60))
+    text_r(img, "الضغط 162 / 98 — أعلى من حد التنبيه", cx1 - 44, 670, 11.5, (170, 45, 45), 900)
+    text_r(img, "الدكتور بيوصله تنبيه فوري — مش مستني مكالمة", cx1 - 44, 690, 10.5, (180, 80, 70), 700)
+    return img
+
+
 SCREENS = {
     "dashboard": screen_dashboard,
     "patients": screen_patients,
@@ -725,6 +1055,11 @@ SCREENS = {
     "portal_log": screen_portal_log,
     "portal_progress": screen_portal_progress,
     "portal_appointments": screen_portal_appointments,
+    "labs": screen_labs,
+    "health": screen_health,
+    "meds": screen_meds,
+    "after_hours": screen_after_hours,
+    "portal_health": screen_portal_health,
 }
 
 if __name__ == "__main__":

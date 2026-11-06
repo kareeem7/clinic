@@ -25,7 +25,7 @@ cd media/render
 python3 ui.py         # يتأكد إن الـ 8 شاشات بتترسم (اختياري)
 python3 music.py      # → music.wav
 # ادمج الصوت: vocal 0dB + موسيقى −10dB + loudnorm I=-14
-python3 encode2.py    # → clinic_demo_v3.mp4  (42.6s)
+python3 encode2.py    # → clinic_demo_v3.mp4  (54.4s)
 ```
 
 ## ملاحظات فنية (اتعبتنا)
@@ -37,13 +37,37 @@ python3 encode2.py    # → clinic_demo_v3.mp4  (42.6s)
 - قيم `hbf.scale` = 26.6 fixed point → اقسم على 64، **مش** على upem.
 
 
-## بوابة المريض في الفيديو (v4)
+## المزامنة مع الصوت (مهم)
+
+حدود المشاهد في `render2.py` **مأخوذة من الصوت نفسها**، مش تقدير:
+
+```bash
+ffmpeg -i voice.mp3 -af "silencedetect=noise=-30dB:d=0.10" -f null - 2>&1 \
+  | grep -oE "silence_(start|end): [0-9.]+"
+```
+
+كل `silence_end` = بداية جملة، وكل `silence_start` = نهايتها. بعد أي تغيير في النص،
+أعد استخراجها وحدّث `SCENES` و `DURATION` و `DUR` في `music.py`.
+
+## بوابة المريض في الفيديو (v4 + v5)
 
 الشاشات دي **توضيح للمنتج**، مش لقطات من نسخة منشورة — بوابة المريض في المنتج نفسه
 مقفولة للجمهور دلوقتي. الشاشات الأربعة موجودة في `ui.py`:
 `screen_portal_home` / `screen_portal_log` / `screen_portal_progress` /
-`screen_portal_appointments`، وبتتعرض في الفيديو بإطار `frame_portal()`
-(شاشة كاملة + شارة «من موبايل المريض») عشان تبقى مقروءة.
+`screen_portal_appointments` / `screen_portal_health` / `screen_after_hours`،
+وبتتعرض في الفيديو بإطار `frame_portal()` (شاشة كاملة + شارة «من موبايل المريض») عشان تبقى مقروءة.
+
+### شاشات v5 (التحاليل · السكر والضغط · الأدوية)
+| شاشة | مصدرها في التطبيق |
+|---|---|
+| `screen_labs` | `js/labs.js` + `COMMON_LAB_TESTS` (HbA1c، دهون الدم، وظائف كلى) |
+| `screen_health` | `js/health-monitoring.js` (`renderPatientHealthMonitoring`) |
+| `screen_portal_health` | `js/patient-portal.js` (`renderPortalHealthTracking`) |
+| `screen_meds` | `js/notes.js` — حقل `meds` في ملاحظة الزيارة |
+| `screen_after_hours` | `js/patient-portal.js` — زرار «كلّم العيادة» بعد المواعيد |
+
+> **درس RTL مهم:** أي رقم/وحدة لاتينية جوه جملة عربية بتتعكس. الحل: ارسم الرقم في نداء
+> `text_r`/`text_l` مستقل، والوحدة في نداء تاني — مش في نفس السلسلة.
 
 ## ليه مفيش سكرين شوت حقيقي؟
 البيئة فيها `@sparticuz/chromium` و PySide6 WebEngine، بس **الاتنين بيفشلوا**:
