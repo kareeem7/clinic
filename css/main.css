@@ -3,6 +3,7 @@
 main.css
 الوظيفة: ملف تجميع — يستورد كل ملفات الستايل بالترتيب الأصلي نفسه
 الترتيب مهم: التتالي (Cascade) يعتمد عليه — ممنوع تغيير ترتيب الاستيراد
+mobile.css يُستورد أخيراً عن قصد: يغلّب تحسينات الهاتف على responsive.css.
 ========================================
 */
 @import url('variables.css');
@@ -22,3 +23,4 @@ main.css
 @import url('mfa-setup.css');
 @import url('whatsapp.css');
 @import url('portal.css');
+@import url('mobile.css');

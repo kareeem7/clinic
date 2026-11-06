@@ -1,0 +1,129 @@
+/*
+========================================
+mobile.css
+الوظيفة: تحسينات تجربة الاستخدام على الهاتف — يُستورد أخيراً في main.css
+         حتى يغلّب قواعد responsive.css وأي ورقة سابقة.
+الأقسام: أساسيات اللمس، ≤992px (safe-area + أهداف اللمس)،
+         ≤768px (منع zoom iOS + شاشة الدخول + مقبض bottom sheet)،
+         ≤420px، رد الفعل اللمسي + تقليل الحركة.
+السبب: الاستخدام الأساسي على الهاتف، والقواعد القديمة كانت مكتوبة للكمبيوتر.
+========================================
+*/
+
+/* ====== ١) أساسيات اللمس — كل الشاشات ====== */
+html{-webkit-text-size-adjust:100%}
+button,a,input,select,textarea,label,[role="button"]{
+  -webkit-tap-highlight-color:transparent;   /* وميضة اللمس الزرقا → رد فعل نظيف */
+  touch-action:manipulation                  /* يلغي تأخير 300ms ويمنع zoom بالنقر المزدوج */
+}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,
+textarea:focus-visible,[tabindex]:focus-visible{
+  outline:3px solid var(--teal-500);outline-offset:2px
+}
+/* السحب الأفقي ما يزحزحش الصفحة كلها (الجداول/الأسابيع عندها scroll خاص بيها) */
+html,body{overflow-x:hidden}
+@supports (overflow-x:clip){html,body{overflow-x:clip}}
+
+/* ====== ٢) الهاتف والتابلت: مساحات الأمان + أهداف لمس واضحة ====== */
+@media (max-width:992px){
+  /* viewport-fit=cover موجود، فلازم نحترم الـ notch وشريط الـ home indicator */
+  #topbar{
+    padding-top:calc(12px + env(safe-area-inset-top, 0px));
+    padding-inline-start:calc(16px + env(safe-area-inset-left, 0px));
+    padding-inline-end:calc(16px + env(safe-area-inset-right, 0px))
+  }
+  .content{
+    padding:18px 12px calc(104px + env(safe-area-inset-bottom, 0px))
+  }
+  #bottomNav{
+    padding-bottom:calc(8px + env(safe-area-inset-bottom, 0px));
+    padding-inline-start:calc(10px + env(safe-area-inset-left, 0px));
+    padding-inline-end:calc(10px + env(safe-area-inset-right, 0px))
+  }
+  #toastRoot{bottom:calc(86px + env(safe-area-inset-bottom, 0px))}
+  #sidebar{
+    width:min(86vw,320px);
+    padding-top:calc(22px + env(safe-area-inset-top, 0px));
+    padding-bottom:calc(22px + env(safe-area-inset-bottom, 0px))
+  }
+
+  /* شريط التنقل السفلي: الهدف ≥ 54px، ونص مقري، والحالة النشطة واضحة بصرياً */
+  #bottomNav button{
+    position:relative;flex:1;min-width:0;min-height:54px;padding:8px 6px;
+    gap:4px;border-radius:14px;font-size:11.5px
+  }
+  #bottomNav button i{font-size:19px}
+  #bottomNav button.active{background:var(--teal-50);color:var(--teal-700)}
+  #bottomNav button.active::before{
+    content:"";position:absolute;top:2px;inset-inline:32%;height:3px;
+    border-radius:99px;background:var(--teal-500)
+  }
+
+  /* كل الأهداف القابلة للمس ≥ 44px (Apple HIG / Material) */
+  .icon-btn,.icon-btn.sm{width:44px;height:44px;border-radius:13px}
+  .btn.sm{min-height:44px;padding:10px 16px;font-size:14px}
+  .modal-foot .btn{min-height:48px}
+  .ptabs button{min-height:44px}
+  .forgot-link{min-height:44px;display:inline-flex;align-items:center}
+  /* «مريض جديد» بيبقى أيقونة بس على الموبايل (hide-sm) → زر مربع واضح */
+  #topActions [data-action="add-patient"]{
+    width:44px;height:44px;padding:0;gap:0;border-radius:14px
+  }
+  #topActions [data-action="add-patient"] i{font-size:16px}
+
+  /* البطاقات تاخد مساحة المحتوى بدل الحواشي العريضة */
+  .card{padding:16px}
+  .toast{font-size:14px;padding:13px 18px}
+
+  /* المودال = bottom sheet: مقبض بصري + عدم تسريب السكرول + مساحة الأمان */
+  .modal{padding-bottom:env(safe-area-inset-bottom, 0px);overscroll-behavior:contain}
+  .modal-body,.modal-foot{overscroll-behavior:contain}
+}
+
+/* ====== ٣) الهاتف: منع التكبير التلقائي + شاشة دخول تبان فوق الطية ====== */
+@media (max-width:768px){
+  /* iOS Safari بيعمل zoom تلقائي لأي حقل أقل من 16px عند التركيز.
+     القاعدة دي أهم سبب في الإحساس بـ «مش سلس» على الآيفون. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  select,textarea,.input,select.input,textarea.input,
+  .in-wrap>input,.in-wrap>select{font-size:16px}
+
+  /* البانر كان بياخد نص الشاشة قبل ما يوصل الدكتور للإيميل */
+  .login-view{padding:12px}
+  .login-brand{padding:16px 20px}
+  .brand-inner{gap:10px}
+  .brand-logo{width:44px;height:44px;border-radius:14px;font-size:20px}
+  .login-brand h1{font-size:22px;letter-spacing:0}
+  .brand-sub,.brand-loc{display:none}
+  .login-form{padding:20px 20px 24px;gap:13px}
+  .login-form h2{font-size:20px}
+
+  /* مقبض بصري يوحي بإمكانية السحب — بس لما المودال bottom sheet فعلاً */
+  .modal-head{position:relative;padding-top:26px}
+  .modal-head::before{
+    content:"";position:absolute;top:10px;left:50%;transform:translateX(-50%);
+    width:38px;height:4px;border-radius:99px;background:#d6e4e2
+  }
+}
+
+/* ====== ٤) الشاشات الصغيرة جداً ====== */
+@media (max-width:420px){
+  #bottomNav button{font-size:11px;padding-inline:3px}
+  #bottomNav button i{font-size:18px}
+  .content{padding-inline:10px}
+  .btn.sm{padding-inline:12px}
+}
+
+/* ====== ٥) رد فعل لمسي بدل hover اللازق + احترام تقليل الحركة ====== */
+@media (hover:none) and (pointer:coarse){
+  .btn:active,.icon-btn:active,.quick-grid button:active,
+  #bottomNav button:active,.day-cell:active{transform:scale(.97);opacity:.9}
+  /* hover على شاشة لمس بيفضل «لازق» بعد الضغطة — نلغي التحريك فقط */
+  .btn-primary:hover,.quick-grid button:hover{transform:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;animation-iteration-count:1!important;
+    transition-duration:.01ms!important;scroll-behavior:auto!important
+  }
+}

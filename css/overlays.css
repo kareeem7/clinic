@@ -30,7 +30,7 @@ overlays.css
 
 /* ====== شريط التنقل السفلي (موبايل) ====== */
 #bottomNav{display:none;position:fixed;bottom:0;inset-inline:0;z-index:50;background:rgba(255,255,255,.92);backdrop-filter:blur(16px);
-  border-top:1px solid var(--line);padding:6px 10px calc(8px + env(safe-area-inset-bottom))}
+  border-top:1px solid var(--line);padding:6px 10px calc(8px + env(safe-area-inset-bottom, 0px))}
 #bottomNav .in{display:flex;justify-content:space-around}
 #bottomNav button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 12px;border-radius:12px;
   color:#7a9491;font-size:10.5px;font-weight:800;transition:var(--tr);min-width:58px}
