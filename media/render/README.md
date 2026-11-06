@@ -42,3 +42,14 @@ python3 encode.py     # → clinic_demo.mp4
 مفيش `Xvfb`، ومفيش `apt` network. فالحل: **إعادة بناء الواجهة بالكود** من نفس الـ CSS.
 لو شغّلت المشروع على جهازك، تقدر تصوّر سكرين شوت حقيقي بـ
 `npx playwright screenshot --viewport-size=1280,720 <url> shot.png` وتستبدله.
+
+## معاينة الفيديو
+
+```bash
+./media/serve.sh          # → http://localhost:8099
+./media/serve.sh 9000     # منفذ تاني
+```
+
+`media/preview_server.py` بيخدم `media/` مباشرة (الملف الأصلي، بدون نسخة مكررة)،
+بـ HTTP/1.1 + Range + keep-alive عشان السحب والتنقل في الفيديو يشتغل بسلاسة.
+الصفحة `media/index.html` فيها المشغّل + أزرار التحميل + الـ poster.
