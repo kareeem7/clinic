@@ -58,7 +58,7 @@ function createApp({ setup = false, token = null, response = { ok: true, patient
     location: { reload() { result.reloads++; } },
     showScreen(name) { result.screens.push(name); },
     closeModal() { result.modalCloses++; }, leaveAdmin() {}, toast() {}, logError() {},
-    SUPABASE_SQL: ' test SQL ', State: {}, resetClinicalState() {}, Cal: {}, Charts: {},
+    State: {}, resetClinicalState() {}, Cal: {}, Charts: {},
     setTimeout() {}, clearTimeout() {}, console
   });
   vm.runInContext(portalSource, context, { filename: 'patient-portal.js' });
@@ -78,14 +78,12 @@ function createApp({ setup = false, token = null, response = { ok: true, patient
   return result;
 }
 
-test('setup screen actions work even when Supabase initialization fails', async () => {
+test('setup screen opens without copying or exposing any SQL', async () => {
   const app = createApp({ setup: true });
   await app.boot();
   assert.deepEqual(app.screens, ['setup']);
-  assert.equal(app.$('#setupSql').textContent, 'test SQL');
-  app.click('[data-action]', { action: 'copy-sql' });
-  await new Promise(resolve => setImmediate(resolve));
-  assert.equal(app.copied, 'test SQL');
+  assert.equal(app.$('#setupSql').textContent, '', 'no SQL is injected into the DOM');
+  assert.equal(app.copied, null, 'no SQL reaches the clipboard');
   app.click('[data-action]', { action: 'refresh-setup' });
   assert.equal(app.reloads, 1);
   assert.equal(app.authListener, null);

@@ -49,7 +49,7 @@ function harness(store = memoryStore()) {
 }
 
 test('service worker precaches every local shell file and never touches Supabase', () => {
-  assert.match(sw, /CACHE_NAME = 'clinic-shell-v4'/);
+  assert.match(sw, /CACHE_NAME = 'clinic-shell-v12'/);
   assert.match(sw, /self\.addEventListener\('install'/);
   assert.match(sw, /self\.addEventListener\('activate'/);
   assert.match(sw, /self\.skipWaiting\(\)/);
@@ -59,7 +59,6 @@ test('service worker precaches every local shell file and never touches Supabase
   assert.match(sw, /Promise\.allSettled/, 'optional CDN failures must not break install');
   const shell = (sw.match(/const SHELL = \[([\s\S]*?)\];/) || [])[1] || '';
   const expected = [
-    './css/landing.css',
     ...fs.readdirSync(path.join(root, 'css')).filter(f => f.endsWith('.css')).map(f => './css/' + f),
     ...fs.readdirSync(path.join(root, 'js')).filter(f => f.endsWith('.js')).map(f => './js/' + f)
   ];
@@ -225,9 +224,10 @@ test('schema-cache errors now produce an actionable Arabic message instead of th
     vm.runInContext(src + '\n__out = ' + expr + ';', ctx);
     return ctx.__out;
   };
-  assert.match(run('explainError({code:"PGRST205"})'), /غير محدّثة/);
-  assert.match(run('explainError({code:"42703"})'), /20261111/);
-  assert.match(run('explainError({message:"Could not find the table public.clinics in the schema cache"})'), /الترحيل/);
+  assert.match(run('explainError({code:"PGRST205"})'), /تعذّر قراءة بيانات العيادة/);
+  assert.match(run('explainError({code:"42703"})'), /إدارة النظام/);
+  assert.doesNotMatch(run('explainError({code:"42703"})'), /20261111|طبّق/, 'no SQL instructions in the UI');
+  assert.match(run('explainError({message:"Could not find the table public.clinics in the schema cache"})'), /تعذّر قراءة بيانات العيادة/);
   assert.match(run('explainError({message:"Failed to fetch"})'), /الاتصال/);
   assert.match(run('explainError({code:"totally-unknown"})'), /حدث خطأ غير متوقع/);
 });

@@ -1,11 +1,12 @@
 -- ============================================================
 -- تثبيت كامل من الصفر — نظام إدارة العيادات (عيادتي)
--- مستخرج حرفياً من SUPABASE_SQL في js/config.js
+-- مولّد حرفياً من sql/baseline.sql (مصدر الحقيقة الوحيد).
 -- شغّله مرة واحدة على مشروع Supabase جديد فارغ فقط.
 -- ⚠️ متشغّلش معه أي ملف من sql/migrations/
--- مولّد: scripts/extract-sql.sh — عدّل js/config.js مش الملف ده
+-- مولّد: scripts/extract-sql.sh — عدّل sql/baseline.sql مش الملف ده
 -- ============================================================
 
+-- نظام إدارة العيادات — إنشاء الجداول + سياسات الأمان (RLS)
 create table if not exists public.doctors (
   id uuid primary key references auth.users(id) on delete cascade,
   settings jsonb default '{}'::jsonb
@@ -2299,5 +2300,3 @@ revoke all on function public.patient_portal_clinical_history(uuid) from public,
 grant execute on function public.patient_portal_clinical_history(uuid) to anon, authenticated;
 
 commit;
-
-

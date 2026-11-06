@@ -11,7 +11,7 @@ const vm = require('node:vm');
 const root = path.join(__dirname, '..');
 const read = f => fs.readFileSync(path.join(root, f), 'utf8');
 const migration = read('sql/migrations/20261113_active_clinic.sql');
-const setup = read('js/config.js');
+const setup = read('sql/baseline.sql');
 const db = read('js/db.js');
 const state = read('js/state.js');
 const app = read('js/app.js');
@@ -27,10 +27,8 @@ test('20261113 is transactional, additive, and embedded verbatim in the fresh-in
   assert.match(migration, /^begin;/m);
   assert.match(migration, /^commit;/m);
   assert.ok(block.length > 1000);
-  assert.ok(setup.includes(block), 'SUPABASE_SQL contains the 20261113 body byte-for-byte');
-  const ctx = vm.createContext({});
-  vm.runInContext(setup + '\nglobalThis.__SQL = SUPABASE_SQL;', ctx);
-  assert.match(ctx.__SQL.trim(), /commit;$/);
+  assert.ok(setup.includes(block), 'baseline.sql embeds the 20261113 body byte-for-byte');
+  assert.match(setup.trim(), /commit;$/);
   assert.doesNotMatch(migration, /drop table|truncate table|delete from|alter table[\s\S]*?drop column/i);
 });
 

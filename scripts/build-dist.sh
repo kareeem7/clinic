@@ -37,8 +37,8 @@ copy js
 
 echo
 echo "→ فحص الناتج:"
-# ملاحظة: js/config.js فيه أوامر SQL زي "grant ... to service_role" جوه نص
-# SUPABASE_SQL — دي مش أسرار. اللي بندور عليه مفتاح فعلي.
+# ملاحظة: أوامر SQL زي "grant ... to service_role" موجودة في sql/baseline.sql
+# (خارج الأصول المنشورة أصلاً) — دي مش أسرار. اللي بندور عليه مفتاح فعلي.
 SECRETS=$(grep -rnE 'service_role_key[[:space:]]*[:=]|eyJ[A-Za-z0-9_-]{20,}' "$OUT" 2>/dev/null \
   | grep -i "service_role" | grep -v -iE 'grant|revoke|comment|^\s*--' || true)
 if [ -n "$SECRETS" ]; then

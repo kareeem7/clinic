@@ -1,0 +1,23 @@
+{
+  "product": "عيادتي",
+  "title": "عيادتي — نظام إدارة العيادات والمواعيد",
+  "description": "متابعة المرضى والمواعيد والقياسات والخطط الغذائية — من أي جهاز، حتى مع ضعف النت",
+  "locale": "ar_EG",
+  "themeColor": "#0d9488",
+  "favicon": "./favicon.svg",
+  "twitterCard": "summary_large_image",
+  "robots": "noindex, nofollow",
+  "allowIndexing": false,
+  "siteUrl": "https://clinic-staging.kemo8298.workers.dev",
+  "previewImage": "https://clinic-staging.kemo8298.workers.dev/preview.png",
+  "previewWidth": 1200,
+  "previewHeight": 630,
+  "pages": {
+    "index.html": {},
+    "reset.html": {
+      "title": "إعادة تعيين كلمة المرور — عيادتي",
+      "description": "صفحة استقبال رابط استعادة كلمة المرور لحساب الدكتور",
+      "robots": "noindex, nofollow, noarchive"
+    }
+  }
+}

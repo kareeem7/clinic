@@ -96,7 +96,7 @@ test('CORS preflight works and service failures do not disclose secrets', async 
 
 test('setup and migration remove direct upload and restrict the session RPC to service role', () => {
   const migration = fs.readFileSync(path.join(root, 'sql/migrations/20261101_portal_photo_upload.sql'), 'utf8').trim();
-  const config = fs.readFileSync(path.join(root, 'js/config.js'), 'utf8');
+  const config = fs.readFileSync(path.join(root, 'sql/baseline.sql'), 'utf8');
   assert.ok(config.includes(migration.replace('\nbegin;\n', '\n').replace(/\ncommit;$/, '')));
   assert.match(migration, /drop policy if exists portal_photo_insert on storage\.objects/);
   assert.doesNotMatch(config, /create policy portal_photo_insert/);

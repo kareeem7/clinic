@@ -9,22 +9,26 @@
    ===================================================================== */
 'use strict';
 
-const CACHE_NAME = 'clinic-shell-v4';
+const CACHE_NAME = 'clinic-shell-v12';
 
 const SHELL = [
   './',
   './index.html',
+  './landing.html',
   './reset.html',
+  './favicon.svg',
+  './preview.png',
   './css/admin.css',
   './css/appointments.css',
   './css/auth.css',
   './css/base.css',
   './css/components.css',
   './css/dashboard.css',
-  './css/landing.css',
   './css/layout.css',
   './css/main.css',
   './css/mfa-setup.css',
+  './css/mobile.css',
+  './css/offline-bar.css',
   './css/overlays.css',
   './css/patient-profile.css',
   './css/patients.css',
@@ -34,9 +38,11 @@ const SHELL = [
   './css/settings.css',
   './css/variables.css',
   './css/whatsapp.css',
+  './css/landing.css',
   './js/admin.js',
   './js/app.js',
   './js/appointments.js',
+  './js/app-gate.js',
   './js/archive.js',
   './js/config.js',
   './js/dashboard.js',
@@ -45,6 +51,7 @@ const SHELL = [
   './js/export.js',
   './js/health-monitoring.js',
   './js/labs.js',
+  './js/landing.js',
   './js/main.js',
   './js/message-style.js',
   './js/notes.js',
@@ -57,11 +64,9 @@ const SHELL = [
   './js/plans.js',
   './js/reset.js',
   './js/settings.js',
+  './js/site-config.js',
   './js/state.js',
   './js/utils.js',
-  './js/app-gate.js',
-  './js/landing.js',
-  './js/site-config.js',
   './js/whatsapp.js'
 ];
 

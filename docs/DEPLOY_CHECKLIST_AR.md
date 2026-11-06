@@ -98,7 +98,7 @@ GitHub → **Settings → Secrets and variables → Actions**:
 **نسخة احتياطية ما اتجرّبتش = مفيش نسخة احتياطية.**
 
 - [ ] **و١** نزّل ملف الـ dump من GitHub Actions artifacts
-- [ ] **و٢** أنشئ مشروع Supabase تاني مجاني (staging) وشغّل عليه `SUPABASE_SQL`
+- [ ] **و٢** أنشئ مشروع Supabase تاني مجاني (staging) وشغّل عليه `sql/00_install_all.sql`
 - [ ] **و٣** من جهازك: `./scripts/restore.sh clinic-*.dump "<رابط قاعدة staging>"`
 - [ ] **و٤** افتح staging واتأكد إن المرضى والمواعيد موجودين
 - [ ] **و٥** **سجّل النتيجة في `docs/RUNBOOK.md`**: التاريخ، حجم النسخة، عدد الصفوف، هل نجح
@@ -119,7 +119,7 @@ GitHub → **Settings → Secrets and variables → Actions**:
 | الغلط | الصح |
 | --- | --- |
 | تحط الـ API URL في `SUPABASE_DB_URL` | Connection string من تبويب **Database** |
-| تشغّل `SUPABASE_SQL` + الترحيلات مع بعض | واحدة منهم بس على قاعدة جديدة |
+| تشغّل `sql/00_install_all.sql` + الترحيلات مع بعض | واحدة منهم بس على قاعدة جديدة |
 | ترفع مجلد `tests/` أو `sql/` | استخدم `build-dist.sh` |
 | تضع `service_role` في أي ملف JS | الـ anon key فقط |
 | تفعّل `Confirm email` قبل بناء مسار التأكيد | عطّله دلوقتي |

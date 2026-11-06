@@ -50,7 +50,7 @@
 1. أنشئ حساب على [supabase.com](https://supabase.com) → **New project**.
 2. **Region:** `eu-central-1` (فرانكفورت) — أقرب وأسرع لمصر من أمريكا.
 3. **Database password:** خزّنها في مدير كلمات مرور فورًا.
-4. بعد الإنشاء: **SQL Editor** → الصق `SUPABASE_SQL` من `js/config.js` → **Run**.
+4. بعد الإنشاء: **SQL Editor** → الصق `sql/00_install_all.sql` (من `sql/baseline.sql`) → **Run**.
    - ده التثبيت الكامل من الصفر (١٧ جدول + RLS + RPC). ⚠️ **متشغّلش الترحيلات فوقه.**
 5. **Project Settings → API**: انسخ `Project URL` و`anon public key`.
 6. **Authentication → URL Configuration**: ضع رابط الدومين (هتعرفه من الخطوة ٣) + `https://<domain>/reset.html`.
@@ -139,7 +139,7 @@ const supabaseConfig = {
 
 | الدقايق | المهمة |
 | --- | --- |
-| ٠–١٥ | إنشاء مشروع Supabase + تشغيل `SUPABASE_SQL` |
+| ٠–١٥ | إنشاء مشروع Supabase + تشغيل `sql/00_install_all.sql` |
 | ١٥–٢٥ | تحديث `js/config.js` + إعداد Auth URLs |
 | ٢٥–٤٥ | النشر على Cloudflare Pages |
 | ٤٥–٥٥ | الأسرار في GitHub + تشغيل الـworkflows |

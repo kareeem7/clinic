@@ -9,7 +9,7 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../js/patients.js'), 'utf8');
 const dbSource = fs.readFileSync(path.join(__dirname, '../js/db.js'), 'utf8');
-const setupSource = fs.readFileSync(path.join(__dirname, '../js/config.js'), 'utf8');
+const setupSource = fs.readFileSync(path.join(__dirname, '../sql/baseline.sql'), 'utf8');
 const measurementMigration = fs.readFileSync(path.join(__dirname, '../sql/migrations/20261102_patient_baseline_height.sql'), 'utf8');
 
 function patientForm({ editing, weight = '', height = '', waist = '', hips = '', arm = '', features = true, failUpdate = false, patient = null, otherChecked = false, otherName = '' }) {

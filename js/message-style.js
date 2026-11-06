@@ -9,6 +9,8 @@
  */
 'use strict';
 
+const MSG_BRAND = (typeof APP_BRAND !== 'undefined' && APP_BRAND) || {};
+
 /* ============================================================
    js/message-style.js — المرحلة 13: تخصيص أسلوب رسائل الواتساب
    ------------------------------------------------------------
@@ -208,9 +210,9 @@ function pvData(style) {
   return {
     first: 'أحمد', weight: '85', diff: '7',
     weekday: 'السبت', date: '15 نوفمبر', time: '5:30 م',
-    doctor: State.settings.doctorName || 'د. محمد علي',
-    clinic: State.settings.clinicName || 'عيادة الشروق',
-    phone: State.settings.phone || '01005001234'
+    doctor: State.settings.doctorName || MSG_BRAND.doctor || 'الدكتور',
+    clinic: State.settings.clinicName || MSG_BRAND.clinic || 'عيادتي',
+    phone: State.settings.phone || '01xxxxxxxxx'
   };
 }
 

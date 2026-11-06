@@ -59,6 +59,7 @@ const Actions = {
   // زراير الكود في ملف المريض: لا يوجد أي تدوير/تغيير للكود
   'pt-code-wa':    ds => sendPatientCodeWA(ds.id),
   'pt-code-copy':  () => copyPatientCode(),
+  'pt-link-copy':  () => copyPortalLink(),
   'del-patient':   ds => deletePatient(ds.id),
   'view-patient':  ds => go('patient', ds.id),
   'wa-patient':    ds => waPatient(ds.id),
@@ -103,11 +104,6 @@ const Actions = {
     const url = await storagePhotoUrl(ds.x);
     if (url) window.open(url, '_blank');
     else toast('تعذّر فتح الصورة — انتهت صلاحية الرابط المؤقت', 'error');
-  },
-  // نسخ كود SQL الخاص بإعداد Supabase للحافظة بضغطة واحدة
-  'copy-sql': async () => {
-    try { await navigator.clipboard.writeText(SUPABASE_SQL.trim()); toast('تم نسخ الكود — الصقه في SQL Editor واضغط Run'); }
-    catch (e) { toast('انسخ الكود يدوياً من الصندوق', 'info'); }
   },
   // ---------- Phase 10: super admin + archive actions ----------
   'refresh-setup': () => location.reload(),
@@ -313,15 +309,12 @@ async function boot() {
   //    على جهاز المستخدم»، مش وضع ديمو ولا بيانات مرضى دائمة في المتصفح (راجع js/offline.js).
   const ok = await DB.init();
   if (!ok) {
-    if (DB.configError === 'setup-required' || DB.configError) {
-      $('#setupSql').textContent = SUPABASE_SQL.trim();
-      if (DB.configError && DB.configError !== 'setup-required') {
-        $('#setupErr').textContent = 'خطأ في الإعدادات أو الشبكة: ' + DB.configError;
-        $('#setupErr').classList.add('show');
-      }
-      showScreen('setup');
-    }
-    return; // blocking screen — لا يوجد وضع تجريبي للبيانات الحقيقية
+    // واجهة الإنتاج لا تعرض SQL ولا مفاتيح ولا تفاصيل إعداد داخلية.
+    // التشخيص الفني يبقى في سجل الأخطاء المركزي بمعرّف طلب فقط، بلا بيانات مرضى.
+    $('#setupErr').textContent = 'تعذّر الاتصال بالسيرفر — حاول تاني أو تواصل مع إدارة النظام.';
+    $('#setupErr').classList.add('show');
+    showScreen('setup');
+    return; // شاشة مانعة — لا يوجد وضع تجريبي ببيانات حقيقية
   }
 
   // 2) Chart.js global fonts/RTL
@@ -339,6 +332,15 @@ async function boot() {
   // reset.html يرسل الزائر هنا لطلب رابط جديد — نفتح تبويب الاستعادة مباشرة
   // (typeof يحمي اختبارات الـ DOM المحاكى اللي ما بتعرّفش location)
   if (typeof location !== 'undefined' && location.hash === '#reset') switchAuthTab('reset');
+  // لينك المشاركة (?portal=1 أو #portal) يفتح تبويب «دخول بوابة المرضى» مباشرة
+  // بدل شاشة دخول الدكتور. المعامل عام بلا كود/توكن/بيانات مريض.
+  if (typeof location !== 'undefined' && typeof URLSearchParams !== 'undefined') {
+    try {
+      const wantsPortal = new URLSearchParams(location.search || '').get('portal') === '1' ||
+        location.hash === '#portal';
+      if (wantsPortal) switchAuthTab('patient');
+    } catch (_) { /* معامل مشوه → نسيب شاشة الدخول الافتراضية */ }
+  }
   $('#adminLink').onclick = () => switchAuthTab('admin');
   $('#adBack').onclick = () => switchAuthTab('login');
 
@@ -491,6 +493,16 @@ async function boot() {
     } catch (ex) {
       err.textContent = explainError(ex);
       err.classList.add('show');
+      // الجلسة المنتهية/رمز منتهي الصلاحية → مسار واحد واضح بدل تكرار الكود على شاشة خطأ.
+      const restart = /session_not_found|mfa_challenge_expired|insufficient_aal|reauthentication_needed/i
+        .test(String((ex && ex.code) || '') + ' ' + String((ex && ex.message) || ''));
+      if (restart) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'btn btn-ghost sm'; b.id = 'mfaRestart';
+        b.textContent = 'سجّل الدخول من جديد';
+        b.onclick = async () => { await DB.signOut(); switchAuthTab('login'); $('#loginError').classList.remove('show'); };
+        err.appendChild(document.createElement('br')); err.appendChild(b);
+      }
     }
     btn.disabled = false;
     btn.innerHTML = '<i class="fa-solid fa-check"></i><span>تأكيد ودخول</span>';

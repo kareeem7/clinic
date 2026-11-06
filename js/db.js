@@ -229,12 +229,16 @@ const DB = {
     if (!fid) {
       const { data, error } = await this.sb.auth.mfa.listFactors();
       if (error) throw error;
-      const totp = (data.totp || []).find(f => f.status === 'verified') || (data.totp || [])[0];
-      if (!totp) throw { code: 'mfa_no_factor' };
+      const totp = (data && data.totp || []).find(f => f.status === 'verified')
+        || (data && data.totp || [])[0];
+      if (!totp || !totp.id) throw { code: 'mfa_no_factor' };
       fid = totp.id;
     }
     const ch = await this.sb.auth.mfa.challenge({ factorId: fid });
     if (ch.error) throw ch.error;
+    // GoTrue قد يُرجع data:null بلا error عند انتهاء الجلسة أو إلغاء الطلب.
+    // قراءة ch.data.id مباشرة كانت ترمي TypeError → «حدث خطأ غير متوقع».
+    if (!ch.data || !ch.data.id) throw { code: 'session_not_found' };
     const vr = await this.sb.auth.mfa.verify({ factorId: fid, challengeId: ch.data.id, code });
     if (vr.error) throw vr.error;
     return 'ready'; // caller decides the next screen (doctor loads data, admin doesn't)
@@ -258,10 +262,13 @@ const DB = {
   // Create a doctor account and its clinic profile row
   async register(name, spec, clinic, email, pass) {
     const { data, error } = await this.sb.auth.signUp({
-      email, password: pass, options: { data: { doctor_name: name, specialty: spec } }
+      email, password: pass,
+      options: { data: { doctor_name: name, specialty: spec, clinic_name: clinic } }
     });
     if (error) throw error;
-    // When "Confirm email" is enabled there is no immediate session
+    // When "Confirm email" is enabled there is no immediate session, so the
+    // doctors/clinics rows cannot be written yet (RLS needs auth.uid()). The
+    // first successful sign-in heals them via ensureDoctorProfile() below.
     if (!data.session) throw { code: 'confirm-email' };
     this.uid = data.user.id;
     const s0 = defaultClinicData().settings;
@@ -324,11 +331,58 @@ const DB = {
   // الاشتراك قبل سحب أي بيانات مرضى للذاكرة. جدول doctors مقصود ألا يكون
   // مقفولاً بـclinic_active في RLS حتى والدكتور الموقوف يقدر يقرأ سبب إيقافه.
   async loadSettingsRow() {
-    const { data: docRow, error } = await this.sb.from('doctors').select('settings').eq('id', this.uid).maybeSingle();
-    if (error) throw error;
-    if (!docRow) throw { code: 'clinic_profile_missing' };
+    const docRow = await this.readDoctorSettings();
     State.settings = normalizeClinicSettings(docRow.settings);
     return State.settings;
+  },
+
+  /* Self-healing read: a confirmed signup may have no doctors row when
+     "Confirm email" was enabled at registration time (signUp returns no
+     session, so register() cannot insert under RLS). Recreate it once, from
+     the Auth user's own metadata, before any clinical data is loaded. */
+  async readDoctorSettings() {
+    const read = () => this.sb.from('doctors').select('settings').eq('id', this.uid).maybeSingle();
+    let { data: docRow, error } = await read();
+    if (error) throw error;
+    if (!docRow) {
+      await this.ensureDoctorProfile();
+      ({ data: docRow, error } = await read());
+      if (error) throw error;
+    }
+    if (!docRow) throw { code: 'clinic_profile_missing' };
+    return docRow;
+  },
+
+  /* Idempotent: never overwrites an existing profile (no trial/subscription
+     reset). RLS doctors_own allows INSERT for auth.uid() = id; clinics_own
+     allows it once clinic_active() sees the freshly created doctors row. */
+  async ensureDoctorProfile() {
+    const { data, error } = await this.sb.auth.getUser();
+    if (error) throw error;
+    const user = data && data.user;
+    if (!user || user.id !== this.uid) throw { code: 'clinic_profile_missing' };
+    const meta = user.user_metadata || {};
+    const name = String(meta.doctor_name || '').trim();
+    const spec = String(meta.specialty || '').trim();
+    const clinicName = String(meta.clinic_name || '').trim() || (name ? 'عيادة ' + name : '');
+    const s0 = defaultClinicData().settings;
+    const settings = {
+      ...s0, doctorName: name, specialty: spec, clinicName,
+      account: { status: 'trial', endsAt: addDaysISO(todayISO(), TRIAL_DAYS) }
+    };
+    // ON CONFLICT DO NOTHING → existing settings (including suspension) survive
+    const { error: dErr } = await this.sb.from('doctors')
+      .upsert({ id: this.uid, settings }, { onConflict: 'id', ignoreDuplicates: true });
+    if (dErr) throw dErr;
+    const { data: branches, error: cErr } = await this.sb.from('clinics')
+      .select('id').eq('doctor_id', this.uid).is('deleted_at', null).limit(1);
+    if (cErr) throw cErr;
+    if (!branches || !branches.length) {
+      const { error: iErr } = await this.sb.from('clinics')
+        .insert({ doctor_id: this.uid, name: clinicName, is_default: true });
+      if (iErr) throw iErr;
+    }
+    return settings;
   },
 
   // (متوسط 1) جلب كل الصفوف على صفحات: PostgREST افتراضياً بيرجع أول 1000 صف
@@ -381,9 +435,7 @@ const DB = {
       const [roster, appointments, plans] = await Promise.all([
         this.loadRoster(), grabAppts(), grab('plans')
       ]);
-      const { data: docRow, error: docError } = await this.sb.from('doctors').select('settings').eq('id', this.uid).maybeSingle();
-      if (docError) throw docError;
-      if (!docRow) throw { code: 'clinic_profile_missing' };
+      const docRow = await this.readDoctorSettings();
       State.appointments = clinicRows(appointments);
       State.settings = normalizeClinicSettings(docRow.settings);
       State.healthAlerts = await this.loadRecentHealthAlerts();

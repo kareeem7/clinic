@@ -2,6 +2,7 @@
   "name": "clinic",
   "private": true,
   "scripts": {
-    "test": "node --test tests/*.test.cjs"
+    "test": "node --test --test-concurrency=1 tests/*.test.cjs",
+    "meta": "node scripts/build-site-meta.mjs"
   }
 }

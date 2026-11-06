@@ -14,7 +14,7 @@ const patient = read('js/patient.js');
 const main = read('js/main.js');
 const html = read('index.html');
 const migration = read('sql/migrations/20261112_patient_access_codes.sql');
-const setup = read('js/config.js');
+const setup = read('sql/baseline.sql');
 const seed = read('sql/demo_seed_synthetic.sql');
 const readme = read('README.md');
 const block = migration.slice(migration.indexOf('begin;') + 6, migration.lastIndexOf('commit;')).trim();
@@ -31,6 +31,8 @@ function harness({ code = 'SHB1-482913', clipboard = true, phone = '01000000001'
     normPhoneEG: () => '201000000001',
     navigator: clipboard ? { clipboard: { writeText: async t => { copied.push(t); } } } : {},
     window: { open: (url, target, features) => opened.push({ url, target, features }) },
+    location: { href: 'https://clinic-staging.kemo8298.workers.dev/', search: '', hash: '' },
+    URL, URLSearchParams,
     State: { settings: {} }
   });
   vm.runInContext(patient, ctx, { filename: 'patient.js' });
@@ -59,7 +61,7 @@ test('client accepts the new short numeric code AND the old long card code', () 
 
 test('SQL issues six digits, retries collisions, and still accepts long codes', () => {
   assert.ok(block.length > 1000);
-  assert.ok(setup.includes(block), 'SUPABASE_SQL still embeds 20261112 verbatim');
+  assert.ok(setup.includes(block), 'baseline.sql still embeds 20261112 verbatim');
   assert.match(migration, /PREFIX-######/);
   assert.match(migration, /for v_try in 1\.\.12 loop/);
   assert.match(migration, /exit when not exists \(select 1 from public\.patient_portal_credentials where code = v_code\)/);
@@ -78,12 +80,14 @@ test('demo seed uses short numeric codes', () => {
   assert.match(readme, /DEMO1-000001/);
 });
 
-test('the WhatsApp button copies the code and opens an EMPTY chat — code never in a URL', async () => {
+test('زر الواتساب بينسخ رسالة جاهزة (كود + لينك الصفحة) والكود لسه مش في أي URL', async () => {
   const h = harness();
   await h.render();
   assert.match(h.$('#patAccessBody').innerHTML, /SHB1-482913/);
   assert.match(h.$('#patAccessBody').innerHTML, /data-action="pt-code-wa"/);
   assert.match(h.$('#patAccessBody').innerHTML, /data-action="pt-code-copy"/);
+  assert.match(h.$('#patAccessBody').innerHTML, /data-action="pt-link-copy"/);
+  assert.match(h.$('#patAccessBody').innerHTML, /portal=1/, 'لينك الصفحة ظاهر في الكارت');
 
   await h.wa();
   assert.equal(h.opened.length, 1, 'one chat window');
@@ -93,8 +97,13 @@ test('the WhatsApp button copies the code and opens an EMPTY chat — code never
   assert.equal(h.opened[0].url.includes('?text='), false);
   assert.equal(h.opened[0].url.includes('482913'), false, 'the code is NOT in the URL');
   assert.equal(h.opened[0].url.includes('SHB1'), false);
-  assert.equal(h.copied.join(','), 'SHB1-482913', 'code copied locally instead');
-  assert.ok(h.toasts.some(t => /الصقه/.test(t[0])));
+  assert.equal(h.opened[0].url.includes('portal'), false, 'حتى اللينك مش في URL المحادثة');
+  const msg = h.copied.join(',');
+  assert.match(msg, /SHB1-482913/, 'الكود في الرسالة المنسوخة');
+  assert.match(msg, /https:\/\/clinic-staging\.kemo8298\.workers\.dev\/\?portal=1/, 'اللينك في نفس الرسالة');
+  assert.match(msg, /صفحتك/, 'الرسالة بتشرح اللينك');
+  assert.doesNotMatch(msg, /[?&]code=|#code=|482913&|token=/, 'الرسالة ما تحملش بيانات في query');
+  assert.ok(h.toasts.some(t => /الصقها/.test(t[0])));
 });
 
 test('the standalone copy button works and never opens a link', async () => {
@@ -127,11 +136,18 @@ test('no code-shaped data is embedded in markup or encoded into a link anywhere'
   assert.doesNotMatch(patient, /data-code=/);
   assert.doesNotMatch(html, /id="patAccessBody"[^>]*data-code/);
   assert.match(patient, /let patientAccessCode = '';/);
+  // لينك المشاركة العام: ?portal=1 فقط، وبيتمسح أي query/hash قديم قبل الإرسال
+  assert.match(patient, /u\.search = ''; u\.hash = '';/);
+  assert.match(patient, /u\.searchParams\.set\('portal', '1'\)/);
+  assert.doesNotMatch(patient, /clinic-staging\.kemo8298|workers\.dev/, 'النطاق مش مثبّت في الكود');
+  assert.match(main, /new URLSearchParams\(location\.search/);
+  assert.match(main, /switchAuthTab\('patient'\)/);
 });
 
 test('buttons are wired into the central dispatcher, with no rotate/change action', () => {
   assert.match(main, /'pt-code-wa':\s*ds => sendPatientCodeWA\(ds\.id\)/);
   assert.match(main, /'pt-code-copy':\s*\(\) => copyPatientCode\(\)/);
+  assert.match(main, /'pt-link-copy':\s*\(\) => copyPortalLink\(\)/);
   for (const src of [patient, main, html]) {
     assert.doesNotMatch(src, /pt-code-(?:rotate|change|regenerate)|rotate_patient_code|change_patient_code/);
   }
