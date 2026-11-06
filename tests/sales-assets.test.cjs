@@ -13,6 +13,14 @@ const siteConfig = read('js/site-config.js');
 const landingJs = read('js/landing.js');
 const seedSales = read('sql/demo_seed_sales.sql');
 
+/** يقرأ الأسعار من js/site-config.js بلا تنفيذ الملف */
+function SITE_PRICES() {
+  return {
+    m: Number(siteConfig.match(/priceMonthly:\s*(\d+)/)[1]),
+    y: Number(siteConfig.match(/priceYearly:\s*(\d+)/)[1]),
+  };
+}
+
 test('صفحة العرض لا تحمّل أي كود من التطبيق ولا بيانات اعتماد', () => {
   // الصفحة التسويقية مستقلة تمامًا: ممنوع تحميل supabase أو js/config.js
   assert.doesNotMatch(landing, /js\/config\.js/);
@@ -177,4 +185,79 @@ test('the gate does not hijack the landing page or any other page', () => {
   ['landing.html', 'reset.html'].forEach(page => {
     assert.doesNotMatch(read(page), /app-gate\.js/, page + ' must not load the gate');
   });
+});
+
+// ── الفيديو مربوط بصفحة البيع ──
+// الغرض: الفيديو كان بيتعمل ويترفع لكن الصفحة تفضل بتقول «جاي قريب».
+// الاختبارات دي بتثبّت الربط نفسه، مش وجود الملف بس.
+
+test('الفيديو والغلاف ملفات موجودة فعلاً على القرص', () => {
+  ['media/clinic_demo_60s.mp4', 'media/poster.jpg'].forEach(f => {
+    const p = path.join(root, f);
+    assert.ok(fs.existsSync(p), f + ' مفقود');
+    assert.ok(fs.statSync(p).size > 10000, f + ' حجمه صغير بشكل مريب');
+  });
+});
+
+test('صفحة البيع تشغّل الفيديو فعلاً — مش لافتة «جاي قريب»', () => {
+  const slot = landing.match(/<div id="demoVideoSlot">[\s\S]*?<\/div>/);
+  assert.ok(slot, 'مفيش demoVideoSlot');
+  assert.match(slot[0], /<video[^>]*controls/, 'المشغّل لازم يكون موجود بـ controls');
+  assert.match(slot[0], /src="media\/clinic_demo_60s\.mp4/, 'مصدر الفيديو لازم يكون مربوط');
+  assert.match(slot[0], /poster="media\/poster\.jpg/, 'الغلاف لازم يكون مربوط');
+  // اللافتة القديمة ممنوع ترجع
+  assert.doesNotMatch(landing, /جاي قريب/);
+  assert.doesNotMatch(landing, /lp-video-fallback/, 'البديل القديم اتشال');
+});
+
+test('SITE.demoVideo و SITE.demoPoster بيشاوروا على نفس الملفات وببصمة', () => {
+  const vm = siteConfig.match(/demoVideo:\s*'([^']+)'/);
+  const pm = siteConfig.match(/demoPoster:\s*'([^']+)'/);
+  assert.ok(vm && vm[1], 'demoVideo لازم يكون متملي');
+  assert.ok(pm && pm[1], 'demoPoster لازم يكون متملي');
+  assert.match(vm[1], /^media\/clinic_demo_60s\.mp4\?v=[0-9a-f]{7,}$/, 'demoVideo لازم يكون فيه ?v= بصمة');
+  assert.match(pm[1], /^media\/poster\.jpg\?v=[0-9a-f]{7,}$/, 'demoPoster لازم يكون فيه ?v= بصمة');
+  // نفس البصمة في الاثنين عشان مايتناقضوش
+  assert.equal(vm[1].split('?v=')[1], pm[1].split('?v=')[1]);
+  // والـ HTML يستخدم نفس البصمة
+  assert.ok(landing.includes(vm[1]), 'landing.html لازم يستخدم نفس رابط الفيديو');
+  assert.ok(landing.includes(pm[1]), 'landing.html لازم يستخدم نفس رابط الغلاف');
+});
+
+test('الـ service worker مايخزّنش الفيديو في كاش الواجهة', () => {
+  const sw = read('sw.js');
+  assert.match(sw, /SKIP_CACHE/, 'لازم يكون فيه استثناء للملفات الكبيرة');
+  assert.match(sw, /SKIP_CACHE\.test\(url\.pathname\)/, 'الاستثناء لازم يتنفّذ فعلاً في الـ fetch');
+  // الفيديو كبير: ٣.٩ ميجا × كل تحديث كاش = مساحة جهاز وبطء
+  const mp4 = fs.statSync(path.join(root, 'media/clinic_demo_60s.mp4')).size;
+  assert.ok(mp4 > 1024 * 1024, 'الفيديو أكبر من ١ ميجا — مايصحش يدخل SHELL');
+  assert.doesNotMatch(sw, /SHELL[\s\S]{0,4000}?clinic_demo_60s\.mp4/, 'الفيديو ممنوع في قائمة SHELL');
+});
+
+test('حزمة النشر فيها الفيديو والغلاف', () => {
+  const build = read('scripts/build-dist.sh');
+  assert.match(build, /media\/clinic_demo_60s\.mp4/, 'build-dist لازم ينسخ الفيديو');
+  assert.match(build, /media\/poster\.jpg/, 'build-dist لازم ينسخ الغلاف');
+  // وبيتأكد من وجودهم في الفحص النهائي
+  assert.match(build, /for f in[\s\S]*?media\/clinic_demo_60s\.mp4/, 'الفيديو لازم يكون في قائمة الملفات الحرجة');
+});
+
+// ── ملف التثبيت متزامن مع المصدر ──
+// الدرس: السعر اتغيّر في sql/baseline.sql ونسي يتغيّر في sql/00_install_all.sql،
+// فأي عيادة جديدة كانت هتاخد سعر مختلف عن اللي على صفحة البيع (300/3000).
+// الـ CI بيفحص ده، لكن الفحص ماكانش موجود جوه npm test — فالغلطة عدّت محليًا.
+test('sql/00_install_all.sql متزامن مع sql/baseline.sql', () => {
+  const { execFileSync } = require('node:child_process');
+  assert.doesNotThrow(() => {
+    execFileSync('bash', [path.join(root, 'scripts/extract-sql.sh'), '--check'],
+      { cwd: root, stdio: 'pipe' });
+  }, 'شغّل ./scripts/extract-sql.sh — الملف المولّد قديم');
+});
+
+test('سعر التأسيس 250/2500 في ملف التثبيت وفي SITE مع بعض', () => {
+  const install = read('sql/00_install_all.sql');
+  assert.match(install, /"monthly":\s*250,\s*"yearly":\s*2500/, 'سعر التثبيت لازم يكون 250/2500');
+  assert.doesNotMatch(install, /"monthly":\s*300/, 'السعر القديم 300 لسه موجود');
+  assert.equal(SITE_PRICES().m, 250);
+  assert.equal(SITE_PRICES().y, 2500);
 });

@@ -9,7 +9,13 @@
    ===================================================================== */
 'use strict';
 
-const CACHE_NAME = 'clinic-shell-v12';
+const CACHE_NAME = 'clinic-shell-v13';
+
+/* الملفات الكبيرة اللي مايصحش تدخل كاش الواجهة.
+   الفيديو ٣.٩ ميجا: لو دخل الكاش هيقعد يتحمّل كله ويملا مساحة الجهاز،
+   وهيبطّأ تحديث الموقع. سيبه للشبكة — المتصفح بيعمل Range requests بنفسه
+   وبيقدر ينقّل جوه الفيديو من غير ما يستنى تحميل كامل. */
+const SKIP_CACHE = /^\/media\//i;
 
 const SHELL = [
   './',
@@ -128,6 +134,11 @@ async function networkFirstShell(req, url) {
 }
 
 async function cacheFirstAsset(req, url) {
+  // الفيديو والصورة الغلاف: شبكة مباشرة بلا كاش ولا تدخّل.
+  // لازم ده يسبق caches.open — عشان ما نعملش match على كاش أصل مش بتاعنا.
+  if (url.origin === self.location.origin && SKIP_CACHE.test(url.pathname)) {
+    return fetch(req);
+  }
   const cache = await caches.open(CACHE_NAME);
   const hit = await cache.match(req);
   if (hit) return hit;

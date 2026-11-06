@@ -23,6 +23,14 @@
 /preview.png
   Cache-Control: public, max-age=604800
 
+# الفيديو والغلاف: فيهما ?v=<بصمة> فالتخزين الطويل آمن — أي إعادة توليد
+# بتغيّر البصمة وبالتالي الرابط.
+# Accept-Ranges ضروري عشان المتصفح ينقّل (seek) جوه الفيديو بدل ما يحمّله كله.
+/media/*
+  Cache-Control: public, max-age=604800, immutable
+  Accept-Ranges: bytes
+  X-Content-Type-Options: nosniff
+
 # HSTS: سنة كاملة. لا includeSubDomains ولا preload لأن النطاق
 # workers.dev عام/مرحلي؛ أضفهما فقط بعد ربط نطاق نهائي تملكه.
 /*
