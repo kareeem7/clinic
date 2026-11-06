@@ -36,6 +36,9 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: SQL install file is in sync with config.js
+        run: ./scripts/extract-sql.sh --check
+
       - name: Guard against committed secrets
         run: |
           # The anon key is public by design, but a service_role KEY must never
