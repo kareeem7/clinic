@@ -13,6 +13,14 @@ const siteConfig = read('js/site-config.js');
 const landingJs = read('js/landing.js');
 const seedSales = read('sql/demo_seed_sales.sql');
 
+/** يقرأ الأسعار من js/site-config.js بلا تنفيذ الملف */
+function SITE_PRICES() {
+  return {
+    m: Number(siteConfig.match(/priceMonthly:\s*(\d+)/)[1]),
+    y: Number(siteConfig.match(/priceYearly:\s*(\d+)/)[1]),
+  };
+}
+
 test('صفحة العرض لا تحمّل أي كود من التطبيق ولا بيانات اعتماد', () => {
   // الصفحة التسويقية مستقلة تمامًا: ممنوع تحميل supabase أو js/config.js
   assert.doesNotMatch(landing, /js\/config\.js/);
@@ -232,4 +240,24 @@ test('حزمة النشر فيها الفيديو والغلاف', () => {
   assert.match(build, /media\/poster\.jpg/, 'build-dist لازم ينسخ الغلاف');
   // وبيتأكد من وجودهم في الفحص النهائي
   assert.match(build, /for f in[\s\S]*?media\/clinic_demo_60s\.mp4/, 'الفيديو لازم يكون في قائمة الملفات الحرجة');
+});
+
+// ── ملف التثبيت متزامن مع المصدر ──
+// الدرس: السعر اتغيّر في sql/baseline.sql ونسي يتغيّر في sql/00_install_all.sql،
+// فأي عيادة جديدة كانت هتاخد سعر مختلف عن اللي على صفحة البيع (300/3000).
+// الـ CI بيفحص ده، لكن الفحص ماكانش موجود جوه npm test — فالغلطة عدّت محليًا.
+test('sql/00_install_all.sql متزامن مع sql/baseline.sql', () => {
+  const { execFileSync } = require('node:child_process');
+  assert.doesNotThrow(() => {
+    execFileSync('bash', [path.join(root, 'scripts/extract-sql.sh'), '--check'],
+      { cwd: root, stdio: 'pipe' });
+  }, 'شغّل ./scripts/extract-sql.sh — الملف المولّد قديم');
+});
+
+test('سعر التأسيس 250/2500 في ملف التثبيت وفي SITE مع بعض', () => {
+  const install = read('sql/00_install_all.sql');
+  assert.match(install, /"monthly":\s*250,\s*"yearly":\s*2500/, 'سعر التثبيت لازم يكون 250/2500');
+  assert.doesNotMatch(install, /"monthly":\s*300/, 'السعر القديم 300 لسه موجود');
+  assert.equal(SITE_PRICES().m, 250);
+  assert.equal(SITE_PRICES().y, 2500);
 });
