@@ -1,0 +1,49 @@
+name: Keep free project awake
+
+# Supabase pauses a Free project after 7 days without API requests.
+# This reads one public table through the anon key three times a day, which is
+# enough to reset the inactivity timer.
+#
+# ⚠️ This only prevents PAUSING. It does not create backups, it does not raise
+# the 500 MB database / 1 GB storage limits, and it does nothing during an
+# actual Supabase outage. Treat it as a convenience for the demo window only.
+#
+# Required repository secrets:
+#   SUPABASE_URL       — https://<ref>.supabase.co
+#   SUPABASE_ANON_KEY  — the anon (public) key, never the service_role key
+
+on:
+  schedule:
+    - cron: "17 */8 * * *"   # every 8 hours
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: ping
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request a lightweight endpoint
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ANON_KEY secrets are not configured"
+            exit 1
+          fi
+
+          # /auth/v1/health is unauthenticated and does not touch clinical tables.
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            --max-time 20 "$SUPABASE_URL/auth/v1/health")
+          echo "auth health: $code"
+
+          if [ "$code" != "200" ]; then
+            echo "::error::Supabase responded $code — the project may be paused"
+            echo "Resume it from the dashboard: Project -> Resume project"
+            exit 1
+          fi
+          echo "project is active"

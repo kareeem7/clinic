@@ -19,8 +19,8 @@
    طالما الحقلان فارغان يعمل النظام في "وضع تجريبي" ببيانات واقعية.
    ============================================================ */
 const supabaseConfig = {
-  url: "https://phmkvbszyaqagezpaduz.supabase.co", // Project URL — لا تضف /rest/v1
-  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBobWt2YnN6eWFxYWdlenBhZHV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0ODczODQsImV4cCI6MjEwOTA2MzM4NH0.AvjJeXFa6B8a9_w4o_ARuXH1Sv97thySLyqgAXqg5vo"   // ← anon public key (آمن للعرض — حماية البيانات الحقيقية بسياسات RLS)
+  url: "https://xfppempsztxidjmlwrza.supabase.co", // Project URL — لا تضف /rest/v1
+  anonKey: "sb_publishable_NmFcqcOrfiN3uvjiR7mzOQ_IWTFRIr-"   // ← anon public key (آمن للعرض — حماية البيانات الحقيقية بسياسات RLS)
 };
 const SUPABASE_READY = Boolean(supabaseConfig.url && supabaseConfig.anonKey);
 // Free trial window granted to every new signup. The super admin may change

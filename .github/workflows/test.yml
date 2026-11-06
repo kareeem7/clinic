@@ -1,0 +1,57 @@
+name: Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: npm test + syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Syntax check every JS file
+        run: |
+          fail=0
+          for f in js/*.js; do
+            if ! node --check "$f"; then
+              echo "::error file=$f::Syntax error in $f"
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Unit tests
+        run: npm test
+
+      - name: SQL install file is in sync with config.js
+        run: ./scripts/extract-sql.sh --check
+
+      - name: Guard against committed secrets
+        run: |
+          # The anon key is public by design, but a service_role KEY must never
+          # be committed. SQL grants such as "grant ... to service_role" are
+          # legitimate and must not trip this check, so match on the presence
+          # of an actual JWT/assignment rather than the role name alone.
+          HITS=$(grep -rnE 'service_role_key[[:space:]]*[:=]|eyJ[A-Za-z0-9_-]{20,}' \
+                   --include="*.js" --include="*.html" --include="*.toml" . \
+                 | grep -i "service_role" \
+                 | grep -v -iE 'grant|revoke|comment|^\s*--' || true)
+          if [ -n "$HITS" ]; then
+            echo "$HITS"
+            echo "::error::Possible service_role key committed to client code"
+            exit 1
+          fi
+          echo "no service_role key in client code"
