@@ -10,7 +10,7 @@
 ## ١) الخلاصة في ٣ سطور
 
 1. **الكود اتنشر فعلاً**: بناء الإنتاج على `main` نجح (`Workers Builds: clinic-staging` → `success`)، وقاعدة البيانات والدوال على Supabase متطبّقة ومتحقّق منها.
-2. **الاختبارات الآلية ناجحة**: 274 اختبار من 274. بس دي اختبارات «ورقية» (محاكاة)، **مش اختبار على جهاز حقيقي ولا على متصفح**.
+2. **الاختبارات الآلية ناجحة**: 283 اختبار من 283. بس دي اختبارات «ورقية» (محاكاة)، **مش اختبار على جهاز حقيقي ولا على متصفح**.
 3. **أكبر خطر دلوقتي مش عيب في الكود، هو إننا لسه ما جرّبناهوش في الواقع**. لحد ما تعمل الاختبارات اللي تحت، المشروع «معمارياً سليم» بس «مش مجرّب».
 
 ---
@@ -186,14 +186,14 @@ node --check supabase/functions/portal-photo-upload/standalone.ts
 السبب: مشروع Supabase القديم `clinicv2` حُذف نهائياً، بينما `js/config.js`
 و كاش الـ Service Worker `clinic-shell-v2` كانا لا يزالان يشيران إليه، فكان
 كل طلب يفشل بـ `Failed to fetch`. رُبط الإعداد بالمشروع الحي `clinicv3`
-(`xfppempsztxidjmlwrza`) ورُفع `CACHE_NAME` إلى `clinic-shell-v4`، كما ضُبط
+(`xfppempsztxidjmlwrza`) ورُفع `CACHE_NAME` إلى `clinic-shell-v5`، كما ضُبط
 `siteUrl` على `https://clinic-staging.kemo8298.workers.dev`.
 
 | # | الخطوة | النتيجة المتوقعة |
 |---|---|---|
 | 1 | افتح `https://clinic-staging.kemo8298.workers.dev/` في نافذة خاصة | تحميل الصفحة بلا شاشة «تعذّر الاتصال بالسيرفر» |
 | 2 | DevTools ← Sources/Network ← `js/config.js` | العنوان `https://xfppempsztxidjmlwrza.supabase.co` |
-| 3 | DevTools ← Application ← Service Workers | الإصدار `clinic-shell-v4` فقط، والكاشات الأقدم محذوفة |
+| 3 | DevTools ← Application ← Service Workers | الإصدار `clinic-shell-v5` فقط، والكاشات الأقدم محذوفة |
 | 4 | افتح تبويب عادي (لا Incognito) واعمل Hard Reload | نفس السلوك — الكاش القديم اتمسح عند تفعيل الـ SW |
 | 5 | الإعدادات ← حالة النظام ← فحص الاتصال | «متصل — الخدمة تستجيب» |
 | 6 | «حساب جديد» ← أنشئ حساب دكتور | نجاح (قاعدة البيانات فارغة؛ `disable_signup=false`)؛ ثم إعداد TOTP إلزامي |
@@ -204,3 +204,18 @@ node --check supabase/functions/portal-photo-upload/standalone.ts
 >
 > ⚠️ `portal-photo-upload` و `purge-patient-photos` غير منشورتين على المشروع
 > الجديد (قائمة Edge Functions فارغة)؛ رفع صور المتابعة سيفشل حتى تُنشر.
+
+
+---
+
+## حادثة 2026-11-06 (٢): خطأ الدخول بعد «حساب جديد»
+
+| # | الخطوة | المتوقع |
+|---|---|---|
+| 1 | سجّل دخول بالحساب اللي أنشأته وأدخل كود TOTP | يدخل لوحة التحكم بلا «تعذّر العثور على ملف العيادة» |
+| 2 | الإعدادات ← بيانات العيادة | الاسم/Tخصص اللي كتبته في التسجيل ظاهر (من `user_metadata`) |
+| 3 | الإعدادات ← الفروع | فرع افتراضي واحد بلا بادئة |
+| 4 | على حساب تجريبي جديد مع «Confirm email» مفعّل | بعد تأكيد البريد وأول دخول، يُنشأ الصف تلقائياً (self-heal) |
+| 5 | حساب موقوف (`account.status = suspended`) | يفضل موقوف؛ الإصلاح لا يعيد ضبط الاشتراك |
+
+> الكاش `clinic-shell-v5`: تأكد في DevTools ← Application ← Service Workers إن النسخة القديمة اتمسحت.
