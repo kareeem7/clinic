@@ -67,9 +67,16 @@ for (const page of ['index.html', 'reset.html']) {
 // seen), but the password-recovery endpoint is never indexed. A sitemap is
 // emitted only after allowIndexing = true and a real siteUrl is configured.
 write('robots.txt', [
+  '# ملفات تشغيل ونشر — ليست جزءاً من الموقع المنشور',
   'User-agent: *',
   'Allow: /',
   'Disallow: /reset.html',
+  'Disallow: /tests/',
+  'Disallow: /sql/',
+  'Disallow: /supabase/',
+  'Disallow: /docs/',
+  'Disallow: /scripts/',
+  'Disallow: /.github/',
   ''
 ].join('\n'));
 

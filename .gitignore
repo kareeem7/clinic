@@ -1,0 +1,6 @@
+# مخرجات البناء — لا تُرفع للمستودع
+/deploy/
+node_modules/
+*.log
+/clinic-deploy.zip
+*.bak

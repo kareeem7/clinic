@@ -1,3 +1,10 @@
+# ملفات تشغيل ونشر — ليست جزءاً من الموقع المنشور
 User-agent: *
 Allow: /
 Disallow: /reset.html
+Disallow: /tests/
+Disallow: /sql/
+Disallow: /supabase/
+Disallow: /docs/
+Disallow: /scripts/
+Disallow: /.github/

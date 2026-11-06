@@ -2292,5 +2292,3 @@ revoke all on function public.patient_portal_clinical_history(uuid) from public,
 grant execute on function public.patient_portal_clinical_history(uuid) to anon, authenticated;
 
 commit;
-
-

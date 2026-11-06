@@ -1,0 +1,14 @@
+# Deployment files are build/ops artifacts, not part of the published site.
+# Cloudflare Pages serves the repository root, so everything listed here is
+# excluded from the deployed bundle and from web crawling.
+
+/tests/*
+/.github/*
+/scripts/*
+/sql/*
+/supabase/*
+/docs/*
+/README.md
+/CHECKPOINT_REFACTOR.md
+/package.json
+/wrangler.toml
