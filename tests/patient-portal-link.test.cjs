@@ -103,7 +103,7 @@ test('اللينك عام بلا كود ولا توكن ولا بيانات مر
   assert.doesNotMatch(link, /SHB1|482913|code=|token=|phone=|patient_id=/i);
   assert.match(html, /id="ptCode"/);
   assert.doesNotMatch(html, /[?&]code=|#code=/);
-  assert.match(sw, /CACHE_NAME = 'clinic-shell-v12'/);
+  assert.match(sw, /CACHE_NAME = 'clinic-shell-v13'/);
 });
 
 test('الرسالة الجاهزة فيها الكود واللينك مع بعض، بس الكود مش جوه أي لينك', async () => {

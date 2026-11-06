@@ -35,7 +35,7 @@ test('offline-bar.css مستورد آخراً، ومُخزّن في SHELL بكا
   assert.equal(imports[imports.length - 1], 'offline-bar.css');
   assert.equal(new Set(imports).size, imports.length);
   assert.match(sw, /'\.\/css\/offline-bar\.css',/);
-  assert.match(sw, /CACHE_NAME = 'clinic-shell-v12'/);
+  assert.match(sw, /CACHE_NAME = 'clinic-shell-v13'/);
   // عقد offline-foundation: كل أوراق CSS لازم تكون في SHELL
   const shell = (sw.match(/const SHELL = \[([\s\S]*?)\];/) || [])[1] || '';
   for (const f of fs.readdirSync(path.join(root, 'css')).filter(f => f.endsWith('.css'))) {

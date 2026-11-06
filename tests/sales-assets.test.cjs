@@ -178,3 +178,58 @@ test('the gate does not hijack the landing page or any other page', () => {
     assert.doesNotMatch(read(page), /app-gate\.js/, page + ' must not load the gate');
   });
 });
+
+// ── الفيديو مربوط بصفحة البيع ──
+// الغرض: الفيديو كان بيتعمل ويترفع لكن الصفحة تفضل بتقول «جاي قريب».
+// الاختبارات دي بتثبّت الربط نفسه، مش وجود الملف بس.
+
+test('الفيديو والغلاف ملفات موجودة فعلاً على القرص', () => {
+  ['media/clinic_demo_60s.mp4', 'media/poster.jpg'].forEach(f => {
+    const p = path.join(root, f);
+    assert.ok(fs.existsSync(p), f + ' مفقود');
+    assert.ok(fs.statSync(p).size > 10000, f + ' حجمه صغير بشكل مريب');
+  });
+});
+
+test('صفحة البيع تشغّل الفيديو فعلاً — مش لافتة «جاي قريب»', () => {
+  const slot = landing.match(/<div id="demoVideoSlot">[\s\S]*?<\/div>/);
+  assert.ok(slot, 'مفيش demoVideoSlot');
+  assert.match(slot[0], /<video[^>]*controls/, 'المشغّل لازم يكون موجود بـ controls');
+  assert.match(slot[0], /src="media\/clinic_demo_60s\.mp4/, 'مصدر الفيديو لازم يكون مربوط');
+  assert.match(slot[0], /poster="media\/poster\.jpg/, 'الغلاف لازم يكون مربوط');
+  // اللافتة القديمة ممنوع ترجع
+  assert.doesNotMatch(landing, /جاي قريب/);
+  assert.doesNotMatch(landing, /lp-video-fallback/, 'البديل القديم اتشال');
+});
+
+test('SITE.demoVideo و SITE.demoPoster بيشاوروا على نفس الملفات وببصمة', () => {
+  const vm = siteConfig.match(/demoVideo:\s*'([^']+)'/);
+  const pm = siteConfig.match(/demoPoster:\s*'([^']+)'/);
+  assert.ok(vm && vm[1], 'demoVideo لازم يكون متملي');
+  assert.ok(pm && pm[1], 'demoPoster لازم يكون متملي');
+  assert.match(vm[1], /^media\/clinic_demo_60s\.mp4\?v=[0-9a-f]{7,}$/, 'demoVideo لازم يكون فيه ?v= بصمة');
+  assert.match(pm[1], /^media\/poster\.jpg\?v=[0-9a-f]{7,}$/, 'demoPoster لازم يكون فيه ?v= بصمة');
+  // نفس البصمة في الاثنين عشان مايتناقضوش
+  assert.equal(vm[1].split('?v=')[1], pm[1].split('?v=')[1]);
+  // والـ HTML يستخدم نفس البصمة
+  assert.ok(landing.includes(vm[1]), 'landing.html لازم يستخدم نفس رابط الفيديو');
+  assert.ok(landing.includes(pm[1]), 'landing.html لازم يستخدم نفس رابط الغلاف');
+});
+
+test('الـ service worker مايخزّنش الفيديو في كاش الواجهة', () => {
+  const sw = read('sw.js');
+  assert.match(sw, /SKIP_CACHE/, 'لازم يكون فيه استثناء للملفات الكبيرة');
+  assert.match(sw, /SKIP_CACHE\.test\(url\.pathname\)/, 'الاستثناء لازم يتنفّذ فعلاً في الـ fetch');
+  // الفيديو كبير: ٣.٩ ميجا × كل تحديث كاش = مساحة جهاز وبطء
+  const mp4 = fs.statSync(path.join(root, 'media/clinic_demo_60s.mp4')).size;
+  assert.ok(mp4 > 1024 * 1024, 'الفيديو أكبر من ١ ميجا — مايصحش يدخل SHELL');
+  assert.doesNotMatch(sw, /SHELL[\s\S]{0,4000}?clinic_demo_60s\.mp4/, 'الفيديو ممنوع في قائمة SHELL');
+});
+
+test('حزمة النشر فيها الفيديو والغلاف', () => {
+  const build = read('scripts/build-dist.sh');
+  assert.match(build, /media\/clinic_demo_60s\.mp4/, 'build-dist لازم ينسخ الفيديو');
+  assert.match(build, /media\/poster\.jpg/, 'build-dist لازم ينسخ الغلاف');
+  // وبيتأكد من وجودهم في الفحص النهائي
+  assert.match(build, /for f in[\s\S]*?media\/clinic_demo_60s\.mp4/, 'الفيديو لازم يكون في قائمة الملفات الحرجة');
+});

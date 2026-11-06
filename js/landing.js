@@ -25,20 +25,28 @@
   $$('[data-wa]').forEach(el => { el.href = waLink(); });
 
   // ── ٣) الفيديو ──
+  // الفيديو مكتوب في landing.html مباشرة (عشان يشتغل حتى لو JS اتأخر)،
+  // وهنا بنزامن مصدره مع SITE — لو المسار اتغير من مكان واحد بس.
   const slot = $('#demoVideoSlot');
-  if (slot && SITE.demoVideo) {
-    const v = document.createElement('video');
-    v.controls = true;
-    v.playsInline = true;
-    v.preload = 'metadata';
-    if (SITE.demoPoster) v.poster = SITE.demoPoster;
-    const src = document.createElement('source');
-    src.src = SITE.demoVideo;
-    src.type = 'video/mp4';
-    v.appendChild(src);
-    v.appendChild(document.createTextNode('متصفحك مش بيدعم تشغيل الفيديو.'));
-    slot.innerHTML = '';
-    slot.appendChild(v);
+  if (slot) {
+    const v = slot.querySelector('video');
+    if (v) {
+      if (SITE.demoVideo && v.getAttribute('src') !== SITE.demoVideo) {
+        v.src = SITE.demoVideo;
+      }
+      if (SITE.demoPoster) v.poster = SITE.demoPoster;
+    } else if (SITE.demoVideo) {
+      // صفحة قديمة بلا عنصر video → نبنيه
+      const nv = document.createElement('video');
+      nv.controls = true;
+      nv.playsInline = true;
+      nv.preload = 'metadata';
+      if (SITE.demoPoster) nv.poster = SITE.demoPoster;
+      nv.src = SITE.demoVideo;
+      nv.appendChild(document.createTextNode('متصفحك مش بيدعم تشغيل الفيديو.'));
+      slot.innerHTML = '';
+      slot.appendChild(nv);
+    }
   }
 
   // ── ٤) تتبّع بسيط لضغطات الـCTA (بلا أي بيانات شخصية) ──
