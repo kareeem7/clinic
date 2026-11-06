@@ -9,7 +9,7 @@
    ===================================================================== */
 'use strict';
 
-const CACHE_NAME = 'clinic-shell-v2';
+const CACHE_NAME = 'clinic-shell-v3';
 
 const SHELL = [
   './',
@@ -21,6 +21,7 @@ const SHELL = [
   './css/base.css',
   './css/components.css',
   './css/dashboard.css',
+  './css/landing.css',
   './css/layout.css',
   './css/main.css',
   './css/mfa-setup.css',
@@ -58,6 +59,8 @@ const SHELL = [
   './js/settings.js',
   './js/state.js',
   './js/utils.js',
+  './js/landing.js',
+  './js/site-config.js',
   './js/whatsapp.js'
 ];
 

@@ -49,7 +49,7 @@ function harness(store = memoryStore()) {
 }
 
 test('service worker precaches every local shell file and never touches Supabase', () => {
-  assert.match(sw, /CACHE_NAME = 'clinic-shell-v2'/);
+  assert.match(sw, /CACHE_NAME = 'clinic-shell-v3'/);
   assert.match(sw, /self\.addEventListener\('install'/);
   assert.match(sw, /self\.addEventListener\('activate'/);
   assert.match(sw, /self\.skipWaiting\(\)/);
@@ -59,6 +59,7 @@ test('service worker precaches every local shell file and never touches Supabase
   assert.match(sw, /Promise\.allSettled/, 'optional CDN failures must not break install');
   const shell = (sw.match(/const SHELL = \[([\s\S]*?)\];/) || [])[1] || '';
   const expected = [
+    './css/landing.css',
     ...fs.readdirSync(path.join(root, 'css')).filter(f => f.endsWith('.css')).map(f => './css/' + f),
     ...fs.readdirSync(path.join(root, 'js')).filter(f => f.endsWith('.js')).map(f => './js/' + f)
   ];
