@@ -101,3 +101,80 @@ test('the sales seed uses the real column names (guards against drift)', () => {
   assert.match(seedSales, /reading_type, recorded_at, glucose_value, glucose_type/);
   assert.doesNotMatch(seedSales, /kind, value_1/);
 });
+
+test('the gate sends new visitors to the landing page but never traps a signed-in user', () => {
+  const gate = read('js/app-gate.js');
+  const index = read('index.html');
+
+  // يُحمَّل أول سكربت — قبل أي حاجة من التطبيق
+  const firstScript = index.match(/<script src="([^"]+)"/);
+  assert.equal(firstScript[1], 'js/app-gate.js', 'gate is the first script');
+
+  // مسار الهروب موجود
+  assert.match(gate, /\?app=1/);
+  assert.match(gate, /#app/);
+  // جلسة سابقة تمنع التحويل
+  assert.match(gate, /clinic_doctor/);
+  // لو sessionStorage مقفول → استنتاج آمن = ابقَ في التطبيق
+  assert.match(gate, /catch[\s\S]{0,200}return true/);
+  // التحويل بـ replace (مش href) عشان زر الرجوع ما يعلّقش
+  assert.match(gate, /location\.replace\('landing\.html'\)/);
+  // ممنوع أي تعامل مع Supabase أو تخزين
+  assert.doesNotMatch(gate, /supabase|localStorage|fetch\(/);
+});
+
+test('every in-app entry point from the landing page carries the ?app=1 escape hatch', () => {
+  // كل رابط لـindex.html في صفحة العرض لازم يكون معاه ?app=1
+  const hrefs = [...landing.matchAll(/href="(index\.html[^"]*)"/g)].map(m => m[1]);
+  assert.ok(hrefs.length >= 3, 'landing links to the app');
+  hrefs.forEach(h => assert.match(h, /\?app=1/, 'رابط التطبيق لازم يحمل ?app=1: ' + h));
+});
+
+// ── اختبار وظيفي حقيقي للبوابة: نشغّل الملف فعليًا ببيئة وهمية ──
+const vm = require('node:vm');
+
+function runGate({ search = '', hash = '', sessionValue = null, sessionThrows = false }) {
+  const calls = [];
+  const sandbox = {
+    location: {
+      search, hash,
+      replace: url => calls.push(url),
+    },
+    sessionStorage: {
+      getItem() {
+        if (sessionThrows) throw new Error('blocked');
+        return sessionValue;
+      },
+    },
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(read('js/app-gate.js'), sandbox, { filename: 'app-gate.js' });
+  return calls;
+}
+
+test('the gate never redirects a user who already has a session', () => {
+  assert.deepEqual(runGate({ sessionValue: '{"id":"x"}' }), [], 'no redirect when clinic_doctor exists');
+});
+
+test('the gate never redirects when ?app=1 or #app is present', () => {
+  assert.deepEqual(runGate({ search: '?app=1' }), [], '?app=1 keeps the app');
+  assert.deepEqual(runGate({ hash: '#app' }), [], '#app keeps the app');
+  // حتى لو فيه باراميترات تانية
+  assert.deepEqual(runGate({ search: '?x=1&app=1&y=2' }), [], 'app=1 anywhere in the query');
+});
+
+test('the gate sends a brand-new visitor to the landing page', () => {
+  assert.deepEqual(runGate({}), ['landing.html'], 'new visitor → landing');
+  assert.deepEqual(runGate({ search: '?x=1' }), ['landing.html'], 'unrelated param still redirects');
+});
+
+test('the gate fails safe: a blocked sessionStorage keeps the user in the app', () => {
+  assert.deepEqual(runGate({ sessionThrows: true }), [], 'never trap the user behind a redirect error');
+});
+
+test('the gate does not hijack the landing page or any other page', () => {
+  // الملف بيتحمّل في index.html فقط — نتأكد إنه مش موجود في باقي الصفحات
+  ['landing.html', 'reset.html'].forEach(page => {
+    assert.doesNotMatch(read(page), /app-gate\.js/, page + ' must not load the gate');
+  });
+});
