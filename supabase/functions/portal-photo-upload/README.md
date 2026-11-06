@@ -15,26 +15,27 @@ portal tokens, not Supabase Auth JWTs. The session RPC is the authorization gate
 verify that the function is deployed with it and that no other policy grants
 anonymous writes to `patient-photos`. Do not rely on CORS as authorization.
 
-## Deployment (after approval and review)
+## Deployment status (verified 2026-11-05)
 
-1. Review the existing database functions and Storage policies. Test first in an
-   isolated project with synthetic data. Confirm the private bucket exists and
-   has the expected size and MIME restrictions. Review rate limits and quotas.
-2. Deploy this function to that project with Supabase CLI, e.g. after linking the
-   intended project: `supabase functions deploy portal-photo-upload --no-verify-jwt`.
-   The CLI bundles `index.ts` and `handler.mjs`; Supabase supplies `SUPABASE_URL`
-   and `SUPABASE_SERVICE_ROLE_KEY` inside the function runtime.
-3. Apply `sql/migrations/20261101_portal_photo_upload.sql` transactionally. It
-   removes the previous direct upload policy and creates the authorization RPC.
-   This migration does not remove unrelated permissive policies: audit them too.
-4. Deploy the compatible web client. In a staging project test successful upload,
-   invalid/expired/revoked tokens, RLS, session changes, doctor photo reads and
-   measurement saves using real HTTP requests and synthetic images. Keep a
-   rollback plan for the app, function and database before changing production.
+**Already applied to the real project `clinicv2` — do not repeat.**
+1. ✅ The function is deployed `ACTIVE` (v1, `verify_jwt = false`) through the
+   Supabase Management API as the single-file `standalone.ts`; the CLI path uses
+   `index.ts` + `handler.mjs`. `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
+   come from the Edge runtime, never from this repository.
+2. ✅ `sql/migrations/20261101_portal_photo_upload.sql` is applied:
+   `patient_portal_photo_authorize` is `service_role`-only and the permissive
+   `anon` INSERT policy `portal_photo_insert` was removed. **Do not re-apply.**
+3. ✅ The database schema, RPC grants and Storage policies were inspected via
+   Management API. A fake token returned `{ok:false}` and wrote no rows.
+4. ⬜ **Still pending:** real HTTP requests with synthetic images (success,
+   invalid/expired/revoked token, >5 MiB, wrong MIME/signature), RLS with two
+   synthetic clinics, doctor photo reads, session changes and measurement saves.
+   Keep a rollback plan for the app, function and database before production.
 
 The function checks the session twice, but the second check and Storage write
 are not atomic: session revocation immediately after the check can race a write.
 Uploads can also become orphaned if measurement saving fails or the user changes
-session; a retention/cleanup design is separate work. Until real deployment and
-end-to-end tests are completed, this code is not proof that uploads work in the
-actual project. Existing portal login/OTP and rate-limiting risks are unchanged.
+session; a retention/cleanup design is separate work. Deployment alone is **not**
+proof that uploads work end to end: `pg_cron`/Vault scheduling and a real HTTP
+test with synthetic images are still required. Existing portal login/OTP and
+rate-limiting risks are unchanged.

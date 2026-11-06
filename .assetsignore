@@ -9,6 +9,7 @@ node_modules/
 dist/
 deploy/
 package.json
+site.config.json
 package-lock.json
 wrangler.toml
 .assetsignore
@@ -16,7 +17,5 @@ wrangler.toml
 .gitignore
 README.md
 CHECKPOINT_REFACTOR.md
-_headers
-_redirects
 *.test.cjs
 *.bak

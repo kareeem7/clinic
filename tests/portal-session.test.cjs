@@ -10,7 +10,7 @@ const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'js/patient-portal.js'), 'utf8');
-const config = fs.readFileSync(path.join(root, 'js/config.js'), 'utf8');
+const config = fs.readFileSync(path.join(root, 'sql/baseline.sql'), 'utf8');
 const utils = fs.readFileSync(path.join(root, 'js/utils.js'), 'utf8');
 const escapeHtml = vm.runInNewContext(utils.match(/^const esc = .*$/m)[0] + '\nesc');
 

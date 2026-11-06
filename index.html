@@ -3,14 +3,35 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>عيادتي — نظام إدارة العيادات</title>
-<meta name="description" content="نظام إدارة عيادات العلاج الطبيعي والسمنة والنحافة — شبين الكوم">
+<!-- SITE-META:START -->
+<title>عيادتي — نظام إدارة العيادات والمواعيد</title>
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<meta name="description" content="متابعة المرضى والمواعيد والقياسات والخطط الغذائية — من أي جهاز، حتى مع ضعف النت">
 <meta name="theme-color" content="#0d9488">
+<meta name="robots" content="noindex, nofollow">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="عيادتي">
+<meta property="og:title" content="عيادتي — نظام إدارة العيادات والمواعيد">
+<meta property="og:description" content="متابعة المرضى والمواعيد والقياسات والخطط الغذائية — من أي جهاز، حتى مع ضعف النت">
+<meta property="og:locale" content="ar_EG">
+<meta property="og:image" content="https://clinic-staging.kemo8298.workers.dev/preview.png">
+<meta property="og:image:secure_url" content="https://clinic-staging.kemo8298.workers.dev/preview.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="عيادتي — نظام إدارة العيادات والمواعيد">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="عيادتي — نظام إدارة العيادات والمواعيد">
+<meta name="twitter:description" content="متابعة المرضى والمواعيد والقياسات والخطط الغذائية — من أي جهاز، حتى مع ضعف النت">
+<meta name="twitter:image" content="https://clinic-staging.kemo8298.workers.dev/preview.png">
+<link rel="canonical" href="https://clinic-staging.kemo8298.workers.dev/">
+<meta property="og:url" content="https://clinic-staging.kemo8298.workers.dev/">
+<!-- SITE-META:END -->
 <!-- CSP: scripts may load only from this origin and the pinned CDN; no inline
      JavaScript is used. Inline styles remain for legacy UI markup and are handled
-     separately. frame-ancestors must be configured as an HTTP header by hosting. -->
+     separately. frame-ancestors is delivered by the _headers file (a CSP meta
+     tag cannot set it); see tests/central-hardening.test.cjs. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%230d9488'/><text x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif'>✚</text></svg>">
 
 <!-- ====== الخطوط: Cairo للعربي ====== -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -56,7 +77,7 @@
           <li><i class="fa-solid fa-utensils"></i> مكتبة خطط تغذية جاهزة للربط بالمرضى</li>
           <li><i class="fa-solid fa-chart-line"></i> تقارير وإحصائيات شهرية عن العيادة</li>
         </ul>
-        <div class="brand-loc"><i class="fa-solid fa-location-dot"></i> شبين الكوم — المنوفية</div>
+        <div class="brand-loc"><i class="fa-solid fa-location-dot"></i> من أي جهاز، حتى مع ضعف النت</div>
       </div>
     </div>
     <div class="login-form">
@@ -137,7 +158,7 @@
         <div class="field">
           <label for="regName">اسم الدكتور *</label>
           <div class="in-wrap"><i class="fa-solid fa-user-doctor"></i>
-            <input id="regName" required placeholder="د. أحمد سامي" autocomplete="name">
+            <input id="regName" required placeholder="الاسم الكامل" autocomplete="name">
           </div>
         </div>
         <div class="field">
@@ -153,7 +174,7 @@
         <div class="field">
           <label for="regClinic">اسم العيادة</label>
           <div class="in-wrap"><i class="fa-solid fa-hospital"></i>
-            <input id="regClinic" placeholder="مركز الشروق للعلاج الطبيعي والتخسيس">
+            <input id="regClinic" placeholder="اسم العيادة أو المركز">
           </div>
         </div>
         <div class="field">
@@ -259,30 +280,21 @@
 </section>
 
 <!-- ============================================================
-     شاشة الإعداد المانعة — تظهر فقط لو Supabase غير مربوط
-     (Phase 1: لا يوجد وضع تجريبي للبيانات الحقيقية)
+     شاشة تعذّر الاتصال — واجهة إنتاج بلا SQL، بلا مفاتيح، بلا أسماء جداول.
+     مخطط التأسيس انتقل إلى sql/baseline.sql (خارج الأصول المنشورة)،
+     والربط مضبوط مركزياً في js/config.js بواسطة فريق النشر فقط.
      ============================================================ -->
 <section id="setupView" class="login-view" hidden>
-  <div class="login-card" style="grid-template-columns:1fr;max-width:820px">
+  <div class="login-card" style="grid-template-columns:1fr;max-width:560px">
     <div class="login-form">
       <div class="brand-logo" style="background:var(--teal-50);color:var(--teal-700)"><i class="fa-solid fa-plug-circle-exclamation"></i></div>
       <div>
-        <h2>خطوة واحدة قبل التشغيل: ربط Supabase</h2>
-        <p class="muted">هذا النظام لا يعمل ببيانات وهمية — بيانات المرضى تُحفظ على السيرفر، ولو انقطع النت تُحفظ مؤقتاً على هذا الجهاز فقط بصيغة مشفّرة حتى تُرفع تلقائياً. اربط مشروع Supabase مرة واحدة فقط:</p>
+        <h2>تعذّر الاتصال بالسيرفر</h2>
+        <p class="muted">النظام مش قادر يفتح بياناتك دلوقتي، ومفيش أي إعداد لازم تعمله من هنا. ولو انقطع النت، البيانات تُحفظ مؤقتاً على هذا الجهاز فقط بصيغة مشفّرة حتى تُرفع تلقائياً أول ما يرجع.</p>
       </div>
-      <ol class="steps-list setup-steps">
-        <li>أنشئ مشروعاً مجانياً من <b>supabase.com</b></li>
-        <li>افتح <b>SQL Editor</b> والصق كود إنشاء الجداول بالأسفل ثم اضغط <b>Run</b> (يشمل العزل والتدقيق والحذف الناعم وجداول الإدارة)</li>
-        <li>من <b>Project Settings ← API</b>: انسخ Project URL و anon public key والصقهما في <code dir="ltr">supabaseConfig</code> أعلى هذا الملف</li>
-        <li>حدّث الصفحة — وسيدخل النظام فوراً</li>
-      </ol>
       <div id="setupErr" class="form-error"></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-        <b style="font-size:13px"><i class="fa-solid fa-database"></i> كود إنشاء الجداول والسياسات:</b>
-        <button class="btn btn-outline sm" data-action="copy-sql"><i class="fa-solid fa-copy"></i> نسخ الكود</button>
-      </div>
-      <pre class="sql-box" id="setupSql"></pre>
-      <button class="btn btn-primary block" data-action="refresh-setup"><i class="fa-solid fa-rotate"></i> ربطت المشروع — حدّث الصفحة</button>
+      <button class="btn btn-primary block" data-action="refresh-setup"><i class="fa-solid fa-rotate"></i> إعادة المحاولة</button>
+      <p class="muted" style="font-size:13px">لو استمرت المشكلة تواصل مع إدارة النظام. لا تضف أي مفاتيح أو أكواد إلى هذه الصفحة.</p>
     </div>
   </div>
 </section>
@@ -461,14 +473,14 @@
   <aside id="sidebar">
     <div class="side-brand">
       <div class="side-logo"><i class="fa-solid fa-heart-pulse"></i></div>
-      <div><strong>عيادتي</strong><small id="sideClinicName">مركز الشروق</small>
+      <div><strong>عيادتي</strong><small id="sideClinicName" class="skel" aria-label="اسم العيادة قيد التحميل">عيادتي</small>
         <select id="activeClinic" class="input hide" aria-label="الفرع الحالي" style="margin-top:6px;font-size:12px;padding:5px 8px;width:100%"></select>
       </div>
     </div>
     <nav class="side-nav" id="sideNav"></nav>
     <div class="side-user">
       <div class="avatar" id="sideAvatar" style="background:var(--teal-600)">د</div>
-      <div><strong id="sideDoctor">د. أحمد سامي</strong><small>حساب الدكتور</small></div>
+      <div><strong id="sideDoctor" class="skel" aria-label="اسم الدكتور قيد التحميل">الدكتور</strong><small>حساب الدكتور</small></div>
       <button class="icon-btn" id="btnLogout" title="تسجيل الخروج"><i class="fa-solid fa-right-from-bracket"></i></button>
     </div>
   </aside>

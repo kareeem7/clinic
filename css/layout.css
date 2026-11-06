@@ -47,3 +47,7 @@ layout.css
 .view{display:none}
 .view.active{display:block;animation:fadeUp .35s ease both}
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* هيكل تحميل مؤقت لهوية العيادة/الدكتور: يظهر قبل قراءة settings/clinics،
+   وsyncShellIdentity() في js/app.js يشيل الـ skel بعد ما البيانات توصل. */
+#sideClinicName.skel,#sideDoctor.skel{color:transparent;background:rgba(255,255,255,.16);border-radius:6px;min-width:70px;min-height:1em}

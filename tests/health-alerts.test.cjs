@@ -7,7 +7,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
-const config = fs.readFileSync(path.join(root, 'js/config.js'), 'utf8');
+const config = fs.readFileSync(path.join(root, 'sql/baseline.sql'), 'utf8');
 const migration = fs.readFileSync(path.join(root, 'sql/migrations/20261104_glucose_unit_alerts.sql'), 'utf8');
 const portalSource = fs.readFileSync(path.join(root, 'js/patient-portal.js'), 'utf8');
 const doctorSource = fs.readFileSync(path.join(root, 'js/health-monitoring.js'), 'utf8');

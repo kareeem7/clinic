@@ -104,11 +104,6 @@ const Actions = {
     if (url) window.open(url, '_blank');
     else toast('تعذّر فتح الصورة — انتهت صلاحية الرابط المؤقت', 'error');
   },
-  // نسخ كود SQL الخاص بإعداد Supabase للحافظة بضغطة واحدة
-  'copy-sql': async () => {
-    try { await navigator.clipboard.writeText(SUPABASE_SQL.trim()); toast('تم نسخ الكود — الصقه في SQL Editor واضغط Run'); }
-    catch (e) { toast('انسخ الكود يدوياً من الصندوق', 'info'); }
-  },
   // ---------- Phase 10: super admin + archive actions ----------
   'refresh-setup': () => location.reload(),
   'view-archive': () => openArchiveModal(),
@@ -313,15 +308,12 @@ async function boot() {
   //    على جهاز المستخدم»، مش وضع ديمو ولا بيانات مرضى دائمة في المتصفح (راجع js/offline.js).
   const ok = await DB.init();
   if (!ok) {
-    if (DB.configError === 'setup-required' || DB.configError) {
-      $('#setupSql').textContent = SUPABASE_SQL.trim();
-      if (DB.configError && DB.configError !== 'setup-required') {
-        $('#setupErr').textContent = 'خطأ في الإعدادات أو الشبكة: ' + DB.configError;
-        $('#setupErr').classList.add('show');
-      }
-      showScreen('setup');
-    }
-    return; // blocking screen — لا يوجد وضع تجريبي للبيانات الحقيقية
+    // واجهة الإنتاج لا تعرض SQL ولا مفاتيح ولا تفاصيل إعداد داخلية.
+    // التشخيص الفني يبقى في سجل الأخطاء المركزي بمعرّف طلب فقط، بلا بيانات مرضى.
+    $('#setupErr').textContent = 'تعذّر الاتصال بالسيرفر — حاول تاني أو تواصل مع إدارة النظام.';
+    $('#setupErr').classList.add('show');
+    showScreen('setup');
+    return; // شاشة مانعة — لا يوجد وضع تجريبي ببيانات حقيقية
   }
 
   // 2) Chart.js global fonts/RTL

@@ -10,6 +10,11 @@
  */
 'use strict';
 
+/* الهوية المحايدة مصدرها الوحيد js/config.js ← APP_BRAND (يُحمّل قبل ده).
+   بعد الدخول تُستبدل فعلياً من State.settings / جدول clinics.
+   typeof يحمي سياقات الاختبارات اللي بتحمّل الملف ده لوحده. */
+const SHELL_BRAND = (typeof APP_BRAND !== 'undefined' && APP_BRAND) || {};
+
 /* ============================================================
    js/app.js — التنقل بين الأقسام وإدارة الشاشة
    ============================================================ */
@@ -70,22 +75,25 @@ function showScreen(name) {
 
 // مزامنة أسماء العيادة في الواجهة من الإعدادات
 function syncShellIdentity() {
+  // إزالة هيكل التحميل بعد ما القيم الحقيقية بقت جاهزة
+  $('#sideClinicName').classList.remove('skel');
+  $('#sideDoctor').classList.remove('skel');
   if (State.isAdmin) {
-    document.querySelector('.side-brand strong').textContent = 'إدارة النظام';
-    $('#sideClinicName').textContent = 'منظومة عيادتي';
-    $('#sideDoctor').textContent = 'مدير النظام';
+    document.querySelector('.side-brand strong').textContent = SHELL_BRAND.adminPanel || 'إدارة النظام';
+    $('#sideClinicName').textContent = SHELL_BRAND.systemName || 'منظومة عيادتي';
+    $('#sideDoctor').textContent = SHELL_BRAND.admin || 'مدير النظام';
     $('#sideAvatar').textContent = 'أ';
     return;
   }
   const s = State.settings;
-  document.querySelector('.side-brand strong').textContent = 'عيادتي';
-  $('#sideClinicName').textContent = s.clinicName || 'عيادتي';
-  $('#sideDoctor').textContent = s.doctorName || 'الدكتور';
+  document.querySelector('.side-brand strong').textContent = SHELL_BRAND.product || 'عيادتي';
+  $('#sideClinicName').textContent = s.clinicName || SHELL_BRAND.clinic || 'عيادتي';
+  $('#sideDoctor').textContent = s.doctorName || SHELL_BRAND.doctor || 'الدكتور';
   $('#sideAvatar').textContent = (s.doctorName || 'د').replace('د.', '').trim()[0] || 'د';
   // الدفعة ٣: اسم الفرع النشط + مُبدّل الفروع (يظهر لو فيه فرعين أو أكتر)
   const clinics = Array.isArray(State.clinics) ? State.clinics : [];
   const active = clinics.find(c => c.id === State.activeClinicId);
-  if (active) $('#sideClinicName').textContent = active.name || s.clinicName || 'عيادتي';
+  if (active) $('#sideClinicName').textContent = active.name || s.clinicName || SHELL_BRAND.clinic || 'عيادتي';
   const sel = $('#activeClinic');
   if (sel) {
     sel.innerHTML = clinics.length

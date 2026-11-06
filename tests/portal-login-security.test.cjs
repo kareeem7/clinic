@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.join(__dirname, '..');
-const setup = fs.readFileSync(path.join(root, 'js/config.js'), 'utf8');
+const setup = fs.readFileSync(path.join(root, 'sql/baseline.sql'), 'utf8');
 const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
 const portal = fs.readFileSync(path.join(root, 'js/patient-portal.js'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
