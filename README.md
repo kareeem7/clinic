@@ -506,3 +506,31 @@ node --check supabase/functions/portal-photo-upload/standalone.ts
 ⚠️ مفيش «دخول تلقائي باللينك» عن قصد: اللينك لو حمل الكود هيبقى ثغرة دائمة
 (الكود لا يتغيّر)، فالدخول لسه بيحتاج رقم الموبايل + الكود يتأكدوا على السيرفر.
 لا تغيير في أي SQL، ترحيل، RLS، Auth، بيانات أو صلاحيات. التحقق على جهاز/واتساب حقيقي لسه مطلوب.
+
+### حادثة 2026-11-06 (٩) — فشل عابر لوحدة اختبارات `main` بعد دمج #35
+
+**المؤكد:** بعد دمج #35، وحدة `npm test + syntax check` على `main` (`6c5d85f`) طلعت
+`failure` في خطوة «Unit tests» خلال ٨ ثوانٍ، رغم أن **نفس الشجرة بالضبط**
+(`git diff 5be57cd 6c5d85f` فارغ) نجحت على الفرع مرتين ومحلياً 333/333،
+و`Workers Builds: clinic-staging` على `main` نجح، والملفات الحيّة (`sw.js` v11،
+`js/patient.js`، `js/main.js`) متأكد منها. سجلات الـ job **غير متاحة** من بيئة الوكيل
+(`results-receiver.actions.githubusercontent.com` خارج النطاق المسموح)،
+و`gh run rerun` اترفض (`workflow file may be broken`) و`workflow_dispatch` رجع 403
+(صلاحيات Actions)، ف**سبب ذلك الفشل بعينه لم يتأكد بشكل قاطع**.
+
+**الاستنتاج المدعوم بالكود:** فحص الاختبارات كشف **race حقيقي بالتصميم**:
+`tests/central-hardening.test.cjs` و`tests/edge-standalone.test.cjs` يشغّلان `execFileSync`
+لسكربتات **تكتب فعلياً** `index.html` / `reset.html` / `robots.txt` / `standalone.ts`،
+بينما `node --test` يشغّل ملفات الاختبار في عمليات **متوازية** → أي اختبار آخر يقرأ
+`index.html` في لحظة الكتابة قد يقرأ ملفاً ناقصاً. هذا تفسير معقول لفشل يظهر مرة ويختفي،
+ولكنه **استنتاج وليس إثباتاً** لفشل `6c5d85f`.
+
+**الإصلاح الوقائي:** `package.json` → `node --test --test-concurrency=1 tests/*.test.cjs`
+(تسلسل ملفات الاختبار، بلا تغيير في أي اختبار ولا في ملفات واجهة منشورة،
+لذلك **لم يُرفع `CACHE_NAME`**، و`README` ما زال يشير إلى `clinic-shell-v11`).
+`preflight.sh` و CI يستخدمان `npm test` نفسه فيسري عليهما التسلسل.
+`tests/test-runner-safety.test.cjs`: 3 اختبارات تثبت الإعداد وتوثّق الملفات التي تكتب.
+**336/336 اختبار**، والزمن ما زال ~2.4 ثانية.
+
+> ⚠️ الـ check-run الأحمر على `6c5d85f` سجل تاريخي لا يمكن تعديله بدون صلاحيات Actions؛
+> المرجع هو نتيجة أحدث commit على `main`. لا يوجد أي تغيير في SQL أو Auth أو بيانات.
