@@ -25,7 +25,7 @@ cd media/render
 python3 ui.py         # يتأكد إن الـ 8 شاشات بتترسم (اختياري)
 python3 music.py      # → music.wav
 # ادمج الصوت: vocal 0dB + موسيقى −10dB + loudnorm I=-14
-python3 encode2.py    # → clinic_demo_v3.mp4  (53.7s)
+python3 encode2.py    # → clinic_demo_v3.mp4  (58.9s)
 ```
 
 ## ملاحظات فنية (اتعبتنا)
@@ -65,9 +65,10 @@ ffmpeg -i voice.mp3 -af "silencedetect=noise=-30dB:d=0.10" -f null - 2>&1 \
 | `screen_portal_health` | `js/patient-portal.js` (`renderPortalHealthTracking`) |
 | `screen_meds` | `js/notes.js` — حقل `meds` في ملاحظة الزيارة |
 | `screen_after_hours` | `js/patient-portal.js` — زرار «كلّم العيادة» بعد المواعيد |
-| `screen_plans` | `js/plans.js` → `renderPlans()` + `js/defaults.js` (10 خطط) |
+| `screen_plans` | `js/plans.js` → `renderPlans()` + `js/defaults.js` |
 | `screen_assign_plan` | `js/plans.js` → `openAssignModal()` |
 | `screen_portal_plan` | `js/patient-portal.js` → `portalPlanSheet()` |
+| `screen_wa_plan` | `js/plans.js` → `waPlan()` (نص رسالة الواتساب) |
 
 > **درس RTL مهم:** أي رقم/وحدة لاتينية جوه جملة عربية بتتعكس. الحل: ارسم الرقم في نداء
 > `text_r`/`text_l` مستقل، والوحدة في نداء تاني — مش في نفس السلسلة.

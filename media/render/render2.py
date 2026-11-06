@@ -690,47 +690,54 @@ def sc_offhours_summary(lt):
 
 
 def sc_plans(lt):
-    """مكتبة الخطط — عشر خطط جاهزة."""
+    """مكتبة خطط الدكتور — كل خططه في مكان واحد."""
     src = ui.SCREENS["plans"]().convert("RGB").resize((W, H), Image.LANCZOS)
     k = ease((lt - 0.5) / 1.6) if lt > 0.5 else 0.0
     zoom = 1.01 + 0.03 * k
     img = zoom_pan(src, 1.0, z0=zoom, z1=zoom, p0=(-0.02 * k, -0.02 * k), p1=(-0.02 * k, -0.02 * k))
-    return frame_ui(img, lt, "عشر خطط تغذية… جاهزة")
+    return frame_ui(img, lt, "خططك… تضيفها مرة واحدة")
 
 
 def sc_assign_plan(lt):
     """ربط الخطة بمريض + تواريخ."""
     src = ui.SCREENS["assign_plan"]().convert("RGB").resize((W, H), Image.LANCZOS)
-    return frame_ui(src, lt, "اربطها بأي مريض… وتاريخ البدء")
+    return frame_ui(src, lt, "وتربطها بأي مريض… بضغطة")
+
+
+def sc_wa_plan(lt):
+    """إرسال الخطة كاملة على واتساب بضغطة."""
+    shot = ui.SCREENS["wa_plan"]().convert("RGB").resize((W, H), Image.LANCZOS)
+    # إجراء الدكتور — إطار متصفح مش شارة موبايل المريض
+    return frame_ui(shot, lt, "وتبعتها واتساب… بضغطة")
 
 
 def sc_portal_plan(lt):
     """المريض يشوف خطته: يوم كام من كام + وجبات النهاردة."""
     shot = ui.SCREENS["portal_plan"]().convert("RGB")
-    return frame_portal(shot, lt, "والمريض شايف خطته ويومه كام")
+    return frame_portal(shot, lt, "والمريض شايف يومه ووجباته")
 
 SCENES = [
-    (0.00, 2.04, sc_pain),
-    (2.04, 2.82, sc_question),
-    (2.82, 5.22, sc_after_hours),
-    (5.22, 7.60, sc_offhours_summary),
-    (7.60, 10.68, sc_intro),
-    (10.68, 12.50, sc_labs),
-    (12.50, 17.20, sc_plans),
-    (17.20, 21.34, sc_assign_plan),
-    (21.34, 25.14, sc_portal_plan),
-    (25.14, 26.32, sc_portal_intro),
-    (26.32, 29.80, sc_portal_health),
-    (29.80, 36.28, sc_health),
-    (36.28, 40.78, sc_meds),
-    (40.78, 44.60, sc_doctor_bond),
-    (44.60, 49.16, sc_referral),
-    (49.16, 52.58, sc_price),
-    (52.58, 53.75, sc_end),
+    (0.00, 2.06, sc_pain),
+    (2.06, 3.38, sc_question),
+    (3.38, 6.68, sc_after_hours),
+    (6.68, 8.16, sc_offhours_summary),
+    (8.16, 10.32, sc_intro),
+    (10.32, 13.90, sc_labs),
+    (13.90, 17.62, sc_plans),
+    (17.62, 21.70, sc_assign_plan),
+    (21.70, 26.84, sc_wa_plan),
+    (26.84, 32.54, sc_portal_plan),
+    (32.54, 36.02, sc_portal_intro),
+    (36.02, 39.20, sc_portal_health),
+    (39.20, 42.90, sc_meds),
+    (42.90, 46.44, sc_doctor_bond),
+    (46.44, 51.24, sc_referral),
+    (51.24, 56.86, sc_price),
+    (56.86, 58.87, sc_end),
 ]
 
 
-DURATION = 53.75
+DURATION = 58.87
 
 
 def frame_at(t):
