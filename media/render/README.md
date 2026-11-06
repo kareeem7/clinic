@@ -8,8 +8,8 @@
 | `artext.py` | تشكيل وترتيب العربي (uharfbuzz + freetype-py) |
 | `ui.py` | **إعادة بناء شاشات التطبيق** (Cairo + ألوان css/variables.css) |
 | `music.py` | موسيقى خلفية متولّدة (128 BPM، Am–F–C–G) |
-| `render2.py` | المشاهد + حركة الكاميرا + الكابشنات |
-| `encode2.py` | يبني MP4 مع الصوت الميكس |
+| `render2.py` | المشاهد + حركة الكاميرا + الكابشنات + **إطارات بوابة المريض** |
+| `encode2.py` | يبني MP4 مع الصوت الميكس (`mix.wav`) |
 | `render.py` / `encode.py` | النسخة الأولى (بدون لقطات ولا موسيقى) — محفوظة للمرجع |
 
 ## المتطلبات
@@ -20,9 +20,12 @@ pip install uharfbuzz freetype-py pillow imageio-ffmpeg
 (بتتحوّل من woff2 بـ fontTools، وتُدمج العربي+اللاتيني بـ `fontTools.merge.Merger`).
 
 ## التشغيل
-```
+```bash
 cd media/render
-python3 encode.py     # → clinic_demo.mp4
+python3 ui.py         # يتأكد إن الـ 8 شاشات بتترسم (اختياري)
+python3 music.py      # → music.wav
+# ادمج الصوت: vocal 0dB + موسيقى −10dB + loudnorm I=-14
+python3 encode2.py    # → clinic_demo_v3.mp4  (42.6s)
 ```
 
 ## ملاحظات فنية (اتعبتنا)
@@ -33,6 +36,14 @@ python3 encode.py     # → clinic_demo.mp4
   لكن لو النص كله أرقام (`"250"`) لازم مايتعكشش → `_has_rtl()` بتتحقق الأول.
 - قيم `hbf.scale` = 26.6 fixed point → اقسم على 64، **مش** على upem.
 
+
+## بوابة المريض في الفيديو (v4)
+
+الشاشات دي **توضيح للمنتج**، مش لقطات من نسخة منشورة — بوابة المريض في المنتج نفسه
+مقفولة للجمهور دلوقتي. الشاشات الأربعة موجودة في `ui.py`:
+`screen_portal_home` / `screen_portal_log` / `screen_portal_progress` /
+`screen_portal_appointments`، وبتتعرض في الفيديو بإطار `frame_portal()`
+(شاشة كاملة + شارة «من موبايل المريض») عشان تبقى مقروءة.
 
 ## ليه مفيش سكرين شوت حقيقي؟
 البيئة فيها `@sparticuz/chromium` و PySide6 WebEngine، بس **الاتنين بيفشلوا**:

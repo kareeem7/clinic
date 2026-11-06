@@ -23,7 +23,7 @@ def _ft_face(path, size):
     key = ("ft", path, size)
     if key not in _cache:
         f = freetype.Face(path)
-        f.set_char_size(size * 64)
+        f.set_char_size(int(round(size * 64)))
         _cache[key] = f
     return _cache[key]
 
@@ -33,7 +33,7 @@ def _fix_digits(text):
     نعكس كل تجميعة أرقام قبل التشكيل عشان تظهر صح بعد الرصف."""
     def rev(m):
         return m.group(0)[::-1]
-    return re.sub(r"[0-9]+(?:[.,][0-9]+)?", rev, text)
+    return re.sub(r"[0-9]+(?:[:.,/][0-9]+)*", rev, text)
 
 
 _RTL_RE = re.compile("[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]")

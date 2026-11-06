@@ -442,11 +442,289 @@ def screen_appointments():
     return img
 
 
+
+
+# ═════════════════════ بوابة المريض (المرحلة 14) ═════════════════════
+# من css/portal.css: أخضر #16a34a / #15803d، كروت 22px، عرض أقصى 680px
+
+GREEN_P = (22, 163, 74)
+GREEN_D = (21, 128, 61)
+GREEN_L = (34, 197, 94)
+P_BG = (242, 246, 246)
+
+
+def _portal_base():
+    """خلفية البوابة: تدرّج أخضر فاتح لفوق + عرض 680px في النص."""
+    img = Image.new("RGBA", (W, H), P_BG + (255,))
+    d = ImageDraw.Draw(img)
+    for y in range(H):
+        t = min(1.0, y / (H * 0.40))
+        c = tuple(int((234, 246, 235)[i] + (P_BG[i] - (234, 246, 235)[i]) * t) for i in range(3))
+        d.line([(0, y), (W, y)], fill=c + (255,))
+    return img, d
+
+
+def _portal_top(img, d, header="#15803d"):
+    """الشريط العلوي للبوابة."""
+    cx0, cx1 = 300, 980            # عرض 680px متمركز
+    d.ellipse([px(cx1 - 58), px(20), px(cx1 - 16), px(62)], fill=GREEN_P)
+    icon(img, "pulse", cx1 - 37, 41, 11, (255, 255, 255))
+    text_r(img, "مركز الشروق", cx1 - 70, 38, 16, INK, 900)
+    text_r(img, "د. أحمد سامي — أخصائي تغذية", cx1 - 70, 56, 11.5, MUTED, 700)
+    rrect(d, (cx0, 24, cx0 + 84, 58), 12, fill=SURFACE, outline=LINE, width=1)
+    text_c(img, "خروج", cx0 + 42, 46, 11, (61, 86, 84), 800)
+    return cx0, cx1
+
+
+
+def _grad_card(img, x0, y0, x1, y1, c1, c2, radius):
+    """كارت بتدرّج رأسي مقصوص على الحواف المستديرة."""
+    w, h = int((x1 - x0) * S), int((y1 - y0) * S)
+    lay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    ld = ImageDraw.Draw(lay)
+    for y in range(h):
+        t = y / max(1, h)
+        c = tuple(int(c1[i] + (c2[i] - c1[i]) * t * 0.92) for i in range(3))
+        ld.line([(0, y), (w, y)], fill=c + (255,))
+    mask = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, w - 1, h - 1], radius=int(radius * S), fill=255)
+    img.paste(lay, (px(x0), px(y0)), mask)
+
+
+def _p_card(img, d, x0, y, w, h, fill=SURFACE, radius=22, outline=LINE):
+    rrect(d, (x0, y, x0 + w, y + h), radius, fill=fill, outline=outline, width=1)
+
+
+def screen_portal_home():
+    """صفحة المريض الرئيسية — موعده القادم + قياسه + تقدمه."""
+    img, d = _portal_base()
+    cx0, cx1 = _portal_top(img, d)
+    w = cx1 - cx0
+
+    # ترحيب
+    d.rounded_rectangle([px(cx1 - 52), px(86), px(cx1), px(138)], radius=px(16), fill=GREEN_P)
+    text_c(img, "م", cx1 - 26, 128, 26, (255, 255, 255), 900)
+    text_r(img, "أهلاً منى", cx1 - 64, 108, 22, INK, 900)
+    text_r(img, "خطوتك النهاردة أقرب لهدفك", cx1 - 64, 128, 12.5, MUTED, 700)
+
+    # كارت الموعد القادم — تدرّج أخضر مقصوص بشكل صحيح
+    _grad_card(img, cx0, 156, cx1, 272, GREEN_D, GREEN_P, 22)
+    text_r(img, "◷  موعدك القادم", cx1 - 24, 182, 12.5, (212, 236, 217), 800)
+    text_r(img, "الخميس 6 نوفمبر — 3:45 م", cx1 - 24, 212, 22, (255, 255, 255), 900)
+    text_r(img, "متابعة شهرية · د. أحمد سامي", cx1 - 24, 234, 12, (212, 236, 217), 700)
+    rrect(d, (cx0 + 22, 240, cx0 + 150, 268), 12, fill=(255, 255, 255))
+    text_c(img, "أكّد الحضور", cx0 + 86, 259, 11, GREEN_D, 900)
+
+    # آخر قياس + الخطة
+    half = (w - 14) / 2
+    _p_card(img, d, cx0, 288, half, 108)
+    text_r(img, "آخر قياس", cx0 + half - 20, 314, 12, MUTED, 800)
+    text_r(img, "83.2 كجم", cx0 + half - 20, 350, 26, GREEN_D, 900)
+    text_r(img, "نزلت 9.2 كجم", cx0 + half - 20, 378, 11.5, GREEN_P, 800)
+
+    bx = cx0 + half + 14
+    _p_card(img, d, bx, 288, half, 108)
+    text_r(img, "خطتك الغذائية", bx + half - 20, 314, 12, MUTED, 800)
+    text_r(img, "4 وجبات", bx + half - 20, 348, 22, INK, 900)
+    text_r(img, "النهاردة جاهزة", bx + half - 20, 376, 11.5, MUTED, 700)
+
+    # تقدمك
+    _p_card(img, d, cx0, 412, w, 106)
+    text_r(img, "تقدمك نحو الهدف", cx1 - 22, 440, 14, INK, 900)
+    text_l(img, "83.2 من 72 كجم", cx0 + 24, 440, 12, MUTED, 800)
+    pct = 0.68
+    rrect(d, (cx0 + 22, 462, cx1 - 22, 478), 8, fill=(229, 237, 230))
+    rrect(d, (cx0 + 22, 462, cx0 + 22 + (w - 44) * pct, 478), 8, fill=GREEN_P)
+    text_r(img, "خلصت 68% — فاضل 11.2 كجم", cx1 - 22, 502, 12, GREEN_D, 800)
+
+    # نصيحة + تواصل
+    rrect(d, (cx0, 534, cx1, 592), 16, fill=(253, 251, 247), outline=(229, 216, 184), width=1.5)
+    text_r(img, "اشرب كمية كافية من المية — كل يوم التزام خطوة لهدفك!", cx1 - 20, 570, 13, (138, 109, 29), 700)
+
+    # شريط التنقل السفلي (4 تبويبات من الموقع)
+    _pt_bottom(img, d, "home")
+    return img
+
+
+def _pt_bottom(img, d, active="home"):
+    """`.pt-bottom` — 4 تبويبات، العرض 680px."""
+    cx0, cx1 = 300, 980
+    y0 = 606
+    rrect(d, (cx0, y0, cx1, y0 + 78), 20, fill=SURFACE, outline=LINE, width=1)
+    tabs = [("home", "الرئيسية", "home"), ("progress", "تطورك", "chart"),
+            ("log", "سجّل قياس", "plus"), ("appointments", "مواعيدك", "calendar")]
+    tw = (cx1 - cx0 - 16) / 4
+    for i, (key, label, ic) in enumerate(tabs):
+        bx = cx1 - 8 - (i + 1) * tw
+        on = key == active
+        if on:
+            rrect(d, (bx + 3, y0 + 8, bx + tw - 3, y0 + 70), 14, fill=GREEN_P)
+        col = (255, 255, 255) if on else (122, 148, 145)
+        icon(img, ic, bx + tw / 2, y0 + 32, 9, col)
+        text_c(img, label, bx + tw / 2, y0 + 60, 10.5, col, 800)
+
+
+def screen_portal_log():
+    """تبويب «سجّل قياس» — المريض يسجّل وزنه من البيت."""
+    img, d = _portal_base()
+    cx0, cx1 = _portal_top(img, d)
+    w = cx1 - cx0
+
+    text_r(img, "سجّل قياساتك النهاردة", cx1, 100, 20, INK, 900)
+    text_r(img, "الرقم ده هيوصل للدكتور على طول", cx1, 122, 12, MUTED, 700)
+
+    _p_card(img, d, cx0, 142, w, 400)
+    text_r(img, "الوزن (كجم) *", cx1 - 22, 176, 12.5, (43, 92, 63), 900)
+
+    # stepper — نفس عنصر الموقع
+    rrect(d, (cx0 + 22, 192, cx1 - 22, 250), 16, fill=(247, 250, 249), outline=LINE, width=1.5)
+    rrect(d, (cx0 + 30, 200, cx0 + 74, 242), 12, fill=(255, 255, 255))
+    text_c(img, "−", cx0 + 52, 234, 22, GREEN_D, 900)
+    text_c(img, "83.5", (cx0 + cx1) / 2, 234, 30, INK, 900)
+    rrect(d, (cx1 - 74, 200, cx1 - 30, 242), 12, fill=(255, 255, 255))
+    text_c(img, "+", cx1 - 52, 234, 22, GREEN_D, 900)
+    text_r(img, "رقم بين 30 و 250 بخطوة 0.5 كجم", cx1 - 22, 268, 11, MUTED, 700)
+
+    # حقول اختيارية
+    text_r(img, "محيط الخصر (سم)", cx1 - 22, 300, 11.5, (43, 92, 63), 900)
+    text_r(img, "محيط الأرداف (سم)", cx1 - w / 2 - 6, 300, 11.5, (43, 92, 63), 900)
+    for i, v in enumerate(["95", "110"]):
+        bx1 = cx1 - 22 - i * (w / 2 - 8)
+        bx0 = bx1 - (w / 2 - 22)
+        rrect(d, (bx0, 312, bx1, 356), 12, fill=(255, 255, 255), outline=LINE, width=1)
+        text_r(img, v, bx1 - 16, 342, 16, INK, 700)
+
+    # إحساسك النهاردة
+    text_r(img, "إحساسك النهاردة (اختياري)", cx1 - 22, 390, 11.5, (43, 92, 63), 900)
+    rrect(d, (cx0 + 22, 402, cx1 - 22, 466), 14, fill=(255, 255, 255), outline=LINE, width=1)
+    text_r(img, "حاسة أخف، والنوم بقى أحسن بكتير", cx1 - 38, 430, 12.5, (120, 140, 138), 600)
+
+    # صورة المتابعة
+    rrect(d, (cx0 + 22, 480, cx1 - 22, 520), 14, fill=(247, 250, 249), outline=(214, 228, 216), width=1.5)
+    text_c(img, "اضغط للتصوير أو اختيار صورة", (cx0 + cx1) / 2, 506, 12, (120, 140, 138), 700)
+
+    # زر الحفظ
+    rrect(d, (cx0 + 22, 560, cx1 - 22, 608), 14, fill=GREEN_P)
+    text_c(img, "حفظ القياس", (cx0 + cx1) / 2, 591, 15, (255, 255, 255), 900)
+    text_r(img, "الصورة بتتخزن آمن — هيشوفها د. أحمد بس", cx1 - 22, 632, 10.5, MUTED, 600)
+
+    # تأكيد الإرسال للدكتور
+    rrect(d, (cx0, 648, cx1, 690), 14, fill=(230, 246, 237), outline=(180, 232, 205), width=1.5)
+    text_r(img, "وصل للدكتور — هيتابع معاك", cx1 - 20, 676, 12.5, GREEN_D, 800)
+    return img
+
+
+def screen_portal_progress():
+    """تبويب «تطورك» — منحنى الوزن بلغة بسيطة."""
+    img, d = _portal_base()
+    cx0, cx1 = _portal_top(img, d)
+    w = cx1 - cx0
+
+    icon(img, "chart", cx1 - 16, 96, 11, GREEN_P)
+    text_r(img, "تطورك معانا", cx1 - 36, 104, 20, INK, 900)
+    text_r(img, "منحنى الوزن بشكل بسيط يفهمه أي حد", cx1 - 36, 124, 11.5, MUTED, 700)
+
+    # ملخص الرحلة — 3 مربعات
+    stats = [("نزلت", "9.2", "كجم", True), ("النهاردة", "83.2", "كجم", False),
+             ("فاضل", "11.2", "كجم", False)]
+    sw = (w - 20) / 3
+    for i, (lab, val, unit, good) in enumerate(stats):
+        bx = cx1 - (i + 1) * sw - i * 10
+        rrect(d, (bx, 142, bx + sw, 214), 16,
+              fill=(236, 249, 240) if good else (246, 250, 246),
+              outline=(180, 232, 205) if good else LINE, width=1.5)
+        text_c(img, lab, bx + sw / 2, 166, 10.5, MUTED, 800)
+        text_c(img, val, bx + sw / 2, 194, 20, GREEN_D if good else INK, 900)
+        text_c(img, unit, bx + sw / 2, 208, 9.5, MUTED, 800)
+
+    # منحنى
+    _p_card(img, d, cx0, 228, w, 224)
+    text_r(img, "منحنى الوزن", cx1 - 22, 258, 14, INK, 900)
+    rrect(d, (cx0 + 22, 246, cx0 + 168, 276), 11, fill=(238, 243, 242))
+    for i, (lab, on) in enumerate([("آخر شهر", False), ("3 شهور", False), ("الكل", True)]):
+        bx = cx0 + 26 + i * 47
+        if on:
+            rrect(d, (bx - 2, 250, bx + 44, 272), 8, fill=(255, 255, 255))
+        text_c(img, lab, bx + 21, 267, 9.5, GREEN_D if on else (91, 118, 115), 800)
+
+    gx, gy, gw, gh = cx0 + 32, 320, w - 64, 116
+    vals = [92.4, 91.0, 90.2, 88.6, 87.1, 85.8, 84.0, 83.2]
+    lo, hi = 80.0, 94.0
+    for i in range(4):
+        yy = gy + i * (gh / 3)
+        line(d, (gx, yy), (gx + gw, yy), (237, 243, 242), 1)
+    pts = [(gx + i * (gw / (len(vals) - 1)), gy + gh - ((v - lo) / (hi - lo)) * gh)
+           for i, v in enumerate(vals)]
+    under = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ud = ImageDraw.Draw(under)
+    ud.polygon([(px(x), px(y)) for x, y in pts] + [(px(gx + gw), px(gy + gh)), (px(gx), px(gy + gh))],
+               fill=GREEN_P + (38,))
+    img.alpha_composite(under)
+    d = ImageDraw.Draw(img)
+    d.line([(px(x), px(y)) for x, y in pts], fill=GREEN_P, width=int(3.2 * S), joint="curve")
+    for x, y in pts:
+        d.ellipse([px(x - 5), px(y - 5), px(x + 5), px(y + 5)], fill=(255, 255, 255),
+                  outline=GREEN_P, width=int(2.6 * S))
+    text_c(img, "92.4", gx, gy - 6, 10, MUTED, 700)
+    text_c(img, "83.2", gx + gw, gy + gh - 44, 10.5, GREEN_D, 800)
+
+    # رسالة تحفيز
+    rrect(d, (cx0, 468, cx1, 534), 16, fill=(230, 246, 237), outline=(180, 232, 205), width=1.5)
+    text_r(img, "إنت في الطريق الصح — كمّل!", cx1 - 20, 496, 14, GREEN_D, 900)
+    text_r(img, "نزلت 9.2 كجم في 6 شهور", cx1 - 20, 518, 11.5, (21, 128, 61), 700)
+
+    _pt_bottom(img, d, "progress")
+    return img
+
+
+def screen_portal_appointments():
+    """تبويب «مواعيدك» — المريض يشوف ويأكد."""
+    img, d = _portal_base()
+    cx0, cx1 = _portal_top(img, d)
+    w = cx1 - cx0
+
+    text_r(img, "مواعيدك", cx1, 102, 20, INK, 900)
+    text_r(img, "3 مواعيد قادمة", cx1, 124, 12, MUTED, 700)
+
+    appts = [("الخميس 6 نوفمبر", "3:45", "متابعة شهرية", "مؤكد", GREEN_P),
+             ("الأحد 9 نوفمبر", "4:30", "قياس InBody", "مؤكد", GREEN_P),
+             ("الخميس 13 نوفمبر", "3:45", "متابعة شهرية", "بانتظار تأكيدك", AMBER)]
+    for i, (day, tm, kind, st, col) in enumerate(appts):
+        y = 148 + i * 106
+        _p_card(img, d, cx0, y, w, 92)
+        d.rounded_rectangle([px(cx1 - 6), px(y + 2), px(cx1), px(y + 90)], radius=px(3), fill=col)
+        # بلوك الوقت — أقصى اليمين زي الموقع
+        rrect(d, (cx1 - 128, y + 20, cx1 - 34, y + 72), 12, fill=(247, 250, 249))
+        text_c(img, tm, cx1 - 81, y + 44, 12.5, GREEN_D, 900)
+        text_c(img, "م", cx1 - 81, y + 62, 9, MUTED, 700)
+        # اليوم ونوع الموعد على شماله
+        text_r(img, day, cx1 - 146, y + 42, 15, INK, 900)
+        text_r(img, kind, cx1 - 146, y + 64, 11.5, MUTED, 700)
+        rrect(d, (cx0 + 22, y + 26, cx0 + 152, y + 56), 12,
+              fill=(230, 246, 237) if col == GREEN_P else (253, 241, 222))
+        text_c(img, st, cx0 + 87, y + 47, 10.5, col, 800)
+
+    # التواصل مع الدكتور
+    _grad_card(img, cx0, 472, cx1, 556, GREEN_D, GREEN_P, 18)
+    text_r(img, "عندك سؤال؟ كلّم د. أحمد", cx1 - 22, 504, 16, (255, 255, 255), 900)
+    text_r(img, "رد في نفس اليوم على واتساب", cx1 - 22, 526, 11.5, (212, 236, 217), 700)
+    rrect(d, (cx0 + 22, 516, cx0 + 176, 548), 14, fill=(255, 255, 255))
+    icon(img, "whatsapp", cx0 + 44, 532, 8, GREEN_P)
+    text_c(img, "واتساب العيادة", cx0 + 112, 538, 11, GREEN_D, 900)
+
+    _pt_bottom(img, d, "appointments")
+    return img
+
+
 SCREENS = {
     "dashboard": screen_dashboard,
     "patients": screen_patients,
     "patient": screen_patient,
     "appointments": screen_appointments,
+    "portal_home": screen_portal_home,
+    "portal_log": screen_portal_log,
+    "portal_progress": screen_portal_progress,
+    "portal_appointments": screen_portal_appointments,
 }
 
 if __name__ == "__main__":

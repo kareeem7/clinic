@@ -85,7 +85,8 @@ def text_block(s, size, color=(255, 255, 255), font=None, max_w=None):
     for i in imgs:
         out.alpha_composite(i, ((w - i.width) // 2, y))
         y += i.height - int(size * 0.34)
-    return out
+    bb = out.getbbox()
+    return out.crop(bb) if bb else out
 
 
 def with_alpha(im, a):
@@ -99,12 +100,25 @@ def with_alpha(im, a):
 
 
 def paste_center(img, blk, cy, a=1.0, cx=W // 2, dy=0):
+    """cy = مركز الكتلة فعليًا (مش خط الأساس)."""
     if blk is None:
         return
     b = with_alpha(blk, a) if a < 1 else blk
     if b is None:
         return
     img.alpha_composite(b, (int(cx - b.width / 2), int(cy - b.height / 2 + dy)))
+
+
+
+
+def text_c(dst, txt, cx, y_base, size, color, weight=700):
+    """موسّط — بإحداثيات 1280×720 الخام (من غير تكبير ui.S)."""
+    T.draw_center(dst, txt, BLACK_F if weight >= 800 else BOLD_F, size, color, int(cx), int(y_base))
+
+
+def text_r(dst, txt, x_right, y_base, size, color, weight=700):
+    """محاذاة يمين — بإحداثيات 1280×720 الخام."""
+    T.draw_right(dst, txt, BLACK_F if weight >= 800 else BOLD_F, size, color, int(x_right), int(y_base))
 
 
 def card(img, box, r, fill, alpha=255):
@@ -147,7 +161,11 @@ def sc_pain(lt):
         pd.line([(34, y), (386 - (i % 3) * 60, y)], fill=(180, 172, 158, 190), width=3)
     pd.line([(34, 40), (386, 40)], fill=(200, 90, 70, 220), width=4)
     paper = paper.rotate(rot, expand=False, resample=Image.BICUBIC)
-    img.alpha_composite(paper, (430, int(by)))
+    fade = 1.0 - ease((lt - 2.35) / 0.5)
+    if fade > 0.01:
+        pp = with_alpha(paper, fade)
+        if pp:
+            img.alpha_composite(pp, (430, int(by)))
 
     for i, (dx, dy) in enumerate([(168, 120), (1046, 150), (150, 430), (1078, 400)]):
         a = 0.12 + 0.30 * (0.5 + 0.5 * math.sin(lt * 2.2 + i * 1.7))
@@ -235,10 +253,10 @@ def sc_ui_patients(lt):
 def sc_ui_patient(lt):
     """16.2–19.6 : ملف المريض والمنحنى"""
     src = ui.SCREENS["patient"]().convert("RGB").resize((W, H), Image.LANCZOS)
-    k = ease((lt - 1.0) / 1.0) if lt > 1.0 else 0.0
-    zoom = 1.00 + 0.11 * k
+    k = ease((lt - 0.7) / 1.5) if lt > 0.7 else 0.0
+    zoom = 1.03 + 0.10 * k
     img = zoom_pan(src, 1.0, z0=zoom, z1=zoom,
-                   p0=(0.02 * k, -0.06 * k), p1=(0.02 * k, -0.06 * k))
+                   p0=(-0.04 * k, -0.07 * k), p1=(-0.04 * k, -0.07 * k))
     return frame_ui(img, lt, "منحنى واضح لكل مريض")
 
 
@@ -271,15 +289,17 @@ def frame_ui(img, lt, caption, fade_in=0.0):
     d.rounded_rectangle([bx, by, bx + bw, by + bh], radius=18, outline=(255, 255, 255, 46), width=2)
 
     # كابشن
-    cap = text_block(caption, 44, WHITE)
+    cap = text_block(caption, 42, WHITE)
     a = ease(lt / 0.5)
     b = with_alpha(cap, a)
     if b:
-        pw = b.width + 56
+        pw = b.width + 60
+        ph = max(64, b.height + 20)
         px0 = (W - pw) // 2
-        d.rounded_rectangle([px0, 628, px0 + pw, 628 + 62], radius=20,
+        py0 = 716 - ph
+        d.rounded_rectangle([px0, py0, px0 + pw, py0 + ph], radius=20,
                             fill=(13, 148, 136, int(228 * a)))
-        base.alpha_composite(b, ((W - b.width) // 2, 628 + (62 - b.height) // 2))
+        base.alpha_composite(b, ((W - b.width) // 2, py0 + (ph - b.height) // 2))
     return base
 
 
@@ -292,14 +312,14 @@ def sc_price(lt):
     t = text_block("جرّبه 14 يوم مجانًا", 62, WHITE)
     paste_center(img, t, 200, ease(lt / 0.5))
 
-    card(img, [400, 300, 880, 470], 26, WHITE, 255)
+    card(img, [400, 292, 880, 486], 26, WHITE, 255)
     p1 = text_block("250", 84, (12, 42, 40))
-    paste_center(img, p1, 378, ease((lt - 0.35) / 0.5))
-    p2 = text_block("جنيه في الشهر", 34, (110, 140, 136))
-    paste_center(img, p2, 448, ease((lt - 0.55) / 0.5))
+    paste_center(img, p1, 358, ease((lt - 0.35) / 0.5))
+    p2 = text_block("جنيه في الشهر", 32, (110, 140, 136))
+    paste_center(img, p2, 432, ease((lt - 0.55) / 0.5))
 
     sub = text_block("من غير بطاقة… ومن غير أي التزام", 36, TEAL_100)
-    paste_center(img, sub, 552, ease((lt - 0.9) / 0.6))
+    paste_center(img, sub, 566, ease((lt - 0.9) / 0.6))
     return img
 
 
@@ -320,18 +340,295 @@ def sc_end(lt):
     return img
 
 
+
+
+# ═════════════ واجهة بوابة المريض ═════════════
+
+def _phone_frame(shot, lt, k=0.0):
+    """يحط شاشة البوابة جوه موبايل — عشان يبان إنه من جيب المريض."""
+    base = bg((6, 30, 24), (10, 48, 38))
+    glow(base, 640, 330, 520, (34, 197, 94), 40)
+    grid(base, 44, (255, 255, 255), 6)
+
+    pw, ph = 306, 568
+    px0 = 640 - pw // 2
+    py0 = 52
+
+    # ظل
+    sh = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    ImageDraw.Draw(sh).rounded_rectangle([px0, py0 + 16, px0 + pw, py0 + ph + 16],
+                                         radius=40, fill=(0, 0, 0, 150))
+    base.alpha_composite(sh.filter(ImageFilter.GaussianBlur(20)))
+
+    # جسم الموبايل
+    body = Image.new("RGBA", (pw, ph), (0, 0, 0, 0))
+    bd = ImageDraw.Draw(body)
+    bd.rounded_rectangle([0, 0, pw - 1, ph - 1], radius=40, fill=(12, 22, 20, 255))
+    base.paste(body, (px0, py0), body)
+
+    # الشاشة
+    inset, top_inset = 9, 26
+    sw, shh = pw - inset * 2, ph - top_inset - 22
+    screen = shot.convert("RGB").resize((sw, shh), Image.LANCZOS)
+    mask = Image.new("L", (sw, shh), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, sw - 1, shh - 1], radius=30, fill=255)
+    base.paste(screen, (px0 + inset, py0 + top_inset), mask)
+
+    # نوتش
+    d = ImageDraw.Draw(base)
+    d.rounded_rectangle([px0 + pw // 2 - 44, py0 + 12, px0 + pw // 2 + 44, py0 + 24],
+                        radius=6, fill=(20, 30, 28))
+    d.rounded_rectangle([px0, py0, px0 + pw, py0 + ph], radius=40,
+                        outline=(60, 190, 130, 120), width=2)
+    return base
+
+
+def sc_portal_intro(lt):
+    """17.6–20.6 : «وكل مريض عنده صفحته» — الموبايل بيظهر"""
+    base = bg((6, 30, 24), (10, 48, 38))
+    glow(base, 640, 360, 560, (34, 197, 94), 44)
+    grid(base, 44, (255, 255, 255), 6)
+
+    t1 = text_block("وكل مريض عنده صفحته", 50, WHITE)
+    paste_center(base, t1, 620, ease(lt / 0.55))
+
+    # موبايل.svg مبسّط: كود الدخول
+    pw, ph = 300, 396
+    px0, py0 = 640 - pw // 2, 96
+    sh = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    ImageDraw.Draw(sh).rounded_rectangle([px0, py0 + 14, px0 + pw, py0 + ph + 14],
+                                         radius=36, fill=(0, 0, 0, 150))
+    base.alpha_composite(sh.filter(ImageFilter.GaussianBlur(18)))
+    d = ImageDraw.Draw(base)
+    d.rounded_rectangle([px0, py0, px0 + pw, py0 + ph], radius=36, fill=(255, 255, 255))
+    d.rounded_rectangle([px0, py0, px0 + pw, py0 + ph], radius=36,
+                        outline=(34, 197, 94, 160), width=2)
+
+    # شعار العيادة
+    d.ellipse([px0 + pw // 2 - 27, py0 + 30, px0 + pw // 2 + 27, py0 + 84], fill=(22, 163, 74))
+    ov = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    ui.icon(ov, "pulse", px0 + pw // 2, py0 + 57, 13, (255, 255, 255))
+    base.alpha_composite(ov)
+    text_c(base, "عيادتي — بوابة المريض", px0 + pw // 2, py0 + 112, 15, (18, 33, 31), 900)
+    text_c(base, "ادخل بكودك", px0 + pw // 2, py0 + 136, 12, (100, 116, 139), 700)
+
+    # كود الدخول
+    code = "4821"
+    tw = 48
+    for i, ch in enumerate(code):
+        bx = px0 + pw // 2 + (1.5 - i) * (tw + 10) - tw / 2
+        d.rounded_rectangle([bx, py0 + 162, bx + tw, py0 + 214], radius=12, fill=(238, 250, 241))
+        text_c(base, ch, bx + tw / 2, py0 + 198, 26, (21, 128, 61), 900)
+
+    # زر دخول
+    a = ease((lt - 0.7) / 0.5)
+    if a > 0:
+        d.rounded_rectangle([px0 + 26, py0 + 240, px0 + pw - 26, py0 + 292],
+                            radius=15, fill=(22, 163, 74))
+        ov = Image.new("RGBA", base.size, (0, 0, 0, 0))
+        text_c(ov, "دخول", px0 + pw // 2, py0 + 275, 16, (255, 255, 255), 900)
+        b = with_alpha(ov, a)
+        if b:
+            base.alpha_composite(b)
+
+    text_c(base, "مفيش تحميل · مفيش حساب · كود وبس", px0 + pw // 2, py0 + 322, 11, (100, 116, 139), 700)
+    return base
+
+
+
+
+def frame_portal(img, lt, caption):
+    """إطار شاشة كامل (بحجم مقروء) مع شارة إنها من موبايل المريض."""
+    base = bg((5, 28, 22), (9, 44, 34))
+    glow(base, 640, 300, 540, (34, 197, 94), 36)
+    grid(base, 40, (255, 255, 255), 7)
+
+    bx, by, bw, bh = 74, 30, 1132, 590
+    sh = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    ImageDraw.Draw(sh).rounded_rectangle([bx, by + 10, bx + bw, by + bh + 10],
+                                         radius=20, fill=(0, 0, 0, 140))
+    base.alpha_composite(sh.filter(ImageFilter.GaussianBlur(16)))
+
+    shot = img.convert("RGB").resize((bw, bh), Image.LANCZOS)
+    mask = Image.new("L", (bw, bh), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, bw - 1, bh - 1], radius=18, fill=255)
+    base.paste(shot, (bx, by), mask)
+    d = ImageDraw.Draw(base)
+    d.rounded_rectangle([bx, by, bx + bw, by + bh], radius=18,
+                        outline=(34, 197, 94, 110), width=2)
+
+    # شارة «من موبايل المريض»
+    chip = text_block("من موبايل المريض", 22, (6, 40, 30))
+    if chip:
+        cw = chip.width + 46
+        d.rounded_rectangle([bx + 18, by - 15, bx + 18 + cw, by + 21], radius=18,
+                            fill=(74, 222, 128))
+        base.alpha_composite(chip, (bx + 41, by - 15 + (36 - chip.height) // 2))
+
+    # كابشن
+    cap = text_block(caption, 40, WHITE)
+    a = ease(lt / 0.5)
+    b = with_alpha(cap, a)
+    if b:
+        pw = b.width + 58
+        ph = max(60, b.height + 18)
+        py0 = 714 - ph
+        d.rounded_rectangle([(W - pw) // 2, py0, (W + pw) // 2, py0 + ph], radius=20,
+                            fill=(22, 163, 74, int(230 * a)))
+        base.alpha_composite(b, ((W - b.width) // 2, py0 + (ph - b.height) // 2))
+    return base
+
+
+def sc_portal_home(lt):
+    """20.6–24.2 : الصفحة الرئيسية للمريض جوه موبايل"""
+    shot = ui.SCREENS["portal_home"]().convert("RGB")
+    return frame_portal(shot, lt, "المريض شايف موعده وتقدمه")
+
+
+def sc_portal_log(lt):
+    """24.2–27.6 : يسجّل قياسه من البيت"""
+    shot = ui.SCREENS["portal_log"]().convert("RGB")
+    return frame_portal(shot, lt, "يسجّل وزنه من البيت… ويوصل للدكتور")
+
+
+def sc_portal_progress(lt):
+    """29.0–31.4 : تقدمه لوحده"""
+    shot = ui.SCREENS["portal_progress"]().convert("RGB")
+    return frame_portal(shot, lt, "ويتابع تقدمه بنفسه")
+
+
+def sc_portal_appt(lt):
+    """27.6–29.4 : مواعيد المريض + تواصل مباشر"""
+    shot = ui.SCREENS["portal_appointments"]().convert("RGB")
+    return frame_portal(shot, lt, "ويتواصل معاك على طول")
+
+
+def sc_referral(lt):
+    """31.4–35.4 : الدعاية من فم لودن"""
+    img = bg((8, 34, 30), (16, 64, 56))
+    glow(img, 640, 400, 520, TEAL, 54)
+    grid(img, 46, (255, 255, 255), 7)
+
+    t1 = text_block("مريض مبسوط…", 56, WHITE)
+    paste_center(img, t1, 118, ease(lt / 0.45))
+    t2 = text_block("بيجيب اللي بعده", 56, TEAL_L)
+    paste_center(img, t2, 190, ease((lt - 0.35) / 0.45))
+
+    # صف من المرضى بيتزايدوا — دعاية بتنتشر
+    names = ["منى", "هدى", "سارة", "ياسمين"]
+    base_x, cy, gap = 640 + 288, 330, 192
+    for i in range(4):
+        a = ease((lt - 0.9 - i * 0.26) / 0.45)
+        if a <= 0:
+            continue
+        cx = base_x - i * gap
+        lay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        d = ImageDraw.Draw(lay)
+        # خط ربط
+        if i < 3:
+            d.line([(cx - 56, cy), (cx - gap + 56, cy)],
+                   fill=(45, 212, 191, 190), width=5)
+        r = 48
+        d.ellipse([cx - r, cy - r, cx + r, cy + r],
+                  fill=(20, 184, 166) if i == 0 else (13, 148, 136))
+        d.ellipse([cx - r, cy - r, cx + r, cy + r],
+                  outline=(94, 234, 212, 150), width=3)
+        # حرف الاسم
+        T.draw_center(lay, names[i][0], BOLD_F, 30, (255, 255, 255), cx, cy + 12)
+        # علامة صح
+        d.ellipse([cx + 24, cy + 24, cx + 58, cy + 58], fill=(74, 222, 128))
+        d.line([(cx + 33, cy + 41), (cx + 40, cy + 48), (cx + 50, cy + 33)],
+               fill=(6, 40, 30), width=4, joint="curve")
+        b = with_alpha(lay, a)
+        if b:
+            img.alpha_composite(b)
+
+    sub = text_block("جرّب ونزل… فإنت كمان عايز", 34, (206, 240, 232))
+    paste_center(img, sub, 430, ease((lt - 1.9) / 0.5))
+
+    # شريط ذهبي: دعاية ببلاش
+    aa = ease((lt - 2.3) / 0.45)
+    if aa > 0:
+        pill = text_block("دعاية ببلاش — من فم لودن", 38, (255, 244, 200))
+        if pill:
+            pw = pill.width + 76
+            lay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+            d = ImageDraw.Draw(lay)
+            d.rounded_rectangle([640 - pw / 2, 496, 640 + pw / 2, 566], radius=24,
+                                fill=(180, 100, 6))
+            lay.alpha_composite(pill, (int(640 - pill.width / 2), 496 + (70 - pill.height) // 2))
+            b = with_alpha(lay, aa)
+            if b:
+                img.alpha_composite(b)
+    return img
+
+
+def sc_doctor_bond(lt):
+    """27.6–30.0 : الطبيب معاه أكتر"""
+    img = bg((6, 30, 26), (12, 56, 46))
+    glow(img, 640, 340, 460, (34, 197, 94), 46)
+    grid(img, 46, (255, 255, 255), 7)
+
+    t = text_block("الدكتور معاه… حتى وهو بعيد", 46, WHITE, max_w=980)
+    paste_center(img, t, 130, ease(lt / 0.5))
+
+    items = [("قياس من البيت", "يوصل للعيادة على طول"),
+             ("تذكير واتساب", "قبل الموعد بيوم"),
+             ("منحنى التقدم", "المريض شايفه بنفسه")]
+    for i, (k, v) in enumerate(items):
+        a = ease((lt - 0.5 - i * 0.22) / 0.5)
+        if a <= 0:
+            continue
+        cx = 640 + (1 - i) * 330
+        lay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        d = ImageDraw.Draw(lay)
+        d.rounded_rectangle([cx - 150, 236, cx + 150, 452], radius=24,
+                            fill=(255, 255, 255, 248))
+        d.rounded_rectangle([cx - 40, 264, cx + 40, 344], radius=20, fill=(230, 246, 237, 255))
+        ui.icon(lay, ["pulse", "whatsapp", "chart"][i], cx, 304, 18, (21, 128, 61))
+        text_c(lay, k, cx, 392, 17, (18, 33, 31), 900)
+        for j, ln in enumerate(T.wrap(v, BOLD_F, 13, 250)):
+            text_c(lay, ln, cx, 416 + j * 20, 13, (100, 116, 139), 700)
+        b = with_alpha(lay, a)
+        if b:
+            img.alpha_composite(b)
+
+    foot = text_block("علاقة بتكمّل… مش بتنتهي عند آخر جلسة", 36, TEAL_100)
+    paste_center(img, foot, 540, ease((lt - 1.3) / 0.6))
+    return img
+
+
+def frame_ui_caption(img, lt, caption, _x):
+    """كابشن تحتي على غير إطار المتصفح (للموبايل)."""
+    cap = text_block(caption, 40, WHITE)
+    a = ease(lt / 0.5)
+    b = with_alpha(cap, a)
+    if b:
+        d = ImageDraw.Draw(img)
+        pw = b.width + 52
+        d.rounded_rectangle([(W - pw) // 2, 626, (W + pw) // 2, 626 + 58], radius=20,
+                            fill=(22, 163, 74, int(228 * a)))
+        img.alpha_composite(b, ((W - b.width) // 2, 626 + (58 - b.height) // 2))
+    return img
+
+
 SCENES = [
-    (0.0, 6.6, sc_pain),
-    (6.6, 9.6, sc_intro),
-    (9.6, 12.2, sc_ui_dashboard),
-    (12.2, 14.4, sc_ui_patients),
-    (14.4, 17.6, sc_ui_patient),
-    (17.6, 21.4, sc_ui_appointments),
-    (21.4, 26.2, sc_price),
-    (26.2, 31.4, sc_end),
+    (0.0, 7.6, sc_pain),
+    (7.6, 11.0, sc_intro),
+    (11.0, 13.6, sc_ui_dashboard),
+    (13.6, 16.0, sc_ui_patients),
+    (16.0, 19.4, sc_ui_patient),
+    (19.4, 23.0, sc_portal_intro),
+    (23.0, 26.2, sc_portal_home),
+    (26.2, 29.0, sc_portal_log),
+    (29.0, 31.4, sc_portal_progress),
+    (31.4, 35.4, sc_referral),
+    (35.4, 39.6, sc_price),
+    (39.6, 42.6, sc_end),
 ]
 
-DURATION = 31.4
+
+DURATION = 42.6
 
 
 def frame_at(t):
