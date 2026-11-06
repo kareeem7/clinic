@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>معاينة مشاركة كود المريض + لينك الصفحة</title>
+<!-- معاينة ثابتة داخل tests/ (مستبعدة من النشر) — بلا CDN ولا بيانات حقيقية.
+     الكود المستخدم توضيحي اصطناعي (SHB1-482913) وليس كود مريض فعلي. -->
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;padding:26px 16px 46px;background:#eef3f2;font-family:Tahoma,"Segoe UI",Arial,sans-serif;color:#0f2b29;line-height:1.7}
+  h1{margin:0 0 4px;font-size:21px}
+  .lead{margin:0 0 20px;color:#4b6a67;font-size:13px}
+  .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:center;align-items:flex-start}
+  .col{width:330px;max-width:100%}
+  .col>h2{margin:0 0 10px;font-size:14px;text-align:center;padding:8px;border-radius:10px}
+  .before h2{background:#fde8ec;color:#9f1239}
+  .after h2{background:#dcf5ee;color:#0f766e}
+  .phone{width:310px;min-height:470px;margin:auto;background:#e5ded5;border:8px solid #1c3331;border-radius:32px;overflow:hidden;box-shadow:0 16px 36px rgba(8,40,38,.2)}
+  .wahead{background:#075e54;color:#fff;padding:12px 14px;font-size:12px;font-weight:800;display:flex;align-items:center;gap:8px}
+  .wahead .av{width:30px;height:30px;border-radius:50%;background:#25d366;display:grid;place-items:center;font-size:13px}
+  .chat{padding:14px 10px;display:flex;flex-direction:column;gap:9px}
+  .bubble{max-width:88%;background:#fff;border-radius:12px 12px 4px 12px;padding:10px 12px;font-size:12px;white-space:pre-line;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+  .bubble.out{align-self:flex-end;background:#dcf8c6;border-radius:12px 12px 12px 4px}
+  .bubble .link{color:#027eb5;text-decoration:underline;direction:ltr;display:inline-block;word-break:break-all;font-size:11.5px}
+  .bubble code{background:#fff3cd;padding:1px 5px;border-radius:5px;font-weight:900;direction:ltr;display:inline-block}
+  .inputbar{margin:10px;padding:8px 12px;border-radius:22px;background:#fff;color:#8a9a98;font-size:11.5px}
+  .caps{margin-top:12px;font-size:11.5px;color:#41605d}
+  .caps b{color:#0f2b29}
+  .caps li{margin-bottom:5px}
+  .flow{margin:26px auto 0;width:min(760px,100%);background:#fff;border-radius:14px;padding:18px 20px;box-shadow:0 6px 18px rgba(8,40,38,.08);font-size:13px}
+  .flow h3{margin:0 0 12px;font-size:15px;color:#0f766e}
+  .steps{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:center}
+  .step{background:#eefaf8;border:1px solid #c9f0ec;border-radius:11px;padding:9px 12px;font-weight:800;font-size:12px}
+  .arrow{color:#0f766e;font-weight:900;font-size:17px}
+  table{margin:22px auto 0;border-collapse:collapse;width:min(760px,100%);background:#fff;font-size:12.5px;border-radius:14px;overflow:hidden;box-shadow:0 6px 18px rgba(8,40,38,.08)}
+  th,td{padding:9px 12px;border-bottom:1px solid #e8f0ee;text-align:start}
+  th{background:#0f766e;color:#fff}
+  tr:last-child td{border-bottom:none}
+  td:nth-child(2){color:#9f1239}td:nth-child(3){color:#0f766e;font-weight:800}
+  .warn{margin:18px auto 0;width:min(760px,100%);background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:12px 16px;color:#9a3412;font-size:12.5px;font-weight:700}
+</style>
+</head>
+<body>
+  <h1>مشاركة كود المريض + لينك صفحته</h1>
+  <p class="lead">معاينة ثابتة توضيحية داخل <code>tests/</code> — الكود <code>SHB1-482913</code> اصطناعي، ولا يوجد اتصال بأي خدمة أو بيانات مرضى.</p>
+
+  <div class="wrap">
+    <section class="col before">
+      <h2>قبل — الكود بس</h2>
+      <div class="phone">
+        <div class="wahead"><span class="av">+</span> المريض</div>
+        <div class="chat">
+          <div class="bubble out">SHB1-482913</div>
+          <div class="bubble">طيب أفتح إيه؟ وأدخل منين؟ 🤔</div>
+        </div>
+        <div class="inputbar">اكتب رسالة…</div>
+      </div>
+      <ul class="caps">
+        <li>الزر بينسخ <b>الكود لوحده</b> ويفتح محادثة فاضية</li>
+        <li>المريض يفتح الموقع → <b>شاشة دخول الدكتور</b></li>
+        <li>لازم يدوّر على «أنت مريض؟ دخول بوابة المرضى»</li>
+        <li>مفيش لينك يوصّله لصفحته</li>
+      </ul>
+    </section>
+
+    <section class="col after">
+      <h2>بعد — رسالة جاهزة بكود + لينك</h2>
+      <div class="phone">
+        <div class="wahead"><span class="av">+</span> المريض</div>
+        <div class="chat">
+          <div class="bubble out">أهلاً بيك 👋 — عيادتي
+
+افتح صفحتك من اللينك ده:
+<span class="link">https://clinic-staging.kemo8298.workers.dev/?portal=1</span>
+
+كود دخولك الدائم: <code>SHB1-482913</code>
+افتح اللينك، اكتب رقم موبايلك المسجّل في العيادة مع الكود، وهتدخل على صفحتك مباشرة.
+احتفظ بالكود ده — هتحتاجه كل مرة.</div>
+          <div class="bubble">تمام، فتحت صفحتي مباشرة ✅</div>
+        </div>
+        <div class="inputbar">اكتب رسالة… (الصق الرسالة الجاهزة)</div>
+      </div>
+      <ul class="caps">
+        <li>الزر بينسخ <b>رسالة كاملة</b>: الكود + اللينك + شرح الدخول</li>
+        <li>اللينك <b>?portal=1</b> يفتح تبويب بوابة المريض <b>مباشرة</b></li>
+        <li>النطاق بيُشتقّ من الصفحة نفسها (staging/إنتاج/محلي)</li>
+        <li>في الكارت كمان زر <b>«نسخ اللينك»</b> لوحده</li>
+      </ul>
+    </section>
+  </div>
+
+  <div class="flow">
+    <h3>مسار المريض بعد الضغط على اللينك</h3>
+    <div class="steps">
+      <span class="step">رسالة واتساب</span><span class="arrow">←</span>
+      <span class="step">اللينك ?portal=1</span><span class="arrow">←</span>
+      <span class="step">switchAuthTab('patient')</span><span class="arrow">←</span>
+      <span class="step">رقم الموبايل + الكود</span><span class="arrow">←</span>
+      <span class="step">Portal.login</span><span class="arrow">←</span>
+      <span class="step">صفحة المريض</span>
+    </div>
+  </div>
+
+  <div class="warn">
+    ⚠️ الكود <b>ما بيتكتبش في أي لينك</b> — لا في <code>wa.me</code> (بلا <code>?text=</code>) ولا في لينك الصفحة نفسه.
+    اللينك عام <code>?portal=1</code> فقط بلا كود/توكن/بيانات مريض، فمفيش دخول تلقائي باللينك:
+    الكود الدائم + رقم الموبايل لازم يتأكدوا على السيرفر عبر <code>patient_portal_login</code>.
+  </div>
+
+  <table>
+    <tr><th>البند</th><th>قبل</th><th>بعد</th></tr>
+    <tr><td>المحتوى المنسوخ</td><td>الكود فقط</td><td>رسالة: كود + لينك + تعليمات</td></tr>
+    <tr><td>وجهة اللينك</td><td>لا يوجد</td><td>تبويب «دخول بوابة المرضى» مباشرة</td></tr>
+    <tr><td>النطاق</td><td>—</td><td>مشتقّ من <code>location.href</code> (غير مثبّت)</td></tr>
+    <tr><td>Query/hash قديم</td><td>—</td><td>بيتمسح قبل الإرسال</td></tr>
+    <tr><td>الكود في URL</td><td>❌ ممنوع</td><td>❌ لسه ممنوع (نفس الضمانة)</td></tr>
+    <tr><td><code>?text=</code> في واتساب</td><td>❌ ممنوع</td><td>❌ لسه ممنوع</td></tr>
+    <tr><td>SQL / Auth / RLS</td><td>—</td><td>بدون أي تغيير</td></tr>
+  </table>
+</body>
+</html>
