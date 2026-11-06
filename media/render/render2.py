@@ -150,7 +150,7 @@ def sc_pain(lt):
     glow(img, 640, 640, 320, (185, 78, 30), 40)
 
     # الكشكول يزحف لفوق شوية بعد الضربة
-    push = ease((lt - 2.3) / 0.6)
+    push = ease((lt - 1.7) / 0.6)
     by = 250 + math.sin(lt * 1.2) * 1.5 + push * 250
     rot = math.sin(lt * 1.4) * 2.5 + push * 9.0
     paper = Image.new("RGBA", (420, 300), (0, 0, 0, 0))
@@ -161,7 +161,7 @@ def sc_pain(lt):
         pd.line([(34, y), (386 - (i % 3) * 60, y)], fill=(180, 172, 158, 190), width=3)
     pd.line([(34, 40), (386, 40)], fill=(200, 90, 70, 220), width=4)
     paper = paper.rotate(rot, expand=False, resample=Image.BICUBIC)
-    fade = 1.0 - ease((lt - 2.35) / 0.5)
+    fade = 1.0 - ease((lt - 1.75) / 0.5)
     if fade > 0.01:
         pp = with_alpha(paper, fade)
         if pp:
@@ -179,13 +179,13 @@ def sc_pain(lt):
     a1 = ease(lt / 0.9)
     a2 = ease((lt - 0.9) / 0.9)
     # بعد الضربة، النصين يخفّوا
-    dim = 1.0 - 0.75 * ease((lt - 2.3) / 0.45)
+    dim = 1.0 - 0.75 * ease((lt - 1.7) / 0.45)
     paste_center(img, t1, 600, a1 * dim)
     paste_center(img, t2, 668, a2 * dim)
 
     # «بَطِّل!» — يدخل بضربة قوية
-    bp = ease_out_back(min(1.0, (lt - 2.35) / 0.5))
-    ba = ease((lt - 2.35) / 0.28)
+    bp = ease_out_back(min(1.0, (lt - 1.75) / 0.45))
+    ba = ease((lt - 1.75) / 0.25)
     if ba > 0:
         kick = text_block("بَطِّل!", 118, (255, 92, 60))
         sc = 1.6 - 0.6 * bp
@@ -622,10 +622,10 @@ def sc_after_hours(lt):
 def sc_labs(lt):
     """التحاليل — سجل لكل تحليل بتاريخه ونتايجه."""
     src = ui.SCREENS["labs"]().convert("RGB").resize((W, H), Image.LANCZOS)
-    k = ease((lt - 0.6) / 1.6) if lt > 0.6 else 0.0
-    zoom = 1.02 + 0.07 * k
+    k = ease((lt - 0.6) / 1.8) if lt > 0.6 else 0.0
+    zoom = 1.01 + 0.035 * k
     img = zoom_pan(src, 1.0, z0=zoom, z1=zoom,
-                   p0=(0.0, -0.05 * k), p1=(0.0, -0.05 * k))
+                   p0=(-0.035 * k, -0.03 * k), p1=(-0.035 * k, -0.03 * k))
     return frame_ui(img, lt, "كل تحليل… بتاريخه ونتايجه")
 
 
@@ -648,10 +648,10 @@ def sc_portal_health(lt):
 def sc_meds(lt):
     """الأدوية في ملف المريض — الطبيب شايفها مع كل زيارة."""
     src = ui.SCREENS["meds"]().convert("RGB").resize((W, H), Image.LANCZOS)
-    k = ease((lt - 0.7) / 1.6) if lt > 0.7 else 0.0
-    zoom = 1.02 + 0.06 * k
+    k = ease((lt - 0.7) / 1.8) if lt > 0.7 else 0.0
+    zoom = 1.01 + 0.03 * k
     img = zoom_pan(src, 1.0, z0=zoom, z1=zoom,
-                   p0=(0.0, -0.04 * k), p1=(0.0, -0.04 * k))
+                   p0=(-0.02 * k, -0.03 * k), p1=(-0.02 * k, -0.03 * k))
     return frame_ui(img, lt, "والأدوية… مكتوبة في ملفه")
 
 
