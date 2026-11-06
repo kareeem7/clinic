@@ -4,3 +4,6 @@ node_modules/
 *.log
 /clinic-deploy.zip
 *.bak
+
+# صور العميل المولّدة — artifacts، لا تُرفع للمستودع
+/client-images/
