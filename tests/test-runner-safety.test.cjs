@@ -38,5 +38,5 @@ test('preflight و CI بيستخدموا npm test نفسه، فالتسلسل ي
   assert.match(read('.github/workflows/test.yml'), /run: npm test/);
   assert.match(read('.github/workflows/test.yml'), /node --check/);
   // مفيش bump للكاش: التغيير في package.json/tests فقط، لا ملفات واجهة منشورة
-  assert.match(read('sw.js'), /CACHE_NAME = 'clinic-shell-v11'/);
+  assert.match(read('sw.js'), /CACHE_NAME = 'clinic-shell-v12'/);
 });

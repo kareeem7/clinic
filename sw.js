@@ -9,11 +9,12 @@
    ===================================================================== */
 'use strict';
 
-const CACHE_NAME = 'clinic-shell-v11';
+const CACHE_NAME = 'clinic-shell-v12';
 
 const SHELL = [
   './',
   './index.html',
+  './landing.html',
   './reset.html',
   './favicon.svg',
   './preview.png',
@@ -37,9 +38,11 @@ const SHELL = [
   './css/settings.css',
   './css/variables.css',
   './css/whatsapp.css',
+  './css/landing.css',
   './js/admin.js',
   './js/app.js',
   './js/appointments.js',
+  './js/app-gate.js',
   './js/archive.js',
   './js/config.js',
   './js/dashboard.js',
@@ -48,6 +51,7 @@ const SHELL = [
   './js/export.js',
   './js/health-monitoring.js',
   './js/labs.js',
+  './js/landing.js',
   './js/main.js',
   './js/message-style.js',
   './js/notes.js',
@@ -60,6 +64,7 @@ const SHELL = [
   './js/plans.js',
   './js/reset.js',
   './js/settings.js',
+  './js/site-config.js',
   './js/state.js',
   './js/utils.js',
   './js/whatsapp.js'

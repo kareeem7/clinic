@@ -305,7 +305,7 @@ node --check supabase/functions/portal-photo-upload/standalone.ts
 
 ## حادثة 2026-11-06 (٨): الكود + لينك صفحة المريض — تحقق بعد النشر
 
-الكاش اترفعت لـ `clinic-shell-v11`؛ اعمل **Hard Reload** مرة واحدة أولاً.
+الكاش اترفعت لـ `clinic-shell-v12`؛ اعمل **Hard Reload** مرة واحدة أولاً.
 
 | # | الخطوة | المتوقع |
 | --- | --- | --- |
@@ -317,7 +317,7 @@ node --check supabase/functions/portal-photo-upload/standalone.ts
 | 6 | جرّب `#portal` بدل `?portal=1` | نفس النتيجة |
 | 7 | افتح الموقع بلا أي معامل | شاشة دخول الدكتور العادية (ما اتأثرتش) |
 | 8 | راجع عنوان `wa.me` في تبويب الواتساب | **مفيش كود ولا `portal` ولا `?text=`** في الرابط |
-| 9 | DevTools ← Application ← Service Workers | `clinic-shell-v11` فقط |
+| 9 | DevTools ← Application ← Service Workers | `clinic-shell-v12` فقط |
 
 > `tests/patient-share-preview.html` بتوري شكل الرسالة، بس **مش بديل عن واتساب/جهاز حقيقي**.
 > الكود في المعاينة اصطناعي (`SHB1-482913`) وليس كود مريض فعلي.

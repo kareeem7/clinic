@@ -16,7 +16,7 @@
    البيانات السريرية (المرضى/الملاحظات/الأوزان) لا يمكن للأدمن قراءتها
    لأنه لا توجد سياسة RLS تسمح له بذلك — فقط إحصاءات تجميعية.
    ============================================================ */
-const SYS_DEFAULT = { trialDays: 14, monthly: 300, yearly: 3000, welcomeMsg: 'مرحباً بك في منظومة عيادتي' };
+const SYS_DEFAULT = { trialDays: 14, monthly: 250, yearly: 2500, welcomeMsg: 'مرحباً بك في منظومة عيادتي' };
 const ACC_ST = {
   active:    ['اشتراك نشط', 'green'],
   trial:     ['فترة تجريبية', 'blue'],
@@ -348,8 +348,8 @@ const Admin = {
       const btn = e.target.querySelector('.btn-primary'); btn.disabled = true;
       const value = {
         trialDays: +$('#sysTrial').value || 14,
-        monthly: +$('#sysMonthly').value || 300,
-        yearly: +$('#sysYearly').value || 3000,
+        monthly: +$('#sysMonthly').value || 250,
+        yearly: +$('#sysYearly').value || 2500,
         welcomeMsg: $('#sysWelcome').value.trim() || SYS_DEFAULT.welcomeMsg
       };
       const { error } = await DB.sb.from('system_settings').upsert({ id: 1, value, updated_at: new Date().toISOString() });
