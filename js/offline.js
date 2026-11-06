@@ -488,13 +488,23 @@ const Offline = {
       !!Offline.snapshotNote || (Offline.role === 'clinic' && Offline.remoteTickets.length > 0);
     bar.hidden = !show;
     bar.style.display = show ? 'flex' : 'none'; // inline display لوحده بيتغلب على hidden
+    // الشريط sticky في تدفّق الصفحة؛ نزاح #topbar (sticky) تحته عند السكرول
+    if (typeof document !== 'undefined' && document.body && document.body.classList) {
+      document.body.classList.toggle('offline-bar-visible', show);
+    }
     const label = document.getElementById('offlineLabel');
-    if (label) label.textContent = Offline.snapshotNote
-      ? Offline.snapshotNote
-      : (offline
-        ? 'النت مقطوع — الكتابة هتتحفظ على هذا الجهاز فقط (مشفّرة) وهتترفع أول ما النت يرجع'
-        : (pending > 0 ? 'فيه ' + pending + ' تسجيل مستني رفع للسيرفر…'
-          : 'فيه ' + conflicts + ' تسجيل محتاج مراجعتك'));
+    if (label) {
+      const full = Offline.snapshotNote
+        ? Offline.snapshotNote
+        : (offline
+          ? 'النت مقطوع — الكتابة هتتحفظ على هذا الجهاز فقط (مشفّرة) وهتترفع أول ما النت يرجع'
+          : (pending > 0 ? 'فيه ' + pending + ' تسجيل مستني رفع للسيرفر…'
+            : 'فيه ' + conflicts + ' تسجيل محتاج مراجعتك'));
+      label.textContent = full;
+      // الشريط سطر واحد على الموبايل: النص بيقّصر بصرياً بس يفضل كاملاً هنا وقارئ الشاشة
+      label.title = full;
+      if (bar.setAttribute) bar.setAttribute('aria-label', full);
+    }
     const pendingEl = document.getElementById('offlinePending');
     if (pendingEl) {
       pendingEl.textContent = 'معلّق: ' + pending;

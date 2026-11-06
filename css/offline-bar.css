@@ -1,0 +1,58 @@
+/*
+========================================
+offline-bar.css
+الوظيفة: شريط حالة الأوفلاين + لوحة المراجعة — يُستورد أخيراً في main.css.
+السبب: الشريط القديم كان position:fixed;top:0;z-index:9999 مع flex-wrap:wrap
+       و label بـ min-width:200px ⇒ على الموبايل يتمدد ٣-٤ صفوف ويغطي
+       الشريط العلوي كله، بما فيه زر «إضافة مريض جديد».
+الحل: sticky داخل تدفّق الصفحة (يزيح المحتوى بدل ما يغطيه) + سطر واحد
+      بارتفاع ثابت + لوحة المراجعة كطبقة مستقلة من الأسفل.
+========================================
+*/
+
+/* ارتفاع ثابت ومعلوم عشان #topbar (sticky) يتزاح تحته بالضبط */
+:root{--offline-bar-h:calc(46px + env(safe-area-inset-top, 0px))}
+
+#offlineBar{
+  /* z-index أعلى من المودال (100) قاصدين: الأب بينشئ stacking context،
+     فلوحة المراجعة (position:fixed جوّاه) لازم تطلع فوق المودال. التوست 200 لسه فوق. */
+  position:sticky;top:0;z-index:130;         /* في الـ flow ⇒ لا يغطي أي زر */
+  display:flex;align-items:center;gap:8px;flex-wrap:nowrap;
+  min-height:var(--offline-bar-h);
+  padding:6px calc(14px + env(safe-area-inset-right, 0px)) 6px calc(14px + env(safe-area-inset-left, 0px));
+  padding-top:calc(6px + env(safe-area-inset-top, 0px));
+  background:#fff7ed;color:#9a3412;border-bottom:1px solid #fed7aa;
+  font-size:12.5px;font-weight:700
+}
+/* Offline.render() بيضبط bar.style.display صريحاً، فلازم [hidden] يغلبه */
+#offlineBar[hidden],#offlinePanel[hidden]{display:none!important}
+#offlineBar>i{flex:none;font-size:14px}
+/* min-width:0 هو اللي بيسمح بالانكماش؛ القديم كان 200px فكان بيعمل wrap */
+#offlineLabel{
+  flex:1;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+#offlinePending{flex:none;font-size:11px;padding:3px 9px}
+#offlineBar .btn{flex:none;min-height:36px;padding:6px 10px;font-size:12px;gap:5px}
+
+/* لوحة المراجعة: طبقة مستقلة من الأسفل، فالشريط يفضل رفيع مهما كترت التعارضات.
+   لسه جوّه #offlineBar في الـ DOM عشان تفويض النقر في Offline.bindUI يفضل شغالاً. */
+#offlinePanel{
+  position:fixed;inset-inline:0;bottom:0;z-index:120;
+  max-height:70vh;max-height:70dvh;overflow-y:auto;overscroll-behavior:contain;
+  background:#fff;border-top:2px solid #fed7aa;border-radius:20px 20px 0 0;
+  padding:16px calc(16px + env(safe-area-inset-right, 0px))
+          calc(20px + env(safe-area-inset-bottom, 0px))
+          calc(16px + env(safe-area-inset-left, 0px));
+  box-shadow:0 -12px 40px rgba(8,40,38,.20)
+}
+#offlinePanel .btn{min-height:44px}
+
+/* الشريط sticky والـ topbar sticky كمان → نزاح الثاني لأسفل عند السكرول.
+   والـ notch اتغطى مرة واحدة في الشريط، فما نكررش safe-area في الـ topbar. */
+body.offline-bar-visible #topbar{top:var(--offline-bar-h);padding-top:12px}
+
+@media (max-width:420px){
+  #offlineBar{gap:6px;font-size:12px;padding-inline:10px}
+  #offlineBar .btn{padding-inline:8px;font-size:11.5px}
+}

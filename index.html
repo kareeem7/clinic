@@ -51,14 +51,16 @@
 <body>
 
 <!-- ====== شريط حالة الأوفلاين (الدفعة ١) ======
-     مخفي افتراضياً؛ Offline.render() بيضبط hidden + display مع بعض -->
-<div id="offlineBar" hidden style="position:fixed;top:0;left:0;right:0;z-index:9999;display:none;gap:10px;align-items:center;flex-wrap:wrap;background:#fff7ed;color:#9a3412;border-bottom:1px solid #fed7aa;padding:8px 14px;font-size:13px;font-weight:700">
+     مخفي افتراضياً؛ Offline.render() بيضبط hidden + display مع بعض.
+     الستايل في css/offline-bar.css: sticky في تدفّق الصفحة (ما يغطيش الأزرار)،
+     سطر واحد بارتفاع ثابت، ولوحة المراجعة طبقة مستقلة من الأسفل. -->
+<div id="offlineBar" hidden role="status" aria-live="polite">
   <i class="fa-solid fa-cloud-slash" aria-hidden="true"></i>
-  <span id="offlineLabel" style="flex:1;min-width:200px">…</span>
+  <span id="offlineLabel">…</span>
   <span id="offlinePending" class="chip" style="display:none"></span>
   <button class="btn btn-ghost sm" type="button" id="offlineFlushBtn" data-offline-action="flush" style="display:none"><i class="fa-solid fa-upload"></i> رفع دلوقتي</button>
   <button class="btn btn-outline sm" type="button" id="offlineReviewBtn" data-offline-action="toggle" style="display:none"><i class="fa-solid fa-triangle-exclamation"></i> <span id="offlineConflictCount">0</span> محتاج مراجعة</button>
-  <div id="offlinePanel" hidden style="flex-basis:100%;display:none;margin-top:6px;border-top:1px solid #fed7aa;padding-top:8px"></div>
+  <div id="offlinePanel" style="display:none"></div>
 </div>
 
 <!-- ============================================================
