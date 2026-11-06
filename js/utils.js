@@ -57,6 +57,11 @@ function openWA(phone, msg) {
   window.open('https://wa.me/' + normPhoneEG(phone) + '?text=' + encodeURIComponent(msg), '_blank');
 }
 
+// رسالة واحدة واضحة لأخطاء «المخطط مش محدّث» — بدل «حدث خطأ غير متوقع»
+// (PostgREST بيرجع PGRST205/PGRST204/PGRST202 لما جدول/عمود/دالة تكون ناقصة،
+//  وده بالظبط بيحصل لو الترحيلات ما اتطبّقتش على Supabase بعد الدمج)
+const SCHEMA_HINT = 'قاعدة البيانات غير محدّثة — طبّق ملفات الترحيل 20261111 / 20261112 / 20261113 على Supabase ثم أعد المحاولة';
+
 // ترجمة أكواد أخطاء Supabase Auth إلى رسائل عربية واضحة للدكتور
 function authErrorAr(code) {
   const M = {
@@ -84,7 +89,15 @@ function authErrorAr(code) {
     '42501':                       'لا توجد صلاحية كافية لتحميل البيانات — تواصل مع إدارة النظام',
     'not_admin':                   'هذا الحساب ليس حساب إدارة نظام — الحسابات المصرّح لها فقط تدخل',
     'invalid_totp':                'كود التحقق غير صحيح — تأكد من ضبط الوقت على جهازك وأعد المحاولة',
-    'mfa_no_factor':               'لا يوجد مُعرّف تحقق مسجّل — سجّل الدخول مجدداً'
+    'mfa_no_factor':               'لا يوجد مُعرّف تحقق مسجّل — سجّل الدخول مجدداً',
+    // ترحيلات ناقصة (جدول/عمود/دالة مش موجودة في الـ schema cache)
+    'PGRST205': SCHEMA_HINT,
+    'PGRST204': SCHEMA_HINT,
+    'PGRST202': SCHEMA_HINT,
+    'PGRST200': SCHEMA_HINT,
+    '42P01':    SCHEMA_HINT,
+    '42703':    SCHEMA_HINT,
+    '42883':    SCHEMA_HINT
   };
   return M[code] || 'حدث خطأ غير متوقع — حاول مرة أخرى';
 }
@@ -96,6 +109,7 @@ function explainError(ex) {
   const msg = (ex && ex.message) || '';
   const direct = authErrorAr(code);
   if (direct && !direct.startsWith('حدث خطأ غير متوقع')) return direct;
+  if (/Could not find the table|Could not find the function|schema cache|relation .* does not exist|column .* does not exist|function .* does not exist/i.test(msg)) return SCHEMA_HINT;
   if (/Invalid login credentials/i.test(msg)) return authErrorAr('invalid_credentials');
   if (/Invalid TOTP|Invalid verification code/i.test(msg)) return authErrorAr('invalid_totp');
   if (/Email not confirmed/i.test(msg)) return authErrorAr('email_not_confirmed');

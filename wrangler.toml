@@ -1,13 +1,16 @@
-# Cloudflare Pages configuration
-# The app is a plain static site: no build step, no framework.
-# This file only pins the output directory so Pages never tries to compile anything.
+# Cloudflare Workers Builds — clinic-staging
+# -----------------------------------------------------------------------------
+# الموقع تطبيق ثابت (HTML/CSS/JS) بلا bundler ولا خطوة بناء، فالـ Worker يقدّم
+# ملفات المستودع كأصول ثابتة مباشرة. ملف `.assetsignore` يستبعد كل ما ليس
+# واجهة (SQL، اختبارات، إعدادات Supabase، Git، المستندات، سكربتات النشر).
+#
+# ملاحظة: هذا المشروع يُنشر كـ Worker (لا Pages)، ولهذا لا يوجد هنا قسم [build]
+# — أي أمر build مضبوط في لوحة Cloudflare يجب أن يبقى فاهرًا/no-op.
+name = "clinic-staging"
+# Cloudflare يقارن التاريخ بـ UTC ويرفض أي تاريخ في المستقبل. نثبّته على يوم
+# سابق (2026-11-04 UTC) لا على تاريخ اليوم المحلي، لأن فارق التوقيت خلّى
+# 2026-11-05 يُقرأ كمستقبل في بناء 2026-11-04T23:09Z. لا ترفعه أبداً.
+compatibility_date = "2026-11-04"
 
-[build]
-command = ""
-publish_directory = "./"
-
-# Nothing here is a single-page app; every route is a real file.
-# Do not add SPA fallbacks that would rewrite 404s to index.html.
-
-[build.environment]
-NODE_VERSION = "22"
+[assets]
+directory = "./"
