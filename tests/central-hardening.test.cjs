@@ -151,7 +151,7 @@ test('الأصول الجديدة منشورة ومخزّنة أوفلاين، �
     assert.ok(ignore.includes(p), p + ' must be excluded from published assets');
   }
   const sw = read('sw.js');
-  assert.match(sw, /CACHE_NAME = 'clinic-shell-v6'/);
+  assert.match(sw, /CACHE_NAME = 'clinic-shell-v7'/);
   for (const f of ['./favicon.svg', './preview.png']) {
     assert.ok(sw.includes("'" + f + "'"), f + ' is precached');
   }
@@ -235,7 +235,7 @@ test('الأصول العامة الجديدة تُرفع، وملفات الب�
   assert.equal(rules[rules.length - 1], '/js/config.js');
   assert.match(headers, /\/js\/config\.js\n  ! Cache-Control\n  Cache-Control: no-store/);
   assert.ok(!ignore.includes('_headers'), '_headers must reach Cloudflare to be applied');
-  assert.match(read('sw.js'), /CACHE_NAME = 'clinic-shell-v6'/);
+  assert.match(read('sw.js'), /CACHE_NAME = 'clinic-shell-v7'/);
   assert.match(read('js/config.js'), /xfppempsztxidjmlwrza/);
   assert.doesNotMatch(read('js/config.js'), /phmkvbszyaqagezpaduz/);
   assert.equal(JSON.parse(read('site.config.json')).siteUrl,
