@@ -46,10 +46,17 @@
   </div>
 
   <div class="bar">
-    <a class="btn" href="clinic_demo_60s.mp4" download="عيادتي-ديمو.mp4">⬇ نزّل الفيديو</a>
+    <a class="btn" id="dl" href="clinic_demo_60s.mp4?dl=1" download="عيادتي-ديمو.mp4">⬇ نزّل الفيديو</a>
     <a class="btn ghost" href="clinic_demo_60s.mp4" target="_blank" rel="noopener">فتح في تاب لوحده</a>
-    <a class="btn ghost" href="voiceover_ar_eg.mp3" target="_blank" rel="noopener">الصوت لوحده</a>
+    <a class="btn ghost" href="voiceover_ar_eg.mp3?dl=1" download="عيادتي-صوت.mp3">الصوت لوحده</a>
   </div>
+  <p class="hint" id="dlhint" hidden></p>
+
+  <p class="hint">
+    الزرار بينزّل الملف على جهازك مباشرة. لو مفيش حاجة نزلت (بيحصل جوه بعض نوافذ المعاينة)،
+    <a href="/" target="_blank" rel="noopener" style="color:var(--teal-l)">افتح الصفحة في تاب لوحدها</a>
+    وبعدها دوس نفس الزرار.
+  </p>
 
   <p class="hint">
     لو مفيش صوت: دوس على زرار التشغيل <kbd>▶</kbd> مرة، أو أيقونة الصوت <kbd>🔊</kbd> جوه المشغّل —
@@ -61,6 +68,59 @@
   const v = document.getElementById('v');
   const p = v.play();
   if (p && p.catch) p.catch(() => { v.muted = true; v.play().catch(() => {}); });
+
+  // ── تنزيل مضمون ─────────────────────────────────────────
+  // جوه iframe المتصفح بيتجاهل download، وكمان لو الملف من دومين تاني
+  // (زي دومين المعاينة) الزرار بيفتح الفيديو بدل ما ينزّله.
+  // فبنجرّب fetch → blob → a.download (بيشتغل في الحالتين)،
+  // ولو فشل (ملف كبير / الشبكة) نرجع للسيرفر نفسه ?dl=1.
+  const dl = document.getElementById('dl');
+  const hint = document.getElementById('dlhint');
+  const say = (m) => { hint.textContent = m; hint.hidden = false; };
+  const FILE = 'clinic_demo_60s.mp4';
+  const NAME = 'عيادتي-ديمو.mp4';
+
+  async function saveViaBlob() {
+    const r = await fetch(FILE, { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const total = Number(r.headers.get('Content-Length') || 0);
+    const chunks = [];
+    let got = 0;
+    const reader = r.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      got += value.length;
+      if (total) say('بينزّل… ' + Math.round(got / total * 100) + '%');
+    }
+    return new Blob(chunks, { type: 'video/mp4' });
+  }
+
+  dl.addEventListener('click', async (ev) => {
+    ev.preventDefault();
+    dl.style.pointerEvents = 'none';
+    dl.style.opacity = '.65';
+    try {
+      const blob = await saveViaBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = NAME;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      say('تم ✓ الملف اتحمّل على جهازك.');
+    } catch (err) {
+      // الخطة ب: السيرفر يبعته attachment
+      say('بنكمّل بطريقة تانية…');
+      window.location.href = FILE + '?dl=1';
+    } finally {
+      dl.style.pointerEvents = '';
+      dl.style.opacity = '';
+    }
+  });
 </script>
 </body>
 </html>
