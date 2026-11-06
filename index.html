@@ -210,7 +210,7 @@
         <div class="field">
           <label for="resetEmail">البريد الإلكتروني المسجّل</label>
           <div class="in-wrap"><i class="fa-solid fa-envelope"></i>
-            <input id="resetEmail" type="email" required dir="ltr" placeholder="doctor@clinic.com">
+            <input id="resetEmail" type="email" inputmode="email" autocomplete="username" required dir="ltr" placeholder="doctor@clinic.com">
           </div>
         </div>
         <div id="resetError" class="form-error"></div>
@@ -493,7 +493,7 @@
       <div class="top-title"><h1 id="topTitle">الرئيسية</h1><p id="topDate" class="muted"></p></div>
       <div class="top-actions" id="topActions">
         <span class="chip chip-rose" id="admBadge"><i class="fa-solid fa-shield-halved"></i> وضع الإدارة</span>
-        <button class="btn btn-primary sm" data-action="add-patient"><i class="fa-solid fa-plus"></i><span class="hide-sm">مريض جديد</span></button>
+        <button class="btn btn-primary sm" data-action="add-patient" aria-label="إضافة مريض جديد" title="مريض جديد"><i class="fa-solid fa-plus"></i><span class="hide-sm">مريض جديد</span></button>
       </div>
     </header>
 
@@ -565,7 +565,7 @@
               <button data-filter="nutrition">سمنة ونحافة</button>
             </div>
             <div class="in-wrap search"><i class="fa-solid fa-magnifying-glass"></i>
-              <input id="patientSearch" placeholder="ابحث بالاسم أو رقم الموبايل...">
+              <input id="patientSearch" type="search" inputmode="search" autocomplete="off" placeholder="ابحث بالاسم أو رقم الموبايل...">
             </div>
           </div>
           <div class="count-note muted" id="patientsCount"></div>
@@ -765,7 +765,7 @@
               <option value="سمنة">سمنة وتغذية</option>
             </select>
             <div class="in-wrap search"><i class="fa-solid fa-magnifying-glass"></i>
-              <input id="admSearch" placeholder="بحث بالاسم أو العيادة أو البريد...">
+              <input id="admSearch" type="search" inputmode="search" autocomplete="off" placeholder="بحث بالاسم أو العيادة أو البريد...">
             </div>
           </div>
           <div class="count-note muted" id="admCount"></div>
@@ -953,7 +953,7 @@
   </main>
 
   <!-- شريط التنقل السفلي للموبايل -->
-  <nav id="bottomNav"><div class="in" id="bottomNavIn"></div></nav>
+  <nav id="bottomNav" aria-label="التنقل الرئيسي"><div class="in" id="bottomNavIn"></div></nav>
 </div>
 
 <!-- جذر المودالات والتنبيهات -->

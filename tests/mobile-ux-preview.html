@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>معاينة تحسينات الهاتف — عيادتي</title>
+<!-- ملف معاينة ثابت داخل tests/ (مستبعد من النشر) — لا يعتمد على أي CDN أو بيانات حقيقية -->
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;padding:28px 18px 48px;background:#eef3f2;font-family:Tahoma,"Segoe UI",Arial,sans-serif;color:#0f2b29;line-height:1.7}
+  h1{margin:0 0 4px;font-size:22px}
+  .lead{margin:0 0 22px;color:#4b6a67;font-size:13.5px}
+  .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:center;align-items:flex-start}
+  .col{width:352px;max-width:100%}
+  .col > h2{margin:0 0 10px;font-size:15px;text-align:center;padding:8px;border-radius:10px}
+  .before h2{background:#fde8ec;color:#9f1239}
+  .after  h2{background:#dcf5ee;color:#0f766e}
+  .phone{position:relative;width:340px;height:660px;margin:auto;background:#f3f8f7;border:9px solid #1c3331;border-radius:38px;overflow:hidden;box-shadow:0 18px 40px rgba(8,40,38,.22)}
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:104px;height:19px;background:#1c3331;border-radius:0 0 14px 14px;z-index:9}
+  .topbar{height:54px;background:#fff;border-bottom:1px solid #e0ebe9;display:flex;align-items:center;gap:9px;padding:0 12px;padding-top:16px;font-size:13px;font-weight:800}
+  .menu{font-size:18px;color:#0f766e}
+  .plus{margin-inline-start:auto;display:grid;place-items:center;border-radius:10px;background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff;font-weight:900}
+  .scr{padding:12px}
+  .kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+  .kpi{background:#fff;border:1px solid #e0ebe9;border-radius:12px;padding:12px}
+  .kpi b{display:block;font-size:19px;color:#0f766e}
+  .kpi small{font-size:10px;color:#7a9491}
+  .card{background:#fff;border:1px solid #e0ebe9;border-radius:14px;padding:14px;margin-bottom:10px}
+  .card h3{margin:0 0 10px;font-size:13px}
+  label{display:block;font-size:12px;font-weight:700;margin-bottom:5px;color:#3d5654}
+  .field{width:100%;border:1.5px solid #dbe7e5;border-radius:10px;padding:11px 12px;background:#fbfdfd;color:#0f2b29}
+  .note{font-size:10.5px;margin-top:6px;font-weight:800}
+  .bad{color:#be123c}.good{color:#0f766e}
+  .toast{position:absolute;bottom:66px;left:50%;transform:translateX(-50%);background:#083634;color:#fff;padding:9px 14px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 8px 20px rgba(8,40,38,.3);z-index:8}
+  .nav{position:absolute;bottom:0;inset-inline:0;background:rgba(255,255,255,.95);border-top:1px solid #e0ebe9;display:flex;justify-content:space-around;padding:6px 6px 8px}
+  .nav div{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:58px;border-radius:12px;color:#7a9491;font-size:10.5px;font-weight:800;padding:7px 10px}
+  .nav i{font-style:normal;font-size:16px}
+  .nav .on{color:#0f766e}
+  /* «بعد» */
+  .after .topbar{padding-top:22px}
+  .after .plus{width:44px;height:44px;font-size:16px;border-radius:14px}
+  .after .field{font-size:16px;padding:12px}
+  .after .nav{padding:6px 6px 20px}
+  .after .nav div{flex:1;min-width:0;min-height:54px;font-size:11.5px;gap:4px;padding:8px 4px;position:relative}
+  .after .nav i{font-size:19px}
+  .after .nav .on{background:#eefaf8;color:#0f766e}
+  .after .nav .on::before{content:"";position:absolute;top:2px;inset-inline:32%;height:3px;border-radius:9px;background:#14b8a6}
+  .after .toast{bottom:88px;font-size:12px}
+  .safe{position:absolute;bottom:5px;left:50%;transform:translateX(-50%);width:96px;height:4px;border-radius:9px;background:#1c3331;opacity:.55;z-index:9}
+  .sheet{position:absolute;bottom:0;inset-inline:0;height:150px;background:#fff;border-radius:22px 22px 0 0;box-shadow:0 -8px 24px rgba(8,40,38,.16);padding:0 16px;z-index:7;display:none}
+  .handle{width:38px;height:4px;border-radius:9px;background:#d6e4e2;margin:10px auto 0}
+  .caps{margin-top:12px;font-size:11.5px;color:#41605d}
+  .caps b{color:#0f2b29}
+  .caps li{margin-bottom:5px}
+  table{margin:28px auto 0;border-collapse:collapse;width:min(760px,100%);background:#fff;font-size:12.5px;border-radius:14px;overflow:hidden;box-shadow:0 6px 18px rgba(8,40,38,.08)}
+  th,td{padding:10px 13px;border-bottom:1px solid #e8f0ee;text-align:start}
+  th{background:#0f766e;color:#fff;font-size:12px}
+  tr:last-child td{border-bottom:none}
+  td:nth-child(2){color:#9f1239}td:nth-child(3){color:#0f766e;font-weight:800}
+</style>
+</head>
+<body>
+  <h1>تحسين تجربة الاستخدام على الهاتف</h1>
+  <p class="lead">مقاس 340px — قبل / بعد. معاينة ثابتة توضيحية داخل <code>tests/</code>، لا تتصل بأي خدمة ولا تعرض بيانات مرضى.</p>
+
+  <div class="wrap">
+    <section class="col before">
+      <h2>قبل — التجربة القديمة</h2>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="topbar"><span class="menu">☰</span><span>الرئيسية</span><span class="plus" style="width:34px;height:34px;font-size:13px">+</span></div>
+        <div class="scr">
+          <div class="kpis">
+            <div class="kpi"><b>١٢</b><small>مرضى اليوم</small></div>
+            <div class="kpi"><b>٤</b><small>مواعيد</small></div>
+          </div>
+          <div class="card">
+            <h3>تسجيل قياس جديد</h3>
+            <label>الوزن (كجم)</label>
+            <input class="field" style="font-size:14.5px" value="٨٥.٥" readonly>
+            <div class="note bad">🔍 الضغط على الحقل → Safari يكبّر الصفحة وتقفز</div>
+          </div>
+          <div class="card" style="font-size:11.5px;color:#4b6a67">زر «+» أيقونة 34px بلا اسم · الحالة النشطة لون نص فقط · لا مساحة لشريط الـ home indicator</div>
+        </div>
+        <div class="toast">⚠️ فيه تسجيل محتاج مراجعتك</div>
+        <div class="nav">
+          <div class="on"><i>⌂</i>الرئيسية</div><div><i>☰</i>المرضى</div>
+          <div><i>▦</i>المواعيد</div><div><i>◈</i>الخطط</div><div><i>⚙</i>الإعدادات</div>
+        </div>
+      </div>
+      <ul class="caps">
+        <li>حقول <b>14.5px</b> → تكبير تلقائي عند التركيز</li>
+        <li>أهداف لمس <b>32–38px</b> → ضغطات غلط</li>
+        <li>أزرار التنقل <b>≈48px / نص 10.5px</b></li>
+        <li>الشريط يلزق في الحافة على الآيفون</li>
+      </ul>
+    </section>
+
+    <section class="col after">
+      <h2>بعد — css/mobile.css</h2>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="topbar"><span class="menu">☰</span><span>الرئيسية</span><span class="plus">+</span></div>
+        <div class="scr">
+          <div class="kpis">
+            <div class="kpi"><b>١٢</b><small>مرضى اليوم</small></div>
+            <div class="kpi"><b>٤</b><small>مواعيد</small></div>
+          </div>
+          <div class="card">
+            <h3>تسجيل قياس جديد</h3>
+            <label>الوزن (كجم)</label>
+            <input class="field" value="٨٥.٥" readonly>
+            <div class="note good">✅ 16px → بدون تكبير، والكيبود المناسب يظهر فوراً</div>
+          </div>
+          <div class="card" style="font-size:11.5px;color:#4b6a67">زر «+» مربع 44px بـ <code>aria-label</code> · الحالة النشطة بخلفية وشارة · مساحة آمنة أسفل الشريط</div>
+        </div>
+        <div class="toast">⚠️ فيه تسجيل محتاج مراجعتك</div>
+        <div class="nav">
+          <div class="on"><i>⌂</i>الرئيسية</div><div><i>☰</i>المرضى</div>
+          <div><i>▦</i>المواعيد</div><div><i>◈</i>الخطط</div><div><i>⚙</i>الإعدادات</div>
+        </div>
+        <div class="safe"></div>
+      </div>
+      <ul class="caps">
+        <li>كل الحقول <b>16px</b> → لا zoom في iOS</li>
+        <li>أهداف لمس <b>≥44px</b> والتنقل <b>54px</b></li>
+        <li>نص <b>11.5px</b> + خلفية وشارة للقسم النشط</li>
+        <li><code>env(safe-area-inset-*)</code> مع fallback في الأعلى والأسفل والمودال</li>
+      </ul>
+    </section>
+  </div>
+
+  <table>
+    <tr><th>البند</th><th>قبل</th><th>بعد</th></tr>
+    <tr><td>حجم خط الحقول على الهاتف</td><td>14.5px (zoom)</td><td>16px</td></tr>
+    <tr><td>أصغر هدف لمس</td><td>32px</td><td>44px</td></tr>
+    <tr><td>ارتفاع زر التنقل السفلي</td><td>≈48px</td><td>54px</td></tr>
+    <tr><td>تمييز القسم النشط</td><td>لون نص فقط</td><td>خلفية + شارة، تباين 5.06:1</td></tr>
+    <tr><td>مساحات الأمان (notch / home)</td><td>جزئية، ٣ مواضع بلا fallback</td><td>٦ مواضع + fallback لكل env()</td></tr>
+    <tr><td>تأخير النقر / وميضة اللمس</td><td>افتراضي</td><td>touch-action + tap-highlight + رد فعل :active</td></tr>
+    <tr><td>شاشة الدخول</td><td>بانر يأخذ نصف الشاشة</td><td>الفورم فوق الطية</td></tr>
+    <tr><td>المودال</td><td>ورقة بلا مقبض ولا safe-area</td><td>bottom sheet بمقبض + منع تسريب السكرول</td></tr>
+  </table>
+</body>
+</html>

@@ -9,7 +9,7 @@
    ===================================================================== */
 'use strict';
 
-const CACHE_NAME = 'clinic-shell-v8';
+const CACHE_NAME = 'clinic-shell-v9';
 
 const SHELL = [
   './',
@@ -26,6 +26,7 @@ const SHELL = [
   './css/layout.css',
   './css/main.css',
   './css/mfa-setup.css',
+  './css/mobile.css',
   './css/overlays.css',
   './css/patient-profile.css',
   './css/patients.css',
