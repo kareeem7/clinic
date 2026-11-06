@@ -78,7 +78,7 @@
 - `DB.readDoctorSettings()` → عند غياب الصف يستدعي `ensureDoctorProfile()` مرة واحدة، يعيد القراءة، ثم يكمّل.
 - `ensureDoctorProfile()` → `upsert(..., { onConflict:'id', ignoreDuplicates:true })` من بيانات المستخدم (`doctor_name` / `specialty` / `clinic_name`) + فرع افتراضي واحد، بفترة تجربة 14 يوماً. **لا يكتب فوق صف موجود** فلا يُعاد ضبط اشتراك موقوف أبداً.
 - `register()` بقى يحفظ `clinic_name` في `user_metadata` عشان الإصلاح يرجّع اسم العيادة الأصلي.
-- نسخة الكاش `clinic-shell-v6`، و9 اختبارات جديدة في `tests/profile-self-heal.test.cjs`، و10 في `tests/mfa-login-errors.test.cjs` (293/293).
+- نسخة الكاش `clinic-shell-v7`، و9 اختبارات جديدة في `tests/profile-self-heal.test.cjs`، و10 في `tests/mfa-login-errors.test.cjs` (295/295).
 
 كمان اتعمل إصلاح فوري لبيانات الحساب الحالي على السيرفر (INSERT فقط، بدون حذف أو تعديل أي بيانات موجودة) ⇒ الدخول يشتغل دلوقتي حتى قبل نشر الكود.
 
@@ -348,6 +348,31 @@ node --check supabase/functions/portal-photo-upload/standalone.ts
 - `js/db.js` → `mfaVerify()` يتحقق من `data.totp` و`ch.data.id` قبل الاستخدام، ويرمي `mfa_no_factor` / `session_not_found` بدل `TypeError`.
 - `js/main.js` → عند أخطاء الجلسة/انتهاء الرمز يظهر زر **«سجّل الدخول من جديد»** بدل تكرار الكود على شاشة خطأ.
 - `js/config.js` → `logError()` يسجّل `code` / `name` / `status` / تصنيفاً محدوداً `shape` (مثل `mfa-challenge-expired`) **بدون نص الرسالة ولا أي بيانات مرضى**.
-- `sw.js` → `clinic-shell-v6` لضمان تحميل النسخة الجديدة؛ 10 اختبارات في `tests/mfa-login-errors.test.cjs` تمنع عودة التعمية.
+- `sw.js` → `clinic-shell-v7` لضمان تحميل النسخة الجديدة؛ 10 اختبارات في `tests/mfa-login-errors.test.cjs` تمنع عودة التعمية.
 
 > لم يُغيّر أي إعداد Auth، ولم تُطبّق ترحيلات، ولم تُعد بيانات، ولم تُنشر Edge Functions.
+
+
+### حادثة 2026-11-06 (٤) — التحقق من الربط بعد حذف المشروع القديم
+
+| الفحص | النتيجة |
+|---|---|
+| المشاريع المتبقية | `clinicv3` (`xfppempsztxidjmlwrza`, eu-west-1, ACTIVE_HEALTHY) + `teaching-wep` ( unrelated )؛ المشروع القديم محذوف نهائياً ✅ |
+| `js/config.js` في المستودع | `https://xfppempsztxidjmlwrza.supabase.co` + anon JWT بـ `ref = xfppempsztxidjmlwrza` ✅ |
+| `list_api_keys` | مفتاح `anon` **مطابق حرفياً** لما في الكود ✅ |
+| الموقع المنشور `/js/config.js` | مطابق للمستودع، وبلا أي إشارة للمشروع القديم ✅ |
+| `/auth/v1/health?apikey=…` | `GoTrue v2.197.0` ⇒ المفتاح يعمل فعلاً على السيرفر ✅ |
+| صحة الخدمات | 8/8 `ACTIVE_HEALTHY` · `validate_credential` ناجح ✅ |
+| `site_url` / redirect | `https://clinic-staging.kemo8298.workers.dev` (+ `/reset.html`) ✅ |
+| البيانات | 1 مستخدم · 1 عامل TOTP مُ.verify · 1 دكتور · 1 فرع · `clinic_active() = true` ✅ |
+
+**إذن الربط سليم تماماً.** سبب استمرار «خطأ غير متوقع» هو إعداد Auth على المشروع الجديد:
+`mfa_totp_enroll_enabled = false`، `mfa_totp_verify_enabled = false`، `mfa_allow_low_aal = false`.
+كود GoTrue (`internal/api/mfa.go`, `ChallengeFactor`) يرفض إنشاء التحدّي قبل تسجيله برسالة
+`MFA verification is disabled for TOTP` / كود `mfa_totp_verify_not_enabled`؛ الدليل على السيرفر:
+جلسة جديدة في `13:19` بلا أي `mfa_challenge` بعد `11:53`، و`plans = 0` / `audit_logs = 0`.
+بما أن كل سياسات RLS الطبية `RESTRICTIVE` وتشترط `aal2`، فلا يوجد مسار آمن داخل التطبيق لتجاوز ذلك.
+
+**الحل:** تفعيل TOTP/MFA من لوحة Supabase (Authentication ← Sign In / Providers) ثم Hard Reload.
+هذا تغيير في إعدادات Auth **لم ينفّذه الوكيل**؛ التغيير الوحيد في الكود هو جعل الرسالة توجّه إلى
+صفحة الإعداد بدل «تواصل مع إدارة النظام»، ورفع الكاش إلى `clinic-shell-v7`، مع اختبارين إضافيين (295/295).

@@ -110,7 +110,7 @@ const sampleData = () => ({
 // ------------------------------------------------------------------ static
 test('batch 4 is wired into the shell, the worker and the portal boot', () => {
   assert.match(html, /<script src="js\/offline-snapshot\.js"><\/script>/);
-  assert.match(sw, /CACHE_NAME = 'clinic-shell-v6'/);
+  assert.match(sw, /CACHE_NAME = 'clinic-shell-v7'/);
   assert.match(sw, /'\.\/js\/offline-snapshot\.js'/);
   assert.match(offlineSrc, /clinic-offline-v1', 2\)/, 'IndexedDB upgraded for photos');
   assert.match(offlineSrc, /createObjectStore\('photos'/);

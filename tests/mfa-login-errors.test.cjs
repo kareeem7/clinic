@@ -181,3 +181,21 @@ test('errorShape يصنّف أخطاء الجلسة والشبكة و TypeError 
   assert.equal(shape('MFA challenge abc has expired'), 'mfa-challenge-expired');
   assert.equal(shape('new row violates row-level security policy'), 'rls');
 });
+
+test('عند تعطيل TOTP في Supabase، الرسالة توجه لصفحة الإعداد ولا تقول «تواصل مع الإدارة»', () => {
+  const u = utilsContext();
+  const msg = u.run("authErrorAr('mfa_totp_verify_not_enabled')");
+  assert.match(msg, /Supabase/);
+  assert.match(msg, /Authentication/);
+  assert.match(msg, /TOTP/);
+  assert.doesNotMatch(msg, /تواصل مع إدارة النظام/);
+  assert.doesNotMatch(msg, /حدث خطأ غير متوقع/);
+  const fromText = u.explainError({ code: undefined, message: 'MFA verification is disabled for TOTP' });
+  assert.match(fromText, /Authentication/, 'الترجمة تعمل حتى لو الكود وصل فارغاً');
+});
+
+test('رسالة تعطيل TOTP لا تكشف أي مفتاح أو اسم مشروع', () => {
+  const u = utilsContext();
+  const msg = u.run("authErrorAr('mfa_totp_verify_not_enabled')");
+  assert.doesNotMatch(msg, /eyJ|sb_secret|service_role|xfppempsztxidjmlwrza/);
+});
