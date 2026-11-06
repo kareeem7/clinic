@@ -59,6 +59,7 @@ const Actions = {
   // زراير الكود في ملف المريض: لا يوجد أي تدوير/تغيير للكود
   'pt-code-wa':    ds => sendPatientCodeWA(ds.id),
   'pt-code-copy':  () => copyPatientCode(),
+  'pt-link-copy':  () => copyPortalLink(),
   'del-patient':   ds => deletePatient(ds.id),
   'view-patient':  ds => go('patient', ds.id),
   'wa-patient':    ds => waPatient(ds.id),
@@ -331,6 +332,15 @@ async function boot() {
   // reset.html يرسل الزائر هنا لطلب رابط جديد — نفتح تبويب الاستعادة مباشرة
   // (typeof يحمي اختبارات الـ DOM المحاكى اللي ما بتعرّفش location)
   if (typeof location !== 'undefined' && location.hash === '#reset') switchAuthTab('reset');
+  // لينك المشاركة (?portal=1 أو #portal) يفتح تبويب «دخول بوابة المرضى» مباشرة
+  // بدل شاشة دخول الدكتور. المعامل عام بلا كود/توكن/بيانات مريض.
+  if (typeof location !== 'undefined' && typeof URLSearchParams !== 'undefined') {
+    try {
+      const wantsPortal = new URLSearchParams(location.search || '').get('portal') === '1' ||
+        location.hash === '#portal';
+      if (wantsPortal) switchAuthTab('patient');
+    } catch (_) { /* معامل مشوه → نسيب شاشة الدخول الافتراضية */ }
+  }
   $('#adminLink').onclick = () => switchAuthTab('admin');
   $('#adBack').onclick = () => switchAuthTab('login');
 

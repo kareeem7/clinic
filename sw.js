@@ -9,7 +9,7 @@
    ===================================================================== */
 'use strict';
 
-const CACHE_NAME = 'clinic-shell-v10';
+const CACHE_NAME = 'clinic-shell-v11';
 
 const SHELL = [
   './',

@@ -18,24 +18,49 @@
 // الكود محفوظ في الذاكرة فقط أثناء عرض الملف: لا يُكتب في لينك ولا في data-attribute.
 let patientAccessCode = '';
 
+// لينك عام للمشاركة: ?portal=1 بس، بلا أي كود / توكن / بيانات مريض.
+// بنشتقّه من نطاق الصفحة نفسها (staging أو إنتاج أو محلي) بدل ما نثبّت عنوان،
+// وبنمسح أي query/hash قديم عشان ما يتسرّبش حاجة من الرابط الحالي للرسالة.
+function portalShareLink() {
+  if (typeof location === 'undefined' || !location.href || typeof URL === 'undefined') return '';
+  try {
+    const u = new URL(location.href);
+    u.search = ''; u.hash = '';
+    u.searchParams.set('portal', '1');
+    return u.toString();
+  } catch (_) { return ''; }
+}
+
+// رسالة جاهزة: الكود + لينك الصفحة مع بعض. الكود بيفضل في الحافظة (نص)،
+// مش في ?text= ولا في اللينك نفسه — اللينك الوحيد هنا هو ?portal=1 العام.
+function patientCodeMessage(code, link) {
+  let msg = 'أهلاً بيك 👋 — عيادتي\n\n';
+  if (link) msg += 'افتح صفحتك من اللينك ده:\n' + link + '\n\n';
+  msg += 'كود دخولك الدائم: ' + code + '\n';
+  msg += 'افتح اللينك، اكتب رقم موبايلك المسجّل في العيادة مع الكود، وهتدخل على صفحتك مباشرة.\n';
+  msg += 'احتفظ بالكود ده — هتحتاجه كل مرة.';
+  return msg;
+}
+
 // واتساب أي «رسالة جاهزة» بيحطها بعد ?text= جوه اللينك، يعني الكود هيبقى
 // مكتوب في الرابط (تاريخ المتصفح + السجلات + أي screenshot). عشان كده:
-// بننسخ الكود محلياً للحافظة ونفتح محادثة فاضية، والدكتور يلصقه بنفسه.
+// بننسخ «رسالة كاملة» محلياً للحافظة ونفتح محادثة فاضية، والدكتور يلصقها مرة واحدة ويبعت.
 async function sendPatientCodeWA(patientId) {
   const code = patientAccessCode, p = getPatient(patientId);
   if (!code) { toast('استنى لحد ما الكود يظهر ثم اضغط تاني', 'error'); return; }
   if (!p || !p.phone) { toast('لا يوجد رقم موبايل لهذا المريض', 'error'); return; }
   const link = 'https://wa.me/' + normPhoneEG(p.phone); // ← بلا أي معامل نص وبلا الكود إطلاقاً
+  const message = patientCodeMessage(code, portalShareLink());
   // الاتنين لازم يبدأوا داخل نفس ضغطة الزر عشان المتصفح ما يبلوكش النافذة/الحافظة
   let copy;
-  try { copy = navigator.clipboard.writeText(code); }
+  try { copy = navigator.clipboard.writeText(message); }
   catch (e) { copy = Promise.reject(e); }
   window.open(link, '_blank', 'noopener,noreferrer');
   try {
     await copy;
-    toast('اتنسخ الكود — الصقه في محادثة الواتساب اللي اتفتحت (الكود مش مكتوب في اللينك)');
+    toast('اتنسخ الكود واللينك في رسالة جاهزة — الصقها في محادثة الواتساب (الكود مش في أي لينك)');
   } catch (e) {
-    toast('اتفتحت المحادثة — انسخ الكود من الكارت يدوياً وألصقه', 'info');
+    toast('اتفتحت المحادثة — انسخ الكود واللينك من الكارت يدوياً', 'info');
   }
 }
 
@@ -43,6 +68,13 @@ async function copyPatientCode() {
   if (!patientAccessCode) return;
   try { await navigator.clipboard.writeText(patientAccessCode); toast('اتنسخ الكود'); }
   catch (e) { toast('انسخ الكود يدوياً من الكارت', 'info'); }
+}
+
+async function copyPortalLink() {
+  const link = portalShareLink();
+  if (!link) { toast('تعذّر تجهيز لينك الصفحة', 'error'); return; }
+  try { await navigator.clipboard.writeText(link); toast('اتنسخ لينك صفحة المريض'); }
+  catch (e) { toast('انسخ اللينك من الكارت يدوياً', 'info'); }
 }
 
 async function renderPatientAccess(p) {
@@ -63,13 +95,18 @@ async function renderPatientAccess(p) {
         '<b class="ltr" style="font-size:17px;letter-spacing:.5px">' + esc(code) + '</b>' +
         '<small>الكود الدائم للمريض — يدخل بيه كل مرة مع رقم موبايله، وبيظهر له دائماً داخل البوابة. مفيش زر تغيير أو تدوير.</small>' +
       '</div></div>' +
+      '<div class="sys-row" style="margin-top:10px;display:block">' +
+        '<small style="display:block;font-weight:700">لينك صفحة المريض — بيفتح بوابة المرضى مباشرة</small>' +
+        '<b class="ltr" style="display:block;font-size:12.5px;word-break:break-all;margin-top:4px">' + esc(portalShareLink() || '—') + '</b>' +
+      '</div>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">' +
-        '<button class="btn btn-outline sm" type="button" data-action="pt-code-wa" data-id="' + esc(p.id) + '" style="color:#128c4b"><i class="fa-brands fa-whatsapp"></i> إرسال الكود واتساب</button>' +
+        '<button class="btn btn-outline sm" type="button" data-action="pt-code-wa" data-id="' + esc(p.id) + '" style="color:#128c4b"><i class="fa-brands fa-whatsapp"></i> إرسال الكود واللينك واتساب</button>' +
         '<button class="btn btn-ghost sm" type="button" data-action="pt-code-copy"><i class="fa-regular fa-copy"></i> نسخ الكود</button>' +
+        '<button class="btn btn-ghost sm" type="button" data-action="pt-link-copy"><i class="fa-solid fa-link"></i> نسخ اللينك</button>' +
         '<button class="btn btn-outline sm" type="button" data-action="pt-access-off" data-id="' + esc(p.id) + '"><i class="fa-solid fa-ban"></i> إيقاف دخول البوابة (طوارئ)</button>' +
         '<button class="btn btn-ghost sm" type="button" data-action="pt-access-on" data-id="' + esc(p.id) + '"><i class="fa-solid fa-unlock"></i> إعادة تشغيل الدخول</button>' +
       '</div>' +
-      '<small style="display:block;margin-top:8px">الزر بينسخ الكود ويفتح محادثة فاضية؛ الكود <b>ما بيتكتبش في أي لينك أو رابط</b>، والدكتور يلصقه بنفسه. راعِ موافقة المريض على التواصل.</small>';
+      '<small style="display:block;margin-top:8px">زر الواتساب بينسخ <b>رسالة جاهزة فيها الكود واللينك</b> ويفتح محادثة فاضية؛ الكود <b>ما بيتكتبش في أي لينك أو رابط</b>، والدكتور يلصق الرسالة ويبعتها. اللينك نفسه <code>?portal=1</code> عام بلا أي بيانات. راعِ موافقة المريض على التواصل.</small>';
   } catch (e) {
     logError(e, 'patient.accessCode');
     box.innerHTML = '<b style="color:var(--rose)">تعذّر إصدار الكود.</b> ' +
