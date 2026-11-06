@@ -64,6 +64,24 @@
 2. الـ Service Worker القديم `clinic-shell-v2` كان يخزّن `./js/config.js` بسياسة cache-first، فظلّ يقدّم **عنوان المشروع المحذوف** من كاش المتصفح حتى بعد تعديل الملف على الخادم. لهذا رُفع `CACHE_NAME` إلى `clinic-shell-v4` كي يمسح الكاش القديم عند التفعيل.
 3. النسخة المنشورة استخدمت مفتاح `sb_publishable_...` بينما مكتبة `supabase-js@2.118.0` مثبّتة بـ SRI؛ استُخدم بدلاً منه مفتاح `anon` (JWT) الخاص بنفس المشروع لضمان التوافق.
 
+### حادثة 2026-11-06 (٢) — خطأ تسجيل الدخول بعد إنشاء حساب جديد
+
+| البند | الحقيقة |
+|---|---|
+| `auth.signUp` | ✅ أنشأ المستخدم وأكّد بريده (`kemo8298@gmail.com`) وسجّل عاملاً TOTP |
+| `public.doctors` / `public.clinics` | ❌ كانوا **صفر صفوف** |
+| النتيجة | `loadSettingsRow()` يرمي `clinic_profile_missing` → «تعذّر العثور على ملف العيادة…» |
+
+**السبب:** «Confirm email» مفعّل في Supabase، فـ `signUp()` بيرجع **بدون session**، و`DB.register()` كان يرمي `confirm-email` **قبل** إدراج صفّي `doctors`/`clinics` (الإدراج محتاج `auth.uid()` تحت RLS). بعد تأكيد البريد ونجاح الدخول + MFA، mفيش صف دكتور فيسقط التحميل.
+
+**الإصلاح (مركزي + آمن):**
+- `DB.readDoctorSettings()` → عند غياب الصف يستدعي `ensureDoctorProfile()` مرة واحدة، يعيد القراءة، ثم يكمّل.
+- `ensureDoctorProfile()` → `upsert(..., { onConflict:'id', ignoreDuplicates:true })` من بيانات المستخدم (`doctor_name` / `specialty` / `clinic_name`) + فرع افتراضي واحد، بفترة تجربة 14 يوماً. **لا يكتب فوق صف موجود** فلا يُعاد ضبط اشتراك موقوف أبداً.
+- `register()` بقى يحفظ `clinic_name` في `user_metadata` عشان الإصلاح يرجّع اسم العيادة الأصلي.
+- نسخة الكاش `clinic-shell-v5`، و9 اختبارات جديدة في `tests/profile-self-heal.test.cjs` (283/283).
+
+كمان اتعمل إصلاح فوري لبيانات الحساب الحالي على السيرفر (INSERT فقط، بدون حذف أو تعديل أي بيانات موجودة) ⇒ الدخول يشتغل دلوقتي حتى قبل نشر الكود.
+
 > حل فوري دون انتظار نشر: افتح الموقع في **نافذة خاصة (Incognito)** — لا يوجد Service Worker مسجّل فيها — أو اعمل Unregister للـ Service Worker ثم Hard Reload. بعدها سيتصل بالمشروع الحي، وستحتاج إلى إنشاء حساب جديد لأن قاعدة البيانات فارغة.
 >
 > تغييرات الفرع لا تظهر على `clinic-staging.kemo8298.workers.dev` إلا بعد رفعها ونشرها.

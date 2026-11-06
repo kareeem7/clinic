@@ -151,7 +151,7 @@ test('الأصول الجديدة منشورة ومخزّنة أوفلاين، �
     assert.ok(ignore.includes(p), p + ' must be excluded from published assets');
   }
   const sw = read('sw.js');
-  assert.match(sw, /CACHE_NAME = 'clinic-shell-v4'/);
+  assert.match(sw, /CACHE_NAME = 'clinic-shell-v5'/);
   for (const f of ['./favicon.svg', './preview.png']) {
     assert.ok(sw.includes("'" + f + "'"), f + ' is precached');
   }
@@ -201,7 +201,13 @@ test('التوثيق اتصحّح: مفيش تعليمات SQL قديمة ولا
   const fn = read('supabase/functions/portal-photo-upload/README.md');
   assert.match(fn, /Deployment status \(verified 2026-11-05\)/);
   assert.match(fn, /\*\*Do not re-apply\.\*\*/);
-  assert.match(read('tests/MANUAL_TEST_GUIDE.md'), /274 اختبار من 274/);
+  // لا نثبّت رقماً: الدليل يُحدَّث مع كل إضافة اختبارات، والاختبار يتحقق فقط
+  // من وجود عبارة «N اختبار من N» متطابقة (مصدرها تشغيل npm test الفعلي).
+  const guide = read('tests/MANUAL_TEST_GUIDE.md');
+  const m = guide.match(/(\d+) اختبار من (\d+)/);
+  assert.ok(m, 'MANUAL_TEST_GUIDE must report the test count');
+  assert.equal(m[1], m[2], 'reported pass count must equal total');
+  assert.ok(Number(m[1]) >= 274, 'no tests may be silently dropped');
 });
 
 test('الأصول العامة الجديدة تُرفع، وملفات البناء/الSQL مستبعدة', () => {
@@ -229,7 +235,7 @@ test('الأصول العامة الجديدة تُرفع، وملفات الب�
   assert.equal(rules[rules.length - 1], '/js/config.js');
   assert.match(headers, /\/js\/config\.js\n  ! Cache-Control\n  Cache-Control: no-store/);
   assert.ok(!ignore.includes('_headers'), '_headers must reach Cloudflare to be applied');
-  assert.match(read('sw.js'), /CACHE_NAME = 'clinic-shell-v4'/);
+  assert.match(read('sw.js'), /CACHE_NAME = 'clinic-shell-v5'/);
   assert.match(read('js/config.js'), /xfppempsztxidjmlwrza/);
   assert.doesNotMatch(read('js/config.js'), /phmkvbszyaqagezpaduz/);
   assert.equal(JSON.parse(read('site.config.json')).siteUrl,

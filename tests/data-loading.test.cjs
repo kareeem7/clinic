@@ -67,7 +67,12 @@ test('patient list starts with select and keeps identical filters for rows and c
 });
 
 function settingsClient(response) {
-  return { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => response }) }) }) };
+  // No authenticated user in these legacy mocks → self-heal must fail closed
+  // with clinic_profile_missing instead of writing anything.
+  return {
+    auth: { getUser: async () => ({ data: { user: null }, error: null }) },
+    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => response }) }) })
+  };
 }
 
 test('clinic settings load rejects database errors and missing doctor profiles', async () => {
