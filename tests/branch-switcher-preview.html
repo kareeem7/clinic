@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>معاينة ألوان مُبدّل الفروع — قبل / بعد</title>
+<!-- معاينة توضيحية ثابتة فقط (داخل tests/ المستبعد من النشر).
+     الألوان منسوخة من css/variables.css وcss/layout.css وcss/settings.css. -->
+<style>
+  :root{--teal-900:#083634;--teal-800:#0c4f4a;--teal-700:#0f766e;--teal-500:#14b8a6;
+        --teal-50:#eefaf8;--ink:#12211f;--muted:#64748b;--line:#e3ebeb}
+  *{box-sizing:border-box}
+  body{margin:0;padding:28px;background:#f2f6f6;color:var(--ink);
+       font-family:Cairo,"Segoe UI",Tahoma,sans-serif;line-height:1.7}
+  h1{font-size:22px;margin:0 0 6px}
+  p.lead{color:var(--muted);margin:0 0 24px;font-size:14px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px;max-width:1100px}
+  .col > h2{font-size:15px;margin:0 0 10px}
+  .tag{display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:99px;margin-inline-start:6px}
+  .bad{background:#fee2e2;color:#991b1b}.good{background:#d1fae5;color:#065f46}
+  .sidebar{background:linear-gradient(180deg,var(--teal-900),#0a403c 70%,var(--teal-800));
+    color:#d8f3ef;border-radius:16px;padding:22px 18px;min-height:230px}
+  .brand{display:flex;align-items:center;gap:12px;padding-bottom:18px;border-bottom:1px solid rgba(255,255,255,.09)}
+  .logo{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,var(--teal-500),var(--teal-700));
+    display:grid;place-items:center;color:#fff;font-size:20px;flex:none}
+  .brand strong{display:block;color:#fff;font-size:18px;font-weight:900}
+  .brand small{color:#8ecfc7;font-size:11.5px;font-weight:600}
+  .nav{margin-top:16px;color:#a9d8d2;font-size:14px;font-weight:700}
+  .nav a{display:block;padding:9px 12px;border-radius:11px}
+  .nav a.on{background:linear-gradient(90deg,var(--teal-700),rgba(13,148,136,.55));color:#fff}
+  select{font-family:inherit}
+
+  /* الحالة القديمة: .input يفرض خلفية فاتحة + النص موروث فاتح */
+  .sel-old{display:block;width:100%;margin-top:7px;padding:6px 10px;font-size:12px;font-weight:700;
+    background:#fbfdfd;border:1.5px solid var(--line);border-radius:9px;color:#d8f3ef}
+  /* الحالة الجديدة: css/layout.css */
+  .sel-new{display:block;width:100%;margin-top:7px;padding:6px 10px;padding-inline-end:28px;
+    font-size:12px;font-weight:700;line-height:1.5;color:#e8fbf8;
+    background-color:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.24);
+    border-radius:9px;cursor:pointer;appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23a7e8df' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:left 11px center}
+  .sel-new:hover{background-color:rgba(255,255,255,.17);border-color:rgba(255,255,255,.40)}
+  .sel-new:focus{outline:none;background-color:rgba(255,255,255,.16);
+    border-color:var(--teal-500);box-shadow:0 0 0 3px rgba(20,184,166,.30)}
+  .sel-new option{color:#12211f;background:#fff}
+  .sel-new option:checked{color:#0f766e;background:#eefaf8}
+
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 18px;margin-top:18px}
+  .card h3{font-size:14px;margin:0 0 4px}
+  .sys-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .sys-row:last-child{border-bottom:none}
+  .sys-row > span{color:var(--ink);font-weight:700;flex:1}
+  .sys-row > span .muted{color:var(--muted);font-weight:600}
+  .sys-row > b.ltr{display:inline-block;color:var(--teal-700);background:var(--teal-50);
+    border:1px solid #c9f0ec;padding:3px 10px;border-radius:8px;font-size:12px;font-weight:800;direction:ltr}
+  .note{font-size:12px;color:var(--muted);margin-top:10px}
+  .contrast{font-size:12px;font-weight:800;margin-top:10px}
+  .contrast.bad-t{color:#b91c1c}.contrast.good-t{color:#047857}
+</style>
+</head>
+<body>
+  <h1>مُبدّل الفروع — قبل وبعد تنسيق الألوان</h1>
+  <p class="lead">المشكلة كانت بتظهر <b>بس عند إضافة فرع ثانٍ</b>، لأن الـ select بيظهر حينها في الشريط الجانبي الداكن.</p>
+
+  <div class="grid">
+    <section class="col">
+      <h2>قبل <span class="tag bad">أبيض على أبيض</span></h2>
+      <div class="sidebar">
+        <div class="brand">
+          <div class="logo">♥</div>
+          <div>
+            <strong>عيادتي</strong>
+            <small>فرع المنصورة</small>
+            <select class="sel-old" aria-label="الفرع الحالي (قديم)">
+              <option>عيادة admin (SHB1)</option>
+              <option>فرع المنصورة</option>
+            </select>
+          </div>
+        </div>
+        <div class="nav"><a class="on">🏠 الرئيسية</a><a>👥 المرضى</a><a>📅 المواعيد</a></div>
+      </div>
+      <div class="contrast bad-t">التباين ≈ 1.3 : 1 — تحت الحد الأدنى 4.5 : 1</div>
+      <p class="note">السبب: <code>.input</code> بيفرض خلفية <code>#fbfdfd</code>، بينما <code>#sidebar</code> يورّث نص فاتح <code>#d8f3ef</code>.</p>
+    </section>
+
+    <section class="col">
+      <h2>بعد <span class="tag good">واضح · AAA</span></h2>
+      <div class="sidebar">
+        <div class="brand">
+          <div class="logo">♥</div>
+          <div>
+            <strong>عيادتي</strong>
+            <small>فرع المنصورة</small>
+            <select class="sel-new" aria-label="الفرع الحالي">
+              <option>عيادة admin (SHB1)</option>
+              <option selected>فرع المنصورة</option>
+            </select>
+          </div>
+        </div>
+        <div class="nav"><a class="on">🏠 الرئيسية</a><a>👥 المرضى</a><a>📅 المواعيد</a></div>
+      </div>
+      <div class="contrast good-t">التباين ≈ 9.2 : 1 في الحالة العادية، و≥ 7 : 1 في hover/focus</div>
+      <p class="note">جرّب تضغط على الـ select أو تروّر عليه: الحدود والهالة التركوازية واضحة، وقائمة الخيارات بنص داكن.</p>
+
+      <div class="card">
+        <h3>الفروع وأكواد الدخول <span style="color:var(--muted);font-size:12px">(شاشة الإعدادات)</span></h3>
+        <div class="sys-row"><span>عيادة admin <span class="muted">(افتراضي)</span></span><b class="ltr">SHB1</b></div>
+        <div class="sys-row"><span>فرع المنصورة</span><b class="ltr">— بدون بادئة —</b></div>
+        <div class="sys-row"><span>فرع طنطا <span class="muted">(موقوف)</span></span><b class="ltr">TNT2</b></div>
+      </div>
+      <p class="note">اسم الفرع بقى داكن وواضح، والكود chip تركوازي بدل ما الاتنين يورثوا الرمادي الباهت.</p>
+    </section>
+  </div>
+</body>
+</html>

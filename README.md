@@ -78,7 +78,7 @@
 - `DB.readDoctorSettings()` → عند غياب الصف يستدعي `ensureDoctorProfile()` مرة واحدة، يعيد القراءة، ثم يكمّل.
 - `ensureDoctorProfile()` → `upsert(..., { onConflict:'id', ignoreDuplicates:true })` من بيانات المستخدم (`doctor_name` / `specialty` / `clinic_name`) + فرع افتراضي واحد، بفترة تجربة 14 يوماً. **لا يكتب فوق صف موجود** فلا يُعاد ضبط اشتراك موقوف أبداً.
 - `register()` بقى يحفظ `clinic_name` في `user_metadata` عشان الإصلاح يرجّع اسم العيادة الأصلي.
-- نسخة الكاش `clinic-shell-v7`، و9 اختبارات جديدة في `tests/profile-self-heal.test.cjs`، و10 في `tests/mfa-login-errors.test.cjs` (295/295).
+- نسخة الكاش `clinic-shell-v8`، و9 اختبارات جديدة في `tests/profile-self-heal.test.cjs`، و10 في `tests/mfa-login-errors.test.cjs` (303/303).
 
 كمان اتعمل إصلاح فوري لبيانات الحساب الحالي على السيرفر (INSERT فقط، بدون حذف أو تعديل أي بيانات موجودة) ⇒ الدخول يشتغل دلوقتي حتى قبل نشر الكود.
 
@@ -348,7 +348,7 @@ node --check supabase/functions/portal-photo-upload/standalone.ts
 - `js/db.js` → `mfaVerify()` يتحقق من `data.totp` و`ch.data.id` قبل الاستخدام، ويرمي `mfa_no_factor` / `session_not_found` بدل `TypeError`.
 - `js/main.js` → عند أخطاء الجلسة/انتهاء الرمز يظهر زر **«سجّل الدخول من جديد»** بدل تكرار الكود على شاشة خطأ.
 - `js/config.js` → `logError()` يسجّل `code` / `name` / `status` / تصنيفاً محدوداً `shape` (مثل `mfa-challenge-expired`) **بدون نص الرسالة ولا أي بيانات مرضى**.
-- `sw.js` → `clinic-shell-v7` لضمان تحميل النسخة الجديدة؛ 10 اختبارات في `tests/mfa-login-errors.test.cjs` تمنع عودة التعمية.
+- `sw.js` → `clinic-shell-v8` لضمان تحميل النسخة الجديدة؛ 10 اختبارات في `tests/mfa-login-errors.test.cjs` تمنع عودة التعمية.
 
 > لم يُغيّر أي إعداد Auth، ولم تُطبّق ترحيلات، ولم تُعد بيانات، ولم تُنشر Edge Functions.
 
@@ -375,4 +375,26 @@ node --check supabase/functions/portal-photo-upload/standalone.ts
 
 **الحل:** تفعيل TOTP/MFA من لوحة Supabase (Authentication ← Sign In / Providers) ثم Hard Reload.
 هذا تغيير في إعدادات Auth **لم ينفّذه الوكيل**؛ التغيير الوحيد في الكود هو جعل الرسالة توجّه إلى
-صفحة الإعداد بدل «تواصل مع إدارة النظام»، ورفع الكاش إلى `clinic-shell-v7`، مع اختبارين إضافيين (295/295).
+صفحة الإعداد بدل «تواصل مع إدارة النظام»، ورفع الكاش إلى `clinic-shell-v8`، مع اختبارين إضافيين (303/303).
+
+
+### حادثة 2026-11-06 (٥) — مُبدّل الفروع «أبيض على أبيض»
+
+عند إضافة فرع ثانٍ يظهر `<select id="activeClinic">` في الشريط الجانبي (كان مخفياً بـ `.hide`
+طالما `clinics.length < 2`). العنصر يحمل class `input` الذي يفرض `background:#fbfdfd`
+من `css/components.css`، بينما `#sidebar` يورّث `color:#d8f3ef`. النتيجة: **نص فاتح على
+خلفية بيضاء** (تباين < 4.5:1) وغير مقروء.
+
+**الإصلاح:**
+- إزالة الـ inline style من `index.html` حتى لا يغطّي ألوان/أحجام ورقة الأنماط.
+- قاعدة مخصّصة في `css/layout.css` (`#sidebar`/`.side-brand select#activeClinic`، مُحمّلة بعد
+  `components.css`): خلفية داكنة شفافة + نص `#e8fbf8` + حدود فاتحة + سهم SVG بلون `#a7e8df`،
+  مع `hover` / `focus` واضحين، و`option` بنص داكن على أبيض، و`.hide` صريح.
+- `css/settings.css`: اسم الفرع في قائمة الإعدادات بـ `--ink` والكود كـ chip تركوازي بدل أن
+  يرثا `muted` الباهت.
+- `tests/branch-switcher-contrast.test.cjs`: 8 اختبارات تحسب تباين WCAG فعلياً من ألوان
+  الملفات (≥ 7:1 AAA لكل الحالات)، وتثبت أن التباين القديم كان < 4.5:1، وتحمي ترتيب
+  الـ cascade وإخفاء الفرع الواحد.
+- `sw.js` → `clinic-shell-v8` · 303/303 اختبار.
+
+لا تغيير في أي منطق JS أو SQL أو بيانات.

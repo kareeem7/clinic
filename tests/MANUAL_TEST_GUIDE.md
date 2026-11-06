@@ -10,7 +10,7 @@
 ## ١) الخلاصة في ٣ سطور
 
 1. **الكود اتنشر فعلاً**: بناء الإنتاج على `main` نجح (`Workers Builds: clinic-staging` → `success`)، وقاعدة البيانات والدوال على Supabase متطبّقة ومتحقّق منها.
-2. **الاختبارات الآلية ناجحة**: 295 اختبار من 295. بس دي اختبارات «ورقية» (محاكاة)، **مش اختبار على جهاز حقيقي ولا على متصفح**.
+2. **الاختبارات الآلية ناجحة**: 303 اختبار من 303. بس دي اختبارات «ورقية» (محاكاة)، **مش اختبار على جهاز حقيقي ولا على متصفح**.
 3. **أكبر خطر دلوقتي مش عيب في الكود، هو إننا لسه ما جرّبناهوش في الواقع**. لحد ما تعمل الاختبارات اللي تحت، المشروع «معمارياً سليم» بس «مش مجرّب».
 
 ---
@@ -186,14 +186,14 @@ node --check supabase/functions/portal-photo-upload/standalone.ts
 السبب: مشروع Supabase القديم `clinicv2` حُذف نهائياً، بينما `js/config.js`
 و كاش الـ Service Worker `clinic-shell-v2` كانا لا يزالان يشيران إليه، فكان
 كل طلب يفشل بـ `Failed to fetch`. رُبط الإعداد بالمشروع الحي `clinicv3`
-(`xfppempsztxidjmlwrza`) ورُفع `CACHE_NAME` إلى `clinic-shell-v7`، كما ضُبط
+(`xfppempsztxidjmlwrza`) ورُفع `CACHE_NAME` إلى `clinic-shell-v8`، كما ضُبط
 `siteUrl` على `https://clinic-staging.kemo8298.workers.dev`.
 
 | # | الخطوة | النتيجة المتوقعة |
 |---|---|---|
 | 1 | افتح `https://clinic-staging.kemo8298.workers.dev/` في نافذة خاصة | تحميل الصفحة بلا شاشة «تعذّر الاتصال بالسيرفر» |
 | 2 | DevTools ← Sources/Network ← `js/config.js` | العنوان `https://xfppempsztxidjmlwrza.supabase.co` |
-| 3 | DevTools ← Application ← Service Workers | الإصدار `clinic-shell-v7` فقط، والكاشات الأقدم محذوفة |
+| 3 | DevTools ← Application ← Service Workers | الإصدار `clinic-shell-v8` فقط، والكاشات الأقدم محذوفة |
 | 4 | افتح تبويب عادي (لا Incognito) واعمل Hard Reload | نفس السلوك — الكاش القديم اتمسح عند تفعيل الـ SW |
 | 5 | الإعدادات ← حالة النظام ← فحص الاتصال | «متصل — الخدمة تستجيب» |
 | 6 | «حساب جديد» ← أنشئ حساب دكتور | نجاح (قاعدة البيانات فارغة؛ `disable_signup=false`)؛ ثم إعداد TOTP إلزامي |
@@ -218,7 +218,7 @@ node --check supabase/functions/portal-photo-upload/standalone.ts
 | 4 | على حساب تجريبي جديد مع «Confirm email» مفعّل | بعد تأكيد البريد وأول دخول، يُنشأ الصف تلقائياً (self-heal) |
 | 5 | حساب موقوف (`account.status = suspended`) | يفضل موقوف؛ الإصلاح لا يعيد ضبط الاشتراك |
 
-> الكاش `clinic-shell-v7`: تأكد في DevTools ← Application ← Service Workers إن النسخة القديمة اتمسحت.
+> الكاش `clinic-shell-v8`: تأكد في DevTools ← Application ← Service Workers إن النسخة القديمة اتمسحت.
 
 
 ---
@@ -233,7 +233,7 @@ node --check supabase/functions/portal-photo-upload/standalone.ts
 | 4 | بدّل من Wi-Fi لبيانات الموبايل أثناء شاشة الكود | «تغيّرت شبكة الإنترنت أثناء التحقق…» |
 | 5 | اعمل تسجيل خروج من تبويب تاني ثم أكّد الكود في التبويب الأول | «انتهت جلسة الدخول…» + زر **«سجّل الدخول من جديد»** |
 | 6 | أي خطأ تقني غير معروف | رسالة فيها **رقم مرجع** `req-…` — انسخه (بدون أي كود/توكن) وابعته للدعم مع سطر `[clinic]` من الـ Console |
-| 7 | DevTools ← Application ← Service Workers | الإصدار `clinic-shell-v7` فقط |
+| 7 | DevTools ← Application ← Service Workers | الإصدار `clinic-shell-v8` فقط |
 | 8 | Console بعد أي خطأ | سطر `[clinic]` فيه `code` / `name` / `status` / `shape` **بدون نص الرسالة ولا بيانات مرضى** |
 
 > ⚠️ لا تبعتي **كود التحقق نفسه** أبداً في أي رسالة أو لقطة شاشة. المطلوب نص الرسالة العربية أو رقم المرجع فقط.
@@ -246,3 +246,21 @@ node --check supabase/functions/portal-photo-upload/standalone.ts
 > يُرفض فوراً ولا يُنشأ أي تحدّي ⇒ لا يمكن الوصول للتطبيق إطلاقاً.
 > **الحل من لوحة Supabase فقط:** Authentication ← Sign In / Providers ← فعّل TOTP/MFA،
 > ثم Hard Reload. لا يوجد أي تعديل في الكود أو SQL يمكنه تجاوز ذلك بأمان.
+
+
+---
+
+## حادثة 2026-11-06 (٥): مُبدّل الفروع «أبيض على أبيض»
+
+| # | الخطوة | المتوقع |
+|---|---|---|
+| 1 | ادخل بفرع **واحد** | مفيش مُبدّل فروع في الشريط الجانبي |
+| 2 | الإعدادات ← الفروع ← أضف **فرع تانٍ** | يظهر مُبدّل الفروع أسفل اسم العيادة |
+| 3 | بص على المُبدّل | خلفية تركوازية داكنة شفافة + **نص فاتح واضح** + سهم فاتح (مش أبيض على أبيض) |
+| 4 | اضغط على المُبدّل | قائمة الخيارات بيضا بنص داكن، والفرع المختار مميّز بتركوازي |
+| 5 | روّر/ركّز على المُبدّل (Tab) | الحدود تركوازية + هالة واضحة، والنص لسه مقري |
+| 6 | الإعدادات ← قائمة الفروع | اسم الفرع **داكن وواضح**، والكود chip تركوازي، و«(افتراضي)» باهت بس مقري |
+| 7 | DevTools ← Application ← Service Workers | `clinic-shell-v8` فقط (اعمل Hard Reload لو لسه v7) |
+
+> التباين محسوب آلياً في `tests/branch-switcher-contrast.test.cjs` بمعادلة WCAG:
+> ≥ 7:1 (AAA) للحالات العادية/hover/focus على خلفية الشريط.

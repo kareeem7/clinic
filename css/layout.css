@@ -51,3 +51,28 @@ layout.css
 /* هيكل تحميل مؤقت لهوية العيادة/الدكتور: يظهر قبل قراءة settings/clinics،
    وsyncShellIdentity() في js/app.js يشيل الـ skel بعد ما البيانات توصل. */
 #sideClinicName.skel,#sideDoctor.skel{color:transparent;background:rgba(255,255,255,.16);border-radius:6px;min-width:70px;min-height:1em}
+
+/* ====== مُبدّل الفروع داخل الشريط الجانبي ======
+   المشكلة: .input (components.css) يفرض خلفية #fbfdfd بينما #sidebar يورّث
+   نصاً فاتحاً (#d8f3ef) ⇒ عند إضافة فرع ثانٍ يظهر «أبيض على أبيض».
+   نثبّت اللونين صراحةً بتصميم ينسجم مع الشريط الداكن: خلفية شفافة فاتحة،
+   نص فاتح جداً، حدود واضحة، وسهم بلون متباين. قائمة الخيارات تبقى فاتحة
+   بنص داكن لأن المتصفح يرسمها خارج الشريط. */
+.side-brand select#activeClinic{
+  display:block;width:100%;margin-top:7px;padding:6px 10px;padding-inline-end:28px;
+  font-family:inherit;font-size:12px;font-weight:700;line-height:1.5;
+  color:#e8fbf8;background-color:rgba(255,255,255,.10);
+  border:1px solid rgba(255,255,255,.24);border-radius:9px;cursor:pointer;
+  appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23a7e8df' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:left 11px center;
+  transition:var(--tr)
+}
+.side-brand select#activeClinic:hover{background-color:rgba(255,255,255,.17);border-color:rgba(255,255,255,.40)}
+.side-brand select#activeClinic:focus{outline:none;background-color:rgba(255,255,255,.16);
+  border-color:var(--teal-500);box-shadow:0 0 0 3px rgba(20,184,166,.30)}
+.side-brand select#activeClinic option{color:#12211f;background-color:#ffffff}
+.side-brand select#activeClinic option:checked{color:#0f766e;background-color:#eefaf8}
+/* .hide من base.css يستخدم !important، فالسطر ده تذكير صريح بأن الفرع الواحد
+   لازم يفضل مُخفياً مهما زادت خصوصية قواعد المُبدّل. */
+.side-brand select#activeClinic.hide{display:none}
