@@ -77,3 +77,16 @@ python3 encode2.py    # → clinic_demo_v3.mp4  (42.6s)
 > ليه كل ده؟ خاصية `download` في HTML **بتتجاهَل** لما الصفحة تبقى جوه iframe
 > أو لما الملف يبقى من دومين مختلف عن الصفحة — وده بالظبط حالة المعاينة،
 > فالزرار كان بيفتح الفيديو بدل ما ينزّله.
+
+### لو التنزيل مقفول تمامًا (اسمه: iframe sandbox)
+
+نافذة المعاينة جوه Arena بتشغّل الصفحة في `iframe` عليه `sandbox` من غير
+`allow-downloads` و`allow-popups`. في الحالة دي **أي** تنزيل وأي تاب جديد بيتمنعوا —
+سواء بـ `download` أو `blob` أو `window.open`. الحلول الثلاثة في `media/index.html`:
+
+1. **blob + a.download** — بيشتغل في iframe عادي، وبيفشل في sandbox.
+2. **انسخ رابط التنزيل** — الرابط المطلق لنفس الملف، يتلصق في شريط العنوان (برة الـ iframe).
+3. **رابط GitHub الخام** — `.../raw/arena/9fc38eb7-clinic/media/clinic_demo_60s.mp4`
+   ملف مباشر، مضمون، ومش بيمر بأي iframe خالص.
+
+الصفحة كمان بتكشف بنفسها إنها جوه iframe (`window.self !== window.top`) وتنبّه المستخدم.

@@ -80,6 +80,20 @@
       <button class="btn" id="copy2" type="button" data-act="copy2">انسخ</button>
     </div>
     <p class="box-p" id="urlnote"></p>
+
+    <p class="box-p" style="margin-top:14px">
+      <strong style="color:#7ee2c2">أضمن طريقة — من GitHub مباشرة:</strong>
+      الرابط ده ملف خام على GitHub، بيتفتح في أي متصفح وبينزّل بضغطة يمين ← «حفظ باسم».
+    </p>
+    <div class="url">
+      <input id="ghurl" type="text" readonly dir="ltr"
+        value="https://github.com/kareeem7/clinic/raw/arena/9fc38eb7-clinic/media/clinic_demo_60s.mp4">
+      <button class="btn" id="copy3" type="button" data-act="gh">انسخ</button>
+    </div>
+    <p class="box-p">
+      <a href="https://github.com/kareeem7/clinic/raw/arena/9fc38eb7-clinic/media/clinic_demo_60s.mp4"
+         target="_blank" rel="noopener" style="color:var(--teal-l)">أو افتحه من هنا ↗</a>
+    </p>
   </details>
 
   <p class="hint">
@@ -164,6 +178,19 @@ document.addEventListener('click', function (ev) {
   var el = ev.target.closest && ev.target.closest('[data-act]');
   if (!el) return;
   var act = el.getAttribute('data-act');
+
+  if (act === 'gh') {
+    ev.preventDefault();
+    copyText(document.getElementById('ghurl').value).then(function () {
+      say('اتنسخ ✓ الصقه في تاب جديد — هينزل على جهازك.');
+      el.textContent = 'اتنسخ ✓';
+    }).catch(function () {
+      document.getElementById('ghurl').focus();
+      document.getElementById('ghurl').select();
+      say('حدد الرابط بإيدك وانسخه (Ctrl+C).', true);
+    });
+    return;
+  }
 
   if (act === 'copy' || act === 'copy2') {
     ev.preventDefault();
