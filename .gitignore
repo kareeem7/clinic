@@ -6,3 +6,11 @@ node_modules/
 *.bak
 # مجلد معاينة الفيديو المحلي (تشغيل مؤقت)
 /.preview/
+
+# صور العميل المولّدة — artifacts، لا تُرفع للمستودع
+/client-images/
+/mockup-view.html
+/client-images.zip
+/client-images.pdf
+/download.html
+/clinic-deliverables.zip

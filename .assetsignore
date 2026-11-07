@@ -19,3 +19,5 @@ README.md
 CHECKPOINT_REFACTOR.md
 *.test.cjs
 *.bak
+client-images/
+deliverables/

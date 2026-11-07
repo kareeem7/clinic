@@ -12,3 +12,6 @@
 /CHECKPOINT_REFACTOR.md
 /package.json
 /wrangler.toml
+
+/client-images/*
+/deliverables/*
