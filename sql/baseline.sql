@@ -289,7 +289,7 @@ drop policy if exists sys_update on public.system_settings;
 create policy sys_read   on public.system_settings for select using (public.is_super_admin());
 create policy sys_insert on public.system_settings for insert with check (public.is_super_admin());
 create policy sys_update on public.system_settings for update using (public.is_super_admin()) with check (public.is_super_admin());
-insert into public.system_settings (id, value) values (1, '{"trialDays": 14, "monthly": 300, "yearly": 3000, "welcomeMsg": "مرحباً بك في منظومة عيادتي"}'::jsonb)
+insert into public.system_settings (id, value) values (1, '{"trialDays": 14, "monthly": 250, "yearly": 2500, "welcomeMsg": "مرحباً بك في منظومة عيادتي"}'::jsonb)
 on conflict (id) do nothing;
 
 -- =====================================================================

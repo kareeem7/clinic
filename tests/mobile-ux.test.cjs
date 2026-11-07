@@ -61,7 +61,7 @@ test('mobile.css مستورد آخراً ومُخزّن في الـ service work
     'لازم يتحمّل بعد responsive.css عشان يغلّبها');
   assert.equal(new Set(imports).size, imports.length, 'مفيش استيراد مكرر');
   assert.match(sw, /'\.\/css\/mobile\.css',/);
-  assert.match(sw, /CACHE_NAME = 'clinic-shell-v11'/);
+  assert.match(sw, /CACHE_NAME = 'clinic-shell-v13'/);
 });
 
 test('منع التكبير التلقائي في iOS: كل حقول الإدخال ≥ 16px على الهاتف', () => {

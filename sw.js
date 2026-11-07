@@ -9,11 +9,18 @@
    ===================================================================== */
 'use strict';
 
-const CACHE_NAME = 'clinic-shell-v11';
+const CACHE_NAME = 'clinic-shell-v13';
+
+/* الملفات الكبيرة اللي مايصحش تدخل كاش الواجهة.
+   الفيديو ٣.٩ ميجا: لو دخل الكاش هيقعد يتحمّل كله ويملا مساحة الجهاز،
+   وهيبطّأ تحديث الموقع. سيبه للشبكة — المتصفح بيعمل Range requests بنفسه
+   وبيقدر ينقّل جوه الفيديو من غير ما يستنى تحميل كامل. */
+const SKIP_CACHE = /^\/media\//i;
 
 const SHELL = [
   './',
   './index.html',
+  './landing.html',
   './reset.html',
   './favicon.svg',
   './preview.png',
@@ -37,9 +44,11 @@ const SHELL = [
   './css/settings.css',
   './css/variables.css',
   './css/whatsapp.css',
+  './css/landing.css',
   './js/admin.js',
   './js/app.js',
   './js/appointments.js',
+  './js/app-gate.js',
   './js/archive.js',
   './js/config.js',
   './js/dashboard.js',
@@ -48,6 +57,7 @@ const SHELL = [
   './js/export.js',
   './js/health-monitoring.js',
   './js/labs.js',
+  './js/landing.js',
   './js/main.js',
   './js/message-style.js',
   './js/notes.js',
@@ -60,6 +70,7 @@ const SHELL = [
   './js/plans.js',
   './js/reset.js',
   './js/settings.js',
+  './js/site-config.js',
   './js/state.js',
   './js/utils.js',
   './js/whatsapp.js'
@@ -123,6 +134,11 @@ async function networkFirstShell(req, url) {
 }
 
 async function cacheFirstAsset(req, url) {
+  // الفيديو والصورة الغلاف: شبكة مباشرة بلا كاش ولا تدخّل.
+  // لازم ده يسبق caches.open — عشان ما نعملش match على كاش أصل مش بتاعنا.
+  if (url.origin === self.location.origin && SKIP_CACHE.test(url.pathname)) {
+    return fetch(req);
+  }
   const cache = await caches.open(CACHE_NAME);
   const hit = await cache.match(req);
   if (hit) return hit;

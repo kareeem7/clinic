@@ -25,12 +25,24 @@ copy() {
 
 echo "→ نسخ ملفات الموقع:"
 copy index.html
+copy landing.html
 copy reset.html
 copy robots.txt
 copy _headers
 copy _redirects
 copy css
 copy js
+# media/: فيديو الديمو + الغلاف اللي صفحة البيع بتشغّلهم.
+# بننسخ الملفات المطلوبة بس — مش سكربتات الإنتاج ولا المشغّل المحلي.
+mkdir -p "$OUT/media"
+for f in clinic_demo_60s.mp4 poster.jpg; do
+  if [ -f "media/$f" ]; then
+    cp "media/$f" "$OUT/media/"
+    echo "  + media/$f"
+  else
+    echo "  ! media/$f غير موجود — تأكد إن landing.html مش بيشاور عليه"
+  fi
+done
 
 # لا يُنسخ: tests/ sql/ supabase/ docs/ scripts/ .github/ package.json wrangler.toml
 
@@ -52,7 +64,7 @@ SIZE=$(du -sh "$OUT" | cut -f1)
 echo "  ✅ $COUNT ملف · $SIZE"
 
 # تأكيد إن الملفات الحرجة وصلت
-for f in index.html reset.html js/main.js js/config.js css/main.css _headers; do
+for f in index.html landing.html reset.html js/main.js js/config.js js/landing.js css/main.css css/landing.css media/clinic_demo_60s.mp4 media/poster.jpg _headers; do
   [ -f "$OUT/$f" ] || { echo "  ❌ $f مفقود من الحزمة"; exit 1; }
 done
 echo "  ✅ الملفات الحرجة موجودة"
