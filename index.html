@@ -378,7 +378,9 @@
         <!-- تاريخ وملاحظة -->
         <div class="p-field">
           <label>تاريخ القياس</label>
-          <input class="input" id="lgDate" type="date" max="2026-12-31">
+          <!-- الحد الأقصى يُضبط ديناميكياً عبر todayISO() في js/patient-portal.js.
+               ممنوع وضع تاريخ ثابت هنا: أي max="YYYY-MM-DD" سيمنع تسجيل القياسات بعده. -->
+          <input class="input" id="lgDate" type="date">
           <small class="p-small">الافتراضي: النهارده — ممكن ترجع لآخر أسبوع</small>
         </div>
         <div class="p-field">
