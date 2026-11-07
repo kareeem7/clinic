@@ -4,6 +4,7 @@
 
 | الملف | مباشر |
 |---|---|
+| **فيديو ٩٠ ثانية (MP4)** | https://raw.githubusercontent.com/kareeem7/clinic/arena/b4cac621-clinic/deliverables/clinic-online-work-90s.mp4 |
 | الحزمة الكاملة (ZIP) | https://raw.githubusercontent.com/kareeem7/clinic/arena/b4cac621-clinic/deliverables/clinic-deliverables.zip |
 | PDF للإيميل/الطباعة | https://raw.githubusercontent.com/kareeem7/clinic/arena/b4cac621-clinic/deliverables/client-images.pdf |
 | 01 تعريف بالموقع | https://raw.githubusercontent.com/kareeem7/clinic/arena/b4cac621-clinic/deliverables/01-Intro.png |
@@ -17,3 +18,10 @@
 `services-mockups.html` (موك اب 13 خدمة) و`mockup-view.html` (ذاتي بلا إنترنت).
 
 > بيانات توضيحية اصطناعية فقط؛ الأسعار مستبعدة عن قصد لحين توحيدها.
+
+
+## الفيديو
+`clinic-online-work-90s.mp4` — دقيقة ونصف، 1080×1920، تعليق صوتي عربي، يستهدف
+اللي بيشتغلوا أونلاين وبيوري المميزات والشغل من أي مكان. اللقطات **توضيحية من
+الواجهة** (مبنية من عناصر `index.html` و `css/variables.css` الفعلية) وليست
+تسجيل شاشة حي؛ الوسم ظاهر داخل كل لقطة. بيانات اصطناعية، بلا أسعار.
