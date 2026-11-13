@@ -1,4 +1,63 @@
-# نظام إدارة العيادات (عيادتي)
+# Clinic management system (عيادتي)
+
+A clinic app for Arabic-speaking clinics: patients, appointments, measurements, lab results,
+nutrition plans — plus a portal where a patient can follow their own readings.
+
+**Live staging:** https://clinic-staging.kemo8298.workers.dev — login required; demo account on request.
+
+![dashboard](./preview.png)
+
+## Why it looks the way it does
+
+The first version assumed a doctor sitting at a desk with good internet. They don't sit at a
+desk, and the internet isn't good. The connection drops in the middle of a patient visit, and
+the visit doesn't stop — so the app had to keep taking input anyway. Writes go into a local
+queue and sync when the connection comes back, with rules for what happens when two devices
+touched the same record.
+
+The data is in Supabase. Every table has row-level security, which means a clinic can only
+read its own patients even if someone calls the API directly with the public key. That public
+key is the only credential that ships to the browser — the schema itself is excluded from the
+published bundle, so the table layout isn't readable from devtools. The patient portal reads
+through RPCs rather than tables, so a patient never gets table access at all.
+
+It's vanilla JavaScript. Thirty modules, no framework. That was the right call for the first
+six months and the wrong one after — the state syncing in particular is manual where React
+would have made it boring. I'm rebuilding the dashboard in React and TypeScript now, mostly
+to see where the trade actually pays off, and I'll write down what I find.
+
+41 test files cover the main flows, run with the Node test runner. Playwright handles the
+browser paths. Cloudflare serves the repo as a Worker, with `_headers` carrying the CSP,
+`frame-ancestors`, `X-Frame-Options` and `Referrer-Policy`.
+
+## What isn't done
+
+Writing this down because a clinic is not a place to be optimistic:
+
+- Patient login is a permanent access code plus a phone number. OTP is designed and deferred.
+- The MFA migration exists but hasn't been rolled out with a recovery path I'd trust in
+  production.
+- Alerts are in-app only. This is not an emergency notification system and shouldn't ever be
+  sold as one.
+- No end-to-end suite against a real Supabase instance. The Node tests use mocks, which is not
+  the same thing.
+
+## Run it
+
+```bash
+git clone https://github.com/kareeem7/clinic.git
+cd clinic
+npm test        # Node test runner, no dependencies needed
+npm run meta    # regenerates page meta from site.config.json
+```
+
+There's no build step. Cloudflare serves the repository assets directly, which is why
+`wrangler.toml` is three lines and why `.assetsignore` does real work — it keeps SQL, tests
+and docs out of the published bundle.
+
+---
+
+## التوثيق الهندسي الكامل (بالعربي)
 
 تطبيق ويب عربي لإدارة ملفات المرضى والقياسات والتحاليل والمواعيد، مع تكامل Supabase وبوابة للمريض.
 
