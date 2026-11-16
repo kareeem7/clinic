@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>عيادتي — ديمو أوفلاين (تجريبي)</title>
+<!--
+  ديمو مستقل تماماً: لا CDN، لا fetch، لا Supabase، لا service worker، لا توكن.
+  يفتح من file:// بدبل كليك. كل المنطق والبيانات والأنماط في هذا الملف.
+  البيانات اصطناعية 100% من sql/demo_seed_sales.sql. ليس النسخة المنشورة.
+-->
+<style>
+:root{
+  --teal-900:#083634;--teal-800:#0c4f4a;--teal-700:#0f766e;--teal-600:#0d9488;
+  --teal-500:#14b8a6;--teal-100:#c9f0ec;--teal-50:#eefaf8;
+  --bg:#f2f6f6;--surface:#fff;--ink:#12211f;--muted:#64748b;--line:#e3ebeb;
+  --gold:#d97706;--gold-bg:#fffbeb;--red:#dc2626;--red-bg:#fef2f2;--green:#15803d;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Tahoma,"DejaVu Sans",Arial,sans-serif;font-size:14px;line-height:1.7}
+button,input,select,textarea{font-family:inherit;font-size:inherit}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px 40px}
+header{background:var(--teal-900);color:#fff;padding:14px 0}
+.hd{max-width:1180px;margin:0 auto;padding:0 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{width:40px;height:40px;border-radius:50%;background:var(--teal-500);display:grid;place-items:center;font-weight:900;font-size:20px}
+.brand{font-weight:900;font-size:19px}
+.hd small{display:block;font-weight:400;font-size:11px;color:#a8d8d2}
+.badge{margin-inline-start:auto;background:#0c4f4a;border:1px solid #1c706a;color:#d8f5f1;border-radius:20px;padding:5px 12px;font-size:11px;font-weight:700}
+.notice{background:var(--gold-bg);border-bottom:2px solid #fcd34d;color:#7c4a03;padding:9px 16px;font-size:12px;font-weight:700;text-align:center}
+.tabs{display:flex;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:6px;margin:16px 0;flex-wrap:wrap}
+.tab{border:0;background:transparent;padding:9px 16px;border-radius:9px;cursor:pointer;font-weight:800;color:var(--muted)}
+.tab.on{background:var(--teal-600);color:#fff}
+.pane{display:none}.pane.on{display:block}
+.grid{display:grid;grid-template-columns:260px 1fr;gap:14px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.card h2{margin:0 0 12px;font-size:16px;color:var(--teal-800)}
+.card h3{margin:16px 0 8px;font-size:14px;color:var(--teal-700)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.grow{flex:1;min-width:130px}
+input,select,textarea{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fff;color:var(--ink)}
+input:focus,select:focus{outline:2px solid var(--teal-500);outline-offset:1px}
+.btn{border:0;background:var(--teal-600);color:#fff;border-radius:9px;padding:9px 14px;cursor:pointer;font-weight:800}
+.btn:hover{background:var(--teal-700)}
+.btn.ghost{background:var(--teal-50);color:var(--teal-800);border:1px solid var(--teal-100)}
+.btn.warn{background:#fff;color:var(--red);border:1px solid #fecaca}
+.btn.sm{padding:5px 10px;font-size:12px}
+.pat{width:100%;text-align:right;border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 11px;margin-bottom:7px;cursor:pointer;display:block}
+.pat.on{border-color:var(--teal-600);background:var(--teal-50)}
+.pat b{display:block}.pat small{color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:right}
+th{color:var(--muted);font-size:12px}
+.num{font-variant-numeric:tabular-nums;font-weight:800;color:var(--teal-700)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--teal-50);border:1px solid var(--teal-100);border-radius:12px;padding:12px}
+.kpi b{display:block;font-size:22px;color:var(--teal-800);line-height:1.3}
+.kpi small{color:var(--muted)}
+.chart{width:100%;height:190px;background:#fff;border:1px solid var(--line);border-radius:12px}
+.alert{border-radius:10px;padding:10px 12px;margin:9px 0;font-weight:700;font-size:13px}
+.alert.warning{background:var(--gold-bg);border:1px solid #fcd34d;color:#92400e}
+.alert.critical{background:var(--red-bg);border:1px solid #fecaca;color:#991b1b}
+.alert.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534}
+.muted{color:var(--muted);font-size:12px}
+.hide{display:none!important}
+.alt{background:var(--teal-50);border:1px dashed var(--teal-500);border-radius:9px;padding:10px;margin-top:7px;font-size:13px}
+pre{background:#0b2e2c;color:#d8f5f1;border-radius:10px;padding:12px;overflow:auto;font-size:12px;max-height:280px;direction:ltr;text-align:left}
+.tag{display:inline-block;background:var(--teal-100);color:var(--teal-900);border-radius:20px;padding:2px 9px;font-size:11px;font-weight:800}
+.foot{text-align:center;color:var(--muted);font-size:11px;margin-top:22px;line-height:1.9}
+hr{border:0;border-top:1px solid var(--line);margin:14px 0}
+</style>
+</head>
+<body>
+<header><div class="hd">
+  <div class="logo">ع</div>
+  <div><div class="brand">عيادتي</div><small>نظام إدارة عيادات العلاج الطبيعي والسمنة</small></div>
+  <div class="badge" id="modeBadge">ديمو أوفلاين · يعمل بلا إنترنت</div>
+</div></header>
+<div class="notice">⚠️ نسخة تجريبية محلية للعرض فقط: بيانات اصطناعية ١٠٠٪، ليست النسخة المنشورة، بلا أسعار، بلا اتصال بالخادم، بلا حسابات ولا توكنات. لا تُدخل بيانات مرضى حقيقية.</div>
+
+<div class="wrap">
+  <div class="tabs">
+    <button class="tab on" data-tab="doctor">لوحة الدكتور</button>
+    <button class="tab" data-tab="portal">بوابة المريض</button>
+    <button class="tab" data-tab="data">الداتا والاختبار</button>
+  </div>
+
+  <!-- ═══════════════ لوحة الدكتور ═══════════════ -->
+  <div class="pane on" id="pane-doctor">
+    <div class="kpis">
+      <div class="kpi"><b id="kPatients">0</b><small>مرضى</small></div>
+      <div class="kpi"><b id="kRecords">0</b><small>قياسات</small></div>
+      <div class="kpi"><b id="kToday">0</b><small>مواعيد اليوم</small></div>
+      <div class="kpi"><b id="kFromPortal">0</b><small>من بوابة المرضى</small></div>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <h2>المرضى</h2>
+        <input id="search" class="grow" style="width:100%" placeholder="ابحث بالاسم أو التشخيص">
+        <div id="patList" style="margin-top:10px"></div>
+        <hr>
+        <h3>مواعيد اليوم</h3>
+        <div id="apptList" class="muted"></div>
+      </div>
+      <div>
+        <div class="card">
+          <h2 id="patTitle">ملف المريض</h2>
+          <div id="patMeta" class="muted"></div>
+          <h3>منحنى الوزن</h3>
+          <svg class="chart" id="chart" viewBox="0 0 600 190" preserveAspectRatio="none" aria-label="منحنى الوزن"></svg>
+          <div id="trend" class="alert ok"></div>
+          <h3>القياسات <span class="tag" id="recCount">0</span></h3>
+          <div style="max-height:210px;overflow:auto"><table id="recTable"></table></div>
+          <h3>إضافة قياس وزن</h3>
+          <div class="row">
+            <input id="newWeight" type="number" step="0.1" min="30" max="250" placeholder="الوزن بالكجم" class="grow">
+            <input id="newNote" placeholder="ملاحظة (اختياري)" class="grow">
+            <button class="btn" id="addWeight">حفظ القياس</button>
+          </div>
+          <div id="doctorMsg" class="muted"></div>
+        </div>
+        <div class="card">
+          <h2>التحاليل</h2><div id="labsBox"></div>
+          <h3>قراءات السكر والضغط</h3><div id="readingsBox"></div>
+          <h3>ملاحظات الزيارات</h3><div id="notesBox"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ بوابة المريض ═══════════════ -->
+  <div class="pane" id="pane-portal">
+    <div class="card">
+      <h2>بوابة المريض <span class="tag">من موبايل المريض</span></h2>
+      <div class="row">
+        <select id="portalPatient" class="grow"></select>
+        <span class="muted">الدخول هنا تجريبي بلا كود حقيقي — لا يتخطى أي مصادقة.</span>
+      </div>
+    </div>
+    <div class="grid">
+      <div>
+        <div class="card">
+          <h2>خطتي اليوم</h2>
+          <div id="planBox"></div>
+          <p class="muted" id="planDisclaimer"></p>
+        </div>
+        <div class="card">
+          <h2>منحنى تطوري</h2>
+          <svg class="chart" id="chart2" viewBox="0 0 600 190" preserveAspectRatio="none" aria-label="منحنى التطور"></svg>
+          <div id="trend2" class="alert ok"></div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <h2>سجّل قياسك</h2>
+          <h3>الوزن</h3>
+          <div class="row"><input id="pWeight" type="number" step="0.1" min="30" max="250" placeholder="83.2" class="grow"><button class="btn" id="saveWeight">حفظ الوزن</button></div>
+          <h3>السكر</h3>
+          <div class="row">
+            <input id="pGlucose" type="number" min="20" max="600" placeholder="mg/dL" class="grow">
+            <select id="pGType"><option value="fasting">صائم</option><option value="postprandial">بعد الأكل</option><option value="random">عشوائي</option></select>
+            <button class="btn" id="saveGlucose">حفظ السكر</button>
+          </div>
+          <h3>الضغط</h3>
+          <div class="row">
+            <input id="pSys" type="number" min="50" max="300" placeholder="انقباضي" class="grow">
+            <input id="pDia" type="number" min="30" max="200" placeholder="انبساطي" class="grow">
+            <input id="pPulse" type="number" min="30" max="220" placeholder="نبض" class="grow">
+            <button class="btn" id="saveBp">حفظ الضغط</button>
+          </div>
+          <div id="portalAlert"></div>
+          <p class="muted">القراءة تُحفظ في ملفك ويقدر الدكتور يشوفها — ليست رسالة أو إشعاراً خارجياً.</p>
+        </div>
+        <div class="card">
+          <h2>آخر قراءاتي</h2>
+          <div id="myReadings"></div>
+          <h3>من لوحة الدكتور: قياسات من بوابة المرضى</h3>
+          <div id="feedBox" class="muted"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ الداتا والاختبار ═══════════════ -->
+  <div class="pane" id="pane-data">
+    <div class="card">
+      <h2>اختبر كل حاجة 🧪</h2>
+      <p class="muted">بيشغّل فحوصات حقيقية على البيانات والحسابات والتنبيهات والتخزين، ويعرض النتيجة هنا — من غير Console ولا إنترنت.</p>
+      <div class="row">
+        <button class="btn" id="runTests">▶ اختبر كل حاجة دلوقتي</button>
+        <span id="testSummary" class="tag">لم يُشغّل بعد</span>
+      </div>
+      <pre id="testOut">اضغط الزر لتبدأ الفحوصات…</pre>
+    </div>
+    <div class="card">
+      <h2>الداتا</h2>
+      <div class="kpis">
+        <div class="kpi"><b id="dPatients">0</b><small>مرضى</small></div>
+        <div class="kpi"><b id="dRecords">0</b><small>قياسات</small></div>
+        <div class="kpi"><b id="dReadings">0</b><small>قراءات</small></div>
+        <div class="kpi"><b id="dStore">—</b><small>التخزين المحلي</small></div>
+      </div>
+      <div class="row">
+        <button class="btn ghost" id="exportBtn">⬇ تصدير JSON</button>
+        <button class="btn ghost" id="importBtn">⬆ استيراد JSON</button>
+        <input type="file" id="importFile" accept=".json,application/json" class="hide">
+        <button class="btn ghost" id="showJson">👁 اعرض الداتا</button>
+        <button class="btn warn" id="resetBtn">↺ إعادة الضبط للبيانات الأصلية</button>
+      </div>
+      <pre id="jsonBox" class="hide"></pre>
+      <div id="dataMsg" class="muted"></div>
+    </div>
+    <div class="card">
+      <h2>إيه الموجود وإيه المش موجود (بصراحة)</h2>
+      <table>
+        <tr><th>موجود وشغّال في الديمو</th><th>مش موجود عن قصد</th></tr>
+        <tr><td>٤ مرضى · ١٧ قياس · ٧ مواعيد · تحاليل · قراءات سكر/ضغط · ملاحظات</td><td>أي اتصال بالخادم أو قاعدة بيانات</td></tr>
+        <tr><td>منحنى الوزن مرسوم بالكود (SVG) + رسالة الاتجاه</td><td>تسجيل دخول / MFA / صلاحيات</td></tr>
+        <tr><td>الخطة + زر «شوف بدائل»</td><td>واتساب / رفع صور / طباعة</td></tr>
+        <tr><td>تسجيل قياسات + تنبيهات ٥٤ / ٧٠ / ١٨٠ / ١٢٠</td><td>أي سعر أو اشتراك</td></tr>
+        <tr><td>حفظ محلي + تصدير/استيراد + إعادة ضبط</td><td>بيانات مرضى حقيقية</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="foot">
+    عيادتي — ديمو أوفلاين مستقل · يُبنى من <b>sql/demo_seed_sales.sql</b> وألوان <b>css/variables.css</b> ومنطق <b>js/patient-portal.js</b><br>
+    لقطات توضيحية من الواجهة وليست تسجيل شاشة حي · الأسعار تُحدد في العرض الرسمي · لا يُستخدم في تشخيص أو علاج فعلي
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ═══════════════════════════════════════════════════════════════
+   Core = منطق بحت (بدون DOM) — يُختبر في المتصفح وفي Node عبر vm.
+   ═══════════════════════════════════════════════════════════════ */
+var Core = (function () {
+  var D = function (n) { return n; }; // days ago → نستخدم أرقاماً ثابتة للعرض
+  var SEED = {
+    version: 1,
+    patients: [
+      { id:'p1', name:'منى عبد الرحمن', age:34, gender:'female', type:'nutrition', height:165, target:72,
+        diagnosis:'زيادة وزن — برنامج إنقاص 12 كجم خلال 6 شهور', glucose:true, bp:true },
+      { id:'p2', name:'هدى مصطفى', age:28, gender:'female', type:'nutrition', height:160, target:62,
+        diagnosis:'تثبيت وزن بعد نزول 14 كجم', glucose:false, bp:false },
+      { id:'p3', name:'محمود فتحي', age:41, gender:'male', type:'pt', height:178, target:null,
+        diagnosis:'ديسك أسفل الظهر (L4-L5) — تأهيل حركي', glucose:false, bp:true },
+      { id:'p4', name:'سارة إبراهيم', age:23, gender:'female', type:'pt', height:175, target:null,
+        diagnosis:'تأهيل ركبة بعد جراحة ACL', glucose:false, bp:false }
+    ],
+    records: [
+      { id:'r01',pid:'p1',dayAgo:168,weight:92.4,waist:102,fat:37.1,bmi:33.9,source:'clinic',note:'قياس البداية' },
+      { id:'r02',pid:'p1',dayAgo:140,weight:90.8,waist:100,fat:36.2,bmi:33.4,source:'clinic',note:'التزام جيد بالأكل' },
+      { id:'r03',pid:'p1',dayAgo:112,weight:89.1,waist:98,fat:35.4,bmi:32.7,source:'clinic',note:'بدأت المشي 30 دقيقة يومياً' },
+      { id:'r04',pid:'p1',dayAgo:84, weight:87.6,waist:96,fat:34.6,bmi:32.2,source:'clinic',note:'' },
+      { id:'r05',pid:'p1',dayAgo:56, weight:86.2,waist:95,fat:33.8,bmi:31.7,source:'clinic',note:'أسبوع صعب — سافرت' },
+      { id:'r06',pid:'p1',dayAgo:28, weight:84.9,waist:93,fat:32.9,bmi:31.2,source:'clinic',note:'رجعنا للنظام، فرق واضح' },
+      { id:'r07',pid:'p1',dayAgo:7,  weight:83.5,waist:92,fat:32.1,bmi:30.7,source:'patient',note:'سجّلتها من البوابة' },
+      { id:'r08',pid:'p1',dayAgo:6,  weight:83.2,waist:null,fat:31.9,bmi:30.6,source:'clinic',note:'فحص InBody' },
+      { id:'r09',pid:'p2',dayAgo:70, weight:62.8,waist:74,fat:25.1,bmi:24.5,source:'clinic',note:'بداية التثبيت' },
+      { id:'r10',pid:'p2',dayAgo:35, weight:62.4,waist:73,fat:24.9,bmi:24.4,source:'clinic',note:'' },
+      { id:'r11',pid:'p2',dayAgo:5,  weight:61.9,waist:73,fat:24.6,bmi:24.2,source:'clinic',note:'مستقرة جداً' },
+      { id:'r12',pid:'p3',dayAgo:45, weight:null,session:1,pain:8,source:'clinic',note:'جلسة أولى — تقييم' },
+      { id:'r13',pid:'p3',dayAgo:31, weight:null,session:2,pain:7,source:'clinic',note:'تمارين إطالة + تصحيح وضع' },
+      { id:'r14',pid:'p3',dayAgo:17, weight:null,session:3,pain:5,source:'clinic',note:'تحسن ملحوظ في الألم' },
+      { id:'r15',pid:'p3',dayAgo:3,  weight:null,session:4,pain:3,source:'clinic',note:'بيقدر يقعد ساعتين متواصلين' },
+      { id:'r16',pid:'p4',dayAgo:10, weight:null,session:1,pain:7,source:'clinic',note:'تقييم أولي — مدى حركة محدود' },
+      { id:'r17',pid:'p4',dayAgo:2,  weight:null,session:2,pain:5,source:'clinic',note:'بدأت تمارين تقوية الرباعية' }
+    ],
+    labs: [
+      { id:'l1',pid:'p1',dayAgo:90,name:'سكر صائم',results:[['Glucose',96,'mg/dL']] },
+      { id:'l2',pid:'p1',dayAgo:90,name:'صورة دهون كاملة',results:[['Cholesterol',212,'mg/dL'],['HDL',44,'mg/dL'],['LDL',141,'mg/dL']] },
+      { id:'l3',pid:'p1',dayAgo:20,name:'صورة دهون كاملة',results:[['Cholesterol',188,'mg/dL'],['HDL',51,'mg/dL'],['LDL',118,'mg/dL']] }
+    ],
+    readings: [
+      { id:'h1',pid:'p1',kind:'glucose',dayAgo:21,glucose:104,gtype:'fasting',source:'clinic' },
+      { id:'h2',pid:'p1',kind:'glucose',dayAgo:7, glucose:94, gtype:'fasting',source:'patient' },
+      { id:'h3',pid:'p3',kind:'bp',dayAgo:14,sys:138,dia:88,pulse:76,source:'clinic' },
+      { id:'h4',pid:'p3',kind:'bp',dayAgo:1, sys:129,dia:82,pulse:72,source:'clinic' }
+    ],
+    appointments: [
+      { id:'a1',pid:'p1',dayAgo:0,time:'17:00',status:'confirmed',note:'متابعة شهرية' },
+      { id:'a2',pid:'p3',dayAgo:0,time:'18:00',status:'confirmed',note:'جلسة 5' },
+      { id:'a3',pid:'p4',dayAgo:0,time:'19:00',status:'pending',note:'جلسة 3' },
+      { id:'a4',pid:'p2',dayAgo:-2,time:'16:00',status:'confirmed',note:'' },
+      { id:'a5',pid:'p3',dayAgo:-4,time:'18:00',status:'confirmed',note:'جلسة 6' },
+      { id:'a6',pid:'p1',dayAgo:-7,time:'17:00',status:'confirmed',note:'' },
+      { id:'a7',pid:'p4',dayAgo:2,time:'19:00',status:'cancelled',note:'اعتذرت — سفر' }
+    ],
+    notes: [
+      { id:'n1',pid:'p1',dayAgo:56,text:'التزام بالأكل 70٪ — رفعنا البروتين قليلاً.' },
+      { id:'n2',pid:'p3',dayAgo:17,text:'مدى الحركة اتتحسن 20 درجة. كمّل التمارين المنزلية.' },
+      { id:'n3',pid:'p4',dayAgo:2, text:'تورم أقل، بقت تمشي من غير عكاز.' }
+    ],
+    plan: [
+      { meal:'الفطار', desc:'بيضتان مسلوقتان + خبز حبوب كاملة + خيار', alt:'زبادي يوناني + شوفان + توت، أو فول بالزيت والليمون' },
+      { meal:'الغدا', desc:'صدر دجاج مشوي + أرز بني + سلطة', alt:'سمك مشوي + بطاطس مسلوقة، أو عدس بصلصة الخضار' },
+      { meal:'العشا', desc:'شوربة خضار + جبن قريش', alt:'سلطة تونة بزيت زيتون، أو عجة خضار بالفرن' }
+    ]
+  };
+
+  function seed() { return JSON.parse(JSON.stringify(SEED)); }
+  function patient(st, id) { for (var i=0;i<st.patients.length;i++) if (st.patients[i].id===id) return st.patients[i]; return null; }
+  function records(st, pid) {
+    return st.records.filter(function(r){return r.pid===pid && r.weight!=null;})
+                     .sort(function(a,b){return b.dayAgo-a.dayAgo;});
+  }
+  function painSeries(st, pid) {
+    return st.records.filter(function(r){return r.pid===pid && r.pain!=null;})
+                     .sort(function(a,b){return b.dayAgo-a.dayAgo;});
+  }
+  function trend(series) {
+    if (series.length < 2) return 'لسه محتاجين قياسين عشان يبان الاتجاه';
+    var diff = series[series.length-1].weight - series[0].weight;
+    return diff < 0 ? 'أداء ممتاز! كمّل كده — التزامك باين على المنحنى'
+         : diff === 0 ? 'ثبات الوزن مرحلة طبيعية — متوقفش، الدكتور هيوجّهك'
+         : 'مفيش مشكلة — راجع الدكتور في الزيارة الجاية وهنعدّل الخطة مع بعض';
+  }
+  function healthAlert(reading) {
+    if (reading.kind === 'glucose') {
+      var v = Number(reading.glucose);
+      if (v < 54) return { level:'critical', text:'تنبيه شديد: قراءة السكر أقل من 54 mg/dL. راجع مقدم الرعاية الصحية فورًا.' };
+      if (v < 70) return { level:'warning', text:'تنبيه: قراءة السكر أقل من 70 mg/dL. تم حفظها وسيتمكن طبيبك من رؤيتها.' };
+    }
+    if (reading.kind === 'bp' && (Number(reading.sys) > 180 || Number(reading.dia) > 120)) {
+      return { level:'critical', text:'قراءة الضغط أعلى من حد التنبيه. اجلس بهدوء وأعد القياس بعد دقيقة للتأكد، ثم تواصل مع طبيبك.' };
+    }
+    return null;
+  }
+  function validateWeight(v) { var n = Number(v); return (n >= 30 && n <= 250) ? null : 'الوزن لازم يكون بين 30 و 250 كجم'; }
+  function validateBp(sys,dia) {
+    var s=Number(sys), d=Number(dia);
+    if (!(s>=50 && s<=300)) return 'الانقباضي لازم يكون بين 50 و 300';
+    if (!(d>=30 && d<=200)) return 'الانبساطي لازم يكون بين 30 و 200';
+    if (d>=s) return 'الانبساطي لازم يكون أقل من الانقباضي';
+    return null;
+  }
+  function uid(st, prefix) {
+    var n = st.records.length + st.readings.length + 1;
+    return prefix + '_' + n + '_' + Math.floor(Math.random()*100000);
+  }
+  function addRecord(st, pid, weight, note) {
+    var err = validateWeight(weight); if (err) return { ok:false, error:err };
+    var p = patient(st,pid); if (!p) return { ok:false, error:'مريض غير موجود' };
+    var w = Number(weight), bmi = p.height ? +(w / Math.pow(p.height/100,2)).toFixed(1) : null;
+    st.records.push({ id:uid(st,'r'), pid:pid, dayAgo:0, weight:w, waist:null, fat:null,
+                      bmi:bmi, source:'clinic', note:String(note||'').slice(0,200) });
+    return { ok:true };
+  }
+  function addReading(st, pid, r) {
+    if (!patient(st,pid)) return { ok:false, error:'مريض غير موجود', alert:null };
+    if (r.kind === 'glucose') {
+      var g = Number(r.glucose);
+      if (!(g>=20 && g<=600)) return { ok:false, error:'قراءة السكر غير منطقية', alert:null };
+      r.glucose = g;
+    } else if (r.kind === 'bp') {
+      var err = validateBp(r.sys,r.dia); if (err) return { ok:false, error:err, alert:null };
+      r.sys=Number(r.sys); r.dia=Number(r.dia); r.pulse=Number(r.pulse)||null;
+    } else return { ok:false, error:'نوع قراءة غير معروف', alert:null };
+    r.id=uid(st,'h'); r.dayAgo=0; r.source='patient';
+    st.readings.push(r);
+    return { ok:true, alert:healthAlert(r) };
+  }
+  function portalFeed(st) {
+    return st.records.filter(function(r){return r.source==='patient' && r.dayAgo<=7;})
+                     .sort(function(a,b){return a.dayAgo-b.dayAgo;});
+  }
+  function search(st, q) {
+    q = String(q||'').trim();
+    if (!q) return st.patients.slice();
+    return st.patients.filter(function(p){ return (p.name+' '+p.diagnosis).indexOf(q) !== -1; });
+  }
+  function importState(json) {
+    var o = JSON.parse(json);
+    if (!o || !Array.isArray(o.patients) || !Array.isArray(o.records) || !Array.isArray(o.readings)
+        || !Array.isArray(o.labs) || !Array.isArray(o.appointments) || !Array.isArray(o.notes) || !Array.isArray(o.plan))
+      throw new Error('ملف JSON غير مطابق لهيكل الديمو');
+    if (o.patients.length > 200 || o.records.length > 5000) throw new Error('حجم بيانات غير مقبول');
+    return o;
+  }
+  function chartPoints(series, key) {
+    var vals = series.map(function(r){return r[key];});
+    if (!vals.length) return '';
+    var min = Math.min.apply(null,vals), max = Math.max.apply(null,vals), span = (max-min)||1;
+    return vals.map(function(v,i){
+      var x = vals.length===1 ? 300 : 30 + i*(540/(vals.length-1));
+      var y = 165 - ((v-min)/span)*120;
+      return x.toFixed(1)+','+y.toFixed(1);
+    }).join(' ');
+  }
+
+  // فحوصات ذاتية حقيقية — تُشغّل في المتصفح وفي Node
+  function selftest(checkDOM) {
+    var t=[], pass=0;
+    function ok(name, cond) { t.push({name:name, ok:!!cond}); if(cond) pass++; }
+    var st = seed();
+    ok('٤ مرضى', st.patients.length===4);
+    ok('١٧ قياس', st.records.length===17);
+    ok('٧ مواعيد', st.appointments.length===7);
+    ok('٣ تحاليل', st.labs.length===3);
+    ok('٤ قراءات', st.readings.length===4);
+    ok('٣ وجبات بالبدائل', st.plan.length===3 && st.plan.every(function(m){return !!m.alt;}));
+    var s = records(st,'p1');
+    ok('منى: ٨ قياسات وزن', s.length===8);
+    ok('منى: البداية 92.4', s[0].weight===92.4);
+    ok('منى: النهاية 83.2', s[s.length-1].weight===83.2);
+    ok('منى: الفرق -9.2', Math.abs((s[s.length-1].weight-s[0].weight)+9.2)<0.001);
+    ok('منى: قياس من البوابة', s.some(function(r){return r.source==='patient';}));
+    ok('رسالة الاتجاه: نزول', trend(s).indexOf('أداء ممتاز')===0);
+    var flat=[{weight:80},{weight:80}];
+    ok('رسالة الاتجاه: ثبات', trend(flat).indexOf('ثبات')===0);
+    var up=[{weight:80},{weight:82}];
+    ok('رسالة الاتجاه: صعود', trend(up).indexOf('مفيش مشكلة')===0);
+    ok('تنبيه سكر < 54 حرج', healthAlert({kind:'glucose',glucose:50}).level==='critical');
+    ok('تنبيه سكر < 70 تحذير', healthAlert({kind:'glucose',glucose:68}).level==='warning');
+    ok('نص «سيتمكن طبيبك من رؤيتها»', healthAlert({kind:'glucose',glucose:68}).text.indexOf('سيتمكن طبيبك من رؤيتها')!==-1);
+    ok('سكر طبيعي بلا تنبيه', healthAlert({kind:'glucose',glucose:95})===null);
+    ok('ضغط > 180 حرج', healthAlert({kind:'bp',sys:185,dia:95}).level==='critical');
+    ok('ضغط > 120 انبساطي حرج', healthAlert({kind:'bp',sys:130,dia:125}).level==='critical');
+    ok('ضغط طبيعي بلا تنبيه', healthAlert({kind:'bp',sys:120,dia:80})===null);
+    ok('رفض وزن خارج النطاق', addRecord(seed(),'p1',300).ok===false);
+    ok('قبول وزن صحيح', addRecord(seed(),'p1',82.5).ok===true);
+    ok('الوزن الجديد يحسب BMI', (function(){var x=seed();addRecord(x,'p1',82.5);return x.records[x.records.length-1].bmi===30.3;})());
+    ok('رفض انبساطي أعلى من انقباضي', addReading(seed(),'p1',{kind:'bp',sys:110,dia:120}).ok===false);
+    ok('تسجيل سكر من البوابة', addReading(seed(),'p1',{kind:'glucose',glucose:68,gtype:'fasting'}).ok===true);
+    ok('التسجيل يرجّع التنبيه', addReading(seed(),'p1',{kind:'glucose',glucose:68,gtype:'fasting'}).alert!==null);
+    ok('القراءة الجديدة source=patient', (function(){var x=seed();addReading(x,'p1',{kind:'glucose',glucose:68,gtype:'fasting'});return x.readings[x.readings.length-1].source==='patient';})());
+    ok('portalFeed فيه قياس من البيت', portalFeed(seed()).length>=1);
+    ok('portalFeed آخر ٧ أيام بس', portalFeed(seed()).every(function(r){return r.dayAgo<=7;}));
+    ok('بحث بالاسم', search(seed(),'منى').length===1);
+    ok('بحث بالتشخيص', search(seed(),'ديسك').length===1);
+    ok('بحث فارغ يرجّع الكل', search(seed(),'').length===4);
+    ok('تصدير/استيراد JSON', (function(){var x=seed();var y=importState(JSON.stringify(x));return y.records.length===x.records.length && y.patients[0].name===x.patients[0].name;})());
+    ok('استيراد يرفض ملف غلط', (function(){try{importState('{"patients":[]}');return false;}catch(e){return true;}})());
+    ok('منحنى فيه ٨ نقاط', chartPoints(records(st,'p1'),'weight').split(' ').length===8);
+    ok('منحنى الألم ٤ نقاط', chartPoints(painSeries(st,'p3'),'pain').split(' ').length===4);
+    ok('لا أسعار في الداتا', JSON.stringify(st).indexOf('2500')===-1 && JSON.stringify(st).indexOf('price')===-1);
+    ok('لا أسماء/أرقام حقيقية', st.patients.every(function(p){return p.name.indexOf('تجريبي')===-1;}));
+    if (checkDOM !== false) {
+      var ids=['patList','search','chart','chart2','planBox','runTests','testOut','exportBtn','resetBtn',
+               'addWeight','saveWeight','saveGlucose','saveBp','portalPatient','kPatients','feedBox'];
+      ok('كل عناصر الواجهة موجودة', ids.every(function(id){return !!document.getElementById(id);}));
+    }
+    return { total:t.length, passed:pass, failed:t.length-pass, items:t };
+  }
+
+  return { SEED:SEED, seed:seed, patient:patient, records:records, painSeries:painSeries, trend:trend,
+           healthAlert:healthAlert, validateWeight:validateWeight, validateBp:validateBp,
+           addRecord:addRecord, addReading:addReading, portalFeed:portalFeed, search:search,
+           importState:importState, chartPoints:chartPoints, selftest:selftest };
+})();
+
+/* ═══════════════════════════════════════════════════════════════
+   UI = رسم + تفاعل. يعمل فقط لو عناصر الصفحة موجودة.
+   ═══════════════════════════════════════════════════════════════ */
+var UI = (function () {
+  var KEY = 'clinic_offline_demo_v1';
+  var st = null, current = 'p1', portalPid = 'p1', storageOK = true, booted = false;
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw) { st = Core.importState(raw); return; }
+      localStorage.setItem(KEY,'ok'); localStorage.removeItem(KEY);
+    } catch (e) { storageOK = false; }
+    st = Core.seed();
+  }
+  function save() {
+    if (!storageOK) return false;
+    try { localStorage.setItem(KEY, JSON.stringify(st)); return true; }
+    catch (e) { storageOK=false; return false; }
+  }
+
+  function drawChart(svgId, series, key, color) {
+    var svg = $(svgId); if (!svg) return;
+    var pts = Core.chartPoints(series,key);
+    var html = '<line x1="30" y1="165" x2="575" y2="165" stroke="#e3ebeb" stroke-width="1"/>'
+             + '<line x1="30" y1="45"  x2="575" y2="45"  stroke="#e3ebeb" stroke-width="1"/>';
+    if (pts) {
+      html += '<polyline points="'+pts+'" fill="none" stroke="'+color+'" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>';
+      pts.split(' ').forEach(function(p){ var xy=p.split(',');
+        html += '<circle cx="'+xy[0]+'" cy="'+xy[1]+'" r="4" fill="#fff" stroke="'+color+'" stroke-width="2"/>'; });
+      var first=pts.split(' ')[0].split(','), last=pts.split(' ')[pts.split(' ').length-1].split(',');
+      html += '<text x="'+first[0]+'" y="'+(Number(first[1])-12)+'" fill="#64748b" font-size="12" text-anchor="middle">'+series[0][key]+'</text>';
+      html += '<text x="'+last[0]+'" y="'+(Number(last[1])-12)+'" fill="'+color+'" font-size="13" font-weight="bold" text-anchor="middle">'+series[series.length-1][key]+'</text>';
+    } else html += '<text x="300" y="100" fill="#64748b" font-size="14" text-anchor="middle">لا توجد قياسات</text>';
+    svg.innerHTML = html;
+  }
+
+  function renderPatients() {
+    var q = $('search') ? $('search').value : '';
+    var list = Core.search(st,q);
+    $('patList').innerHTML = list.length ? list.map(function(p){
+      return '<button class="pat'+(p.id===current?' on':'')+'" data-pid="'+p.id+'"><b>'+esc(p.name)+'</b>'
+           + '<small>'+esc(p.diagnosis)+'</small></button>';
+    }).join('') : '<p class="muted">مفيش نتايج</p>';
+    Array.prototype.forEach.call(document.querySelectorAll('#patList .pat'), function(b){
+      b.addEventListener('click',function(){ current=b.getAttribute('data-pid'); renderAll(); });
+    });
+  }
+
+  function renderDoctor() {
+    var p = Core.patient(st,current) || st.patients[0];
+    $('kPatients').textContent = st.patients.length;
+    $('kRecords').textContent = st.records.length;
+    $('kToday').textContent = st.appointments.filter(function(a){return a.dayAgo===0 && a.status!=='cancelled';}).length;
+    $('kFromPortal').textContent = Core.portalFeed(st).length;
+    $('patTitle').textContent = 'ملف المريض — ' + p.name;
+    $('patMeta').textContent = p.age + ' سنة · ' + (p.type==='nutrition'?'تغذية':'علاج طبيعي')
+      + ' · ' + p.diagnosis + (p.target?(' · الهدف '+p.target+' كجم'):'');
+    var s = Core.records(st,p.id), pain = Core.painSeries(st,p.id);
+    var use = s.length>=2 ? s : pain, key = s.length>=2 ? 'weight' : 'pain';
+    drawChart('chart',use,key,'#0d9488');
+    $('trend').textContent = s.length>=2 ? Core.trend(s)
+      : (pain.length>=2 ? 'الألم من '+pain[0].pain+' إلى '+pain[pain.length-1].pain+' على '+pain.length+' جلسات' : 'لسه محتاجين قياسين');
+    $('trend').className = 'alert ok';
+    $('recCount').textContent = st.records.filter(function(r){return r.pid===p.id;}).length;
+    $('recTable').innerHTML = '<tr><th>منذ</th><th>الوزن</th><th>BMI</th><th>الألم</th><th>المصدر</th><th>ملاحظة</th></tr>'
+      + st.records.filter(function(r){return r.pid===p.id;}).sort(function(a,b){return b.dayAgo-a.dayAgo;}).map(function(r){
+        return '<tr><td>'+(r.dayAgo===0?'النهاردة':r.dayAgo+' يوم')+'</td><td class="num">'+(r.weight!=null?r.weight:'—')+'</td>'
+          + '<td>'+(r.bmi!=null?r.bmi:'—')+'</td><td>'+(r.pain!=null?r.pain:'—')+'</td>'
+          + '<td>'+(r.source==='patient'?'<span class="tag">من البيت</span>':'العيادة')+'</td><td>'+esc(r.note)+'</td></tr>';
+      }).join('');
+    $('labsBox').innerHTML = st.labs.filter(function(l){return l.pid===p.id;}).length
+      ? st.labs.filter(function(l){return l.pid===p.id;}).map(function(l){
+          return '<div style="border-bottom:1px solid var(--line);padding:7px 0"><b>'+esc(l.name)+'</b> <span class="muted">منذ '+l.dayAgo+' يوم</span><div>'
+            + l.results.map(function(x){return '<span class="tag" style="margin-inline-end:5px">'+esc(x[0])+' '+x[1]+' '+esc(x[2])+'</span>';}).join('') + '</div></div>';
+        }).join('') : '<p class="muted">لا توجد تحاليل لهذا المريض</p>';
+    $('readingsBox').innerHTML = st.readings.filter(function(r){return r.pid===p.id;}).length
+      ? st.readings.filter(function(r){return r.pid===p.id;}).map(function(r){
+          var txt = r.kind==='glucose' ? ('سكر '+r.glucose+' mg/dL ('+({fasting:'صائم',postprandial:'بعد الأكل',random:'عشوائي'}[r.gtype]||'')+')')
+                                       : ('ضغط '+r.sys+'/'+r.dia+' · نبض '+(r.pulse||'—'));
+          var a = Core.healthAlert(r);
+          return '<div class="alert '+(a?a.level:'ok')+'" style="margin:5px 0">'+esc(txt)+' <span class="muted">('
+            +(r.source==='patient'?'بوابة المريض':'العيادة')+')</span></div>';
+        }).join('') : '<p class="muted">لا توجد قراءات</p>';
+    $('notesBox').innerHTML = st.notes.filter(function(n){return n.pid===p.id;}).map(function(n){
+      return '<div class="muted" style="border-bottom:1px solid var(--line);padding:5px 0">منذ '+n.dayAgo+' يوم — '+esc(n.text)+'</div>'; }).join('') || '<p class="muted">—</p>';
+    $('apptList').innerHTML = st.appointments.filter(function(a){return a.dayAgo===0;}).map(function(a){
+      var pn = Core.patient(st,a.pid);
+      return '<div style="padding:4px 0"><b>'+esc(a.time)+'</b> '+esc(pn?pn.name:'')+' <span class="muted">'+esc(a.note)+'</span></div>'; }).join('') || '—';
+  }
+
+  function renderPortal() {
+    var p = Core.patient(st,portalPid) || st.patients[0];
+    var sel = $('portalPatient');
+    sel.innerHTML = st.patients.map(function(x){return '<option value="'+x.id+'"'+(x.id===portalPid?' selected':'')+'>'+esc(x.name)+'</option>';}).join('');
+    $('planBox').innerHTML = st.plan.map(function(m,i){
+      return '<div style="border-bottom:1px solid var(--line);padding:9px 0"><div class="row"><b style="min-width:70px">'+esc(m.meal)+'</b>'
+        + '<span class="grow">'+esc(m.desc)+'</span>'
+        + '<button class="btn ghost sm" data-alt="'+i+'">شوف بدائل</button></div>'
+        + '<div class="alt hide" id="alt'+i+'">'+esc(m.alt)+'</div></div>';
+    }).join('');
+    $('planDisclaimer').textContent = 'الخطة دي مخصصة ليك من الدكتور. لو حسيت بأي مشكلة، كلم الدكتور قبل ما تغيّر أي حاجة بنفسك.';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-alt]'), function(b){
+      b.addEventListener('click',function(){
+        var box=$('alt'+b.getAttribute('data-alt'));
+        box.classList.toggle('hide');
+        b.textContent = box.classList.contains('hide') ? 'شوف بدائل' : 'خمّي البدائل';
+      });
+    });
+    var s = Core.records(st,p.id), pain = Core.painSeries(st,p.id);
+    var use = s.length>=2 ? s : pain, key = s.length>=2 ? 'weight' : 'pain';
+    drawChart('chart2',use,key,'#0f766e');
+    $('trend2').textContent = s.length>=2 ? Core.trend(s) : 'الألم بيتحسن مع الجلسات';
+    $('myReadings').innerHTML = st.readings.filter(function(r){return r.pid===p.id;}).slice(-5).reverse().map(function(r){
+      var txt = r.kind==='glucose' ? ('سكر '+r.glucose+' mg/dL') : ('ضغط '+r.sys+'/'+r.dia);
+      return '<div class="muted" style="border-bottom:1px solid var(--line);padding:5px 0">'+esc(txt)+' — '+(r.dayAgo===0?'النهاردة':'منذ '+r.dayAgo+' يوم')+'</div>'; }).join('') || '<p class="muted">—</p>';
+    var feed = Core.portalFeed(st);
+    $('feedBox').innerHTML = feed.length ? feed.map(function(r){
+      var pn=Core.patient(st,r.pid);
+      return '<div class="alert ok" style="margin:5px 0">'+esc(pn?pn.name:'')+' — '+r.weight+' كجم <span class="muted">من بوابة المرضى · قياس سجّله المريض من البيت</span></div>'; }).join('')
+      : '<p class="muted">—</p>';
+  }
+
+  function renderData() {
+    $('dPatients').textContent=st.patients.length;
+    $('dRecords').textContent=st.records.length;
+    $('dReadings').textContent=st.readings.length;
+    $('dStore').textContent=storageOK?'شغّال':'ذاكرة فقط';
+  }
+  function renderAll() { renderPatients(); renderDoctor(); renderPortal(); renderData(); }
+
+  function msg(id,text,isErr) { var e=$(id); if(e){ e.textContent=text; e.style.color=isErr?'#dc2626':'#0f766e'; } }
+  function showAlert(r) {
+    var box=$('portalAlert'); if(!box) return;
+    if (!r || !r.alert) { box.innerHTML='<div class="alert ok">تم الحفظ. القراءة محفوظة في ملفك ويقدر الدكتور يشوفها — مش رسالة خارجية.</div>'; return; }
+    box.innerHTML='<div class="alert '+r.alert.level+'">'+esc(r.alert.text)+'</div>';
+  }
+
+  function bind() {
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(t){
+      t.addEventListener('click',function(){
+        Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(x){x.classList.remove('on');});
+        Array.prototype.forEach.call(document.querySelectorAll('.pane'),function(x){x.classList.remove('on');});
+        t.classList.add('on'); $('pane-'+t.getAttribute('data-tab')).classList.add('on');
+      });
+    });
+    $('search').addEventListener('input',renderPatients);
+    $('portalPatient').addEventListener('change',function(){ portalPid=this.value; renderPortal(); });
+    $('addWeight').addEventListener('click',function(){
+      var r=Core.addRecord(st,current,$('newWeight').value,$('newNote').value);
+      if(!r.ok){ msg('doctorMsg',r.error,true); return; }
+      save(); $('newWeight').value=''; $('newNote').value=''; msg('doctorMsg','اتحفظ ✅'); renderAll();
+    });
+    $('saveWeight').addEventListener('click',function(){
+      var r=Core.addRecord(st,portalPid,$('pWeight').value,'سجّلتها من البوابة');
+      if(!r.ok){ showAlert({alert:{level:'warning',text:r.error}}); return; }
+      st.records[st.records.length-1].source='patient';
+      save(); $('pWeight').value=''; showAlert(null); renderAll();
+    });
+    $('saveGlucose').addEventListener('click',function(){
+      var r=Core.addReading(st,portalPid,{kind:'glucose',glucose:$('pGlucose').value,gtype:$('pGType').value});
+      if(!r.ok){ showAlert({alert:{level:'warning',text:r.error}}); return; }
+      save(); $('pGlucose').value=''; showAlert(r); renderAll();
+    });
+    $('saveBp').addEventListener('click',function(){
+      var r=Core.addReading(st,portalPid,{kind:'bp',sys:$('pSys').value,dia:$('pDia').value,pulse:$('pPulse').value});
+      if(!r.ok){ showAlert({alert:{level:'warning',text:r.error}}); return; }
+      save(); $('pSys').value=$('pDia').value=$('pPulse').value=''; showAlert(r); renderAll();
+    });
+    $('runTests').addEventListener('click',function(){
+      var r=Core.selftest(true);
+      $('testSummary').textContent=r.passed+' / '+r.total+' نجح';
+      $('testSummary').style.background = r.failed? '#fecaca':'#c9f0ec';
+      $('testOut').textContent = r.items.map(function(x){return (x.ok?'✅ ':'❌ ')+x.name;}).join('\n')
+        + '\n\nالنتيجة: '+r.passed+'/'+r.total+' — '+(r.failed? 'فيه '+r.failed+' فشل':'كل حاجة شغالة ✅');
+    });
+    $('exportBtn').addEventListener('click',function(){
+      var blob=new Blob([JSON.stringify(st,null,2)],{type:'application/json'});
+      var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+      a.download='clinic-demo-data.json'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+      msg('dataMsg','اتصدّر الملف ✅');
+    });
+    $('importBtn').addEventListener('click',function(){ $('importFile').click(); });
+    $('importFile').addEventListener('change',function(e){
+      var f=e.target.files[0]; if(!f) return;
+      var fr=new FileReader();
+      fr.onload=function(ev){ try{ st=Core.importState(ev.target.result); save(); renderAll(); msg('dataMsg','اتستورد ✅'); }
+                              catch(err){ msg('dataMsg','الملف غلط: '+err.message,true); } };
+      fr.readAsText(f); e.target.value='';
+    });
+    $('showJson').addEventListener('click',function(){
+      var box=$('jsonBox'); box.classList.toggle('hide');
+      box.textContent=JSON.stringify(st,null,2);
+    });
+    $('resetBtn').addEventListener('click',function(){
+      st=Core.seed(); save(); renderAll(); $('portalAlert').innerHTML=''; msg('dataMsg','اتعادت الضبط للبيانات الأصلية ✅');
+    });
+  }
+
+  function init() {
+    if (typeof document==='undefined' || !document.getElementById || !document.getElementById('patList')) return false;
+    if (booted) return true;   // منع تكرار ربط المستمعات (DOMContentLoaded + الاستدعاء المباشر)
+    booted = true;
+    load(); bind(); renderAll(); return true;
+  }
+  return { init:init, getState:function(){return st;}, renderAll:renderAll, storage:function(){return storageOK;} };
+})();
+
+if (typeof window !== 'undefined') { window.ClinicDemo = { Core:Core, UI:UI, selftest:Core.selftest }; }
+if (typeof module !== 'undefined' && module.exports) { module.exports = { Core:Core, UI:UI }; }
+if (typeof document !== 'undefined' && document.getElementById && document.getElementById('patList')) {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', UI.init);
+  else UI.init();
+}
+</script>
+</body>
+</html>
