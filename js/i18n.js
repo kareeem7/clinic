@@ -140,6 +140,10 @@ const I18N = {
     if (!textNodes.length) { el.textContent = text; return; }
     // نحافظ على المسافة الحوالين النص عشان الأيقونة ما تلزقش فيه
     const first = textNodes[0];
+    // عنصر عليه data-i18n ونصه كله جوّه أبناءه (مفيش عقدة نص مباشرة) —
+    // لو رمينا هنا، الاستثناء بيطلع من applyDom ← applyLang ← boot،
+    // وboot بتقف قبل ما تربط أي زرار: الصفحة تبان شغالة وكل حاجة ميتة.
+    if (!first) return;
     first.nodeValue = ' ' + text + ' ';
     textNodes.slice(1).forEach(n => { n.nodeValue = ''; });
   }

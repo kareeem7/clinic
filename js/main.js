@@ -292,6 +292,12 @@ function applyLang() {
 if (typeof I18N !== 'undefined') I18N.onChange(applyLang);
 
 async function boot() {
+  // ختم البناء: بيخلّي «إنت على أي نسخة؟» سؤال بيتجاوب بالنظر بدل التخمين
+  // (كاش قديم / متصفح عالق على بناء سابق). الرقم في <html data-build> وفي
+  // اسم كاش الـservice worker، وفيه اختبار بيربط الاتنين ببعض.
+  const buildTag = $('#buildTag');
+  const buildRoot = (typeof document !== 'undefined' && document.documentElement) || {};
+  if (buildTag) buildTag.textContent = 'build ' + ((buildRoot.dataset && buildRoot.dataset.build) || '?');
   applyLang();
   // Central action dispatcher + navigation + modal close (also needed on the setup screen)
   document.addEventListener('click', e => {

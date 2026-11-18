@@ -185,3 +185,35 @@ test('changing the language re-renders through listeners and survives a throwing
   assert.doesNotThrow(() => I18N.setLang('en'), 'مستمع فاشل ما يوقفش الباقي');
   assert.equal(called, 2);
 });
+
+/* دالة toast() كان اسمها بيستخدم متغير محلي اسمه t، ولما بقى t هو دالة
+   الترجمة العامة اتغيّر الاسم لـel — ونسينا سطر واحد. السطر ده مكانش بيرمي
+   خطأ (الدوال في JS كائنات، فالكتابة على خصائصها مش غلط)؛ النتيجة إن
+   التوست يطلع فاضي واللي بيشوفه المستخدم إن الحاجة «مش شغالة» من غير رسالة.
+   الاختبار ده بيمنع الفئة دي من الغلط ترجع. */
+test('toast() بيكتب على عنصره مش على دالة الترجمة', () => {
+  const utils = read('js/utils.js');
+  const body = utils.slice(utils.indexOf('function toast('));
+  const fn = body.slice(0, body.indexOf('\n}') + 2);
+  assert.doesNotMatch(fn, /\bt\.innerHTML/, 'toast() لسه بيكتب على t بدل العنصر');
+  assert.match(fn, /el\.innerHTML/, 'toast() مفروض يبني المحتوى على العنصر');
+});
+
+/* ختم البناء واسم كاش الـservice worker لازم يمشوا مع بعض. لو الاتنين
+   افترقوا، المستخدم بيبقى شايف «build v14» والكاش بيخدم حاجة تانية —
+   وده بالظبط اللي بيخلي التشخيص عن بُعد مستحيل. */
+test('ختم البناء في index.html مطابق لاسم كاش الـservice worker', () => {
+  const m = read('sw.js').match(/CACHE_NAME\s*=\s*'(clinic-shell-v(\d+))'/);
+  assert.ok(m, 'CACHE_NAME موجود في sw.js');
+  const build = html.match(/data-build="(v\d+)"/);
+  assert.ok(build, 'index.html فيه data-build');
+  assert.equal(build[1], 'v' + m[2], 'الختم والكاش لازم يكونوا نفس الرقم');
+});
+
+/* عنصر عليه data-i18n ونصه كله جوّه أبناءه ملوش عقدة نص مباشرة. قبل الحماية
+   دي، applyDom كان بيرمي TypeError → applyLang → boot تقف قبل ربط الأزرار،
+   فالصفحة تبان عادية وكل زرار ميت (وده كان هيبان كأن «دخول الديمو» بايظ). */
+test('applyDom بيتحمل عنصر مالوش عقدة نص مباشرة', () => {
+  const src = read('js/i18n.js');
+  assert.match(src, /if \(!first\) return;/, 'الحماية اتشالت من _setDirectText');
+});

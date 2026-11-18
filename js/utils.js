@@ -177,7 +177,7 @@ function toast(msg, type = 'success') {
   const el = document.createElement('div');
   el.className = 'toast ' + type;
   // (بند 30) الأيقونة زخرفية — النص وحده هو اللي يتعلن (الحاوية #toastRoot عليها aria-live)
-  t.innerHTML = '<i aria-hidden="true" class="fa-solid fa-' + (type === 'success' ? 'circle-check' : type === 'error' ? 'circle-exclamation' : 'circle-info') + '"></i><span>' + esc(msg) + '</span>';
+  el.innerHTML = '<i aria-hidden="true" class="fa-solid fa-' + (type === 'success' ? 'circle-check' : type === 'error' ? 'circle-exclamation' : 'circle-info') + '"></i><span>' + esc(msg) + '</span>';
   $('#toastRoot').appendChild(el);
   setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 300); }, 3200);
 }
