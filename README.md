@@ -3,619 +3,257 @@
 A clinic app for Arabic-speaking clinics: patients, appointments, measurements, lab results,
 nutrition plans — plus a portal where a patient can follow their own readings.
 
-**Live staging:** https://clinic-staging.kemo8298.workers.dev — the login screen has a **دخول ديمو** button. No account, no QR code.
+**Live staging:** https://clinic-staging.kemo8298.workers.dev — the login screen has a **دخول ديمو**
+button. No account, no QR code.
 
 ![dashboard](./preview.png)
-
-## Demo
-
-One button on the login screen opens a seeded clinic: two branches, six patients, appointments
-spread across today / next week / cancelled, weight trends that actually move, glucose and
-blood-pressure series, lab results, a nutrition plan and visit notes. Nothing is mocked in the
-templates — the numbers come back through the same RLS-scoped queries a real clinic uses, which
-is the part worth looking at.
-
-How it's put together, since a demo that hides this is just a screenshot:
-
-- **`sql/demo_account_seed.sql`** — the data. Fixed UUIDs, `on conflict (id) do nothing`, every
-  row carries the demo `doctor_id`, and a barrier aborts the run if the account already holds
-  patients outside the seed. All phone numbers are `+2019…`, a prefix no Egyptian carrier
-  allocates, so nothing can be mistaken for a real patient.
-- **`sql/migrations/20261118_demo_account.sql`** — 2FA stays mandatory for every doctor. The demo
-  account is exempted **by uid**, in the RLS policies and in `js/db.js` (`DEMO_UID`), so the two
-  layers can't drift apart — a frontend-only exemption would have rendered empty tables, because
-  the `require_mfa` policies are `RESTRICTIVE` and demand `aal2` on the rows themselves.
-  `superadmins`, `admin_notes`, `system_settings`, `audit_logs` and doctor deletion keep `aal2`
-  and stay invisible to it.
-- **`tests/demo-account.test.cjs`** — the test that matters is the negative one: a *different*
-  uid must still hit the TOTP gate.
-
-The account's subscription is set to `active` so the demo doesn't expire and take the data with
-it — `clinic_active()` returns false for a lapsed trial, and RLS then hides every row.
 
 ## Why it looks the way it does
 
 The first version assumed a doctor sitting at a desk with good internet. They don't sit at a
 desk, and the internet isn't good. The connection drops in the middle of a patient visit, and
-the visit doesn't stop — so the app had to keep taking input anyway. Writes go into a local
-queue and sync when the connection comes back, with rules for what happens when two devices
-touched the same record.
+the visit doesn't stop — so the app keeps taking input anyway. Writes go into a local queue and
+sync when the connection comes back, with rules for what happens when two devices touched the
+same record.
 
-The data is in Supabase. Every table has row-level security, which means a clinic can only
-read its own patients even if someone calls the API directly with the public key. That public
-key is the only credential that ships to the browser — the schema itself is excluded from the
-published bundle, so the table layout isn't readable from devtools. The patient portal reads
-through RPCs rather than tables, so a patient never gets table access at all.
+Every table has row-level security, so a clinic can only read its own patients even if someone
+calls the API directly with the public key. That key is the only credential that ships to the
+browser — the schema is excluded from the published bundle. The patient portal reads through
+RPCs rather than tables, so a patient never gets table access at all.
 
-It's vanilla JavaScript. Thirty modules, no framework. That was the right call for the first
-six months and the wrong one after — the state syncing in particular is manual where React
-would have made it boring. I'm rebuilding the dashboard in React and TypeScript now, mostly
-to see where the trade actually pays off, and I'll write down what I find.
+It's vanilla JavaScript, thirty modules, no framework. That was right for the first six months
+and wrong after — the state syncing is manual where React would have made it boring. I'm
+rebuilding the dashboard in React and TypeScript to see where the trade actually pays off.
 
-42 test files cover the main flows, run with the Node test runner. Playwright handles the
-browser paths. Cloudflare serves the repo as a Worker, with `_headers` carrying the CSP,
-`frame-ancestors`, `X-Frame-Options` and `Referrer-Policy`.
+## Demo
+
+One button opens a seeded clinic: two branches, six patients, appointments across today / next
+week / cancelled, weight trends that move, glucose and blood-pressure series, labs, a nutrition
+plan and visit notes. Nothing is mocked in the templates — the numbers come back through the
+same RLS-scoped queries a real clinic uses.
+
+- `sql/demo_account_seed.sql` — the data. Fixed UUIDs, `on conflict (id) do nothing`, every row
+  carries the demo `doctor_id`, and a barrier aborts the run if the account already holds
+  patients outside the seed. Phones are all `+2019…`, a prefix no Egyptian carrier allocates.
+- `sql/migrations/20261118_demo_account.sql` — 2FA stays mandatory for every doctor. The demo is
+  exempted **by uid**, in the RLS policies and in `js/db.js` (`DEMO_UID`), so the two layers
+  can't drift. A frontend-only exemption would render empty tables: the `require_mfa` policies
+  are `RESTRICTIVE` and demand `aal2` on the rows themselves. `superadmins`, `admin_notes`,
+  `system_settings` and `audit_logs` keep `aal2` and stay invisible to it.
+- `tests/demo-account.test.cjs` — the test that matters is the negative one: a *different* uid
+  must still hit the TOTP gate.
+
+The account's subscription is `active` so the demo doesn't expire and take the data with it —
+`clinic_active()` returns false for a lapsed trial, and RLS then hides every row.
 
 ## What isn't done
 
-Writing this down because a clinic is not a place to be optimistic:
+A clinic is not a place to be optimistic:
 
 - Patient login is a permanent access code plus a phone number. OTP is designed and deferred.
-- The MFA migration exists but hasn't been rolled out with a recovery path I'd trust in
-  production.
-- Alerts are in-app only. This is not an emergency notification system and shouldn't ever be
-  sold as one.
+- The MFA migration exists but hasn't been rolled out with a recovery path I'd trust.
+- Alerts are in-app only. This is not an emergency notification system.
 - No end-to-end suite against a real Supabase instance. The Node tests use mocks, which is not
   the same thing.
 
 ## Run it
 
 ```bash
-git clone https://github.com/kareeem7/clinic.git
-cd clinic
+git clone https://github.com/kareeem7/clinic.git && cd clinic
 npm test        # Node test runner, no dependencies needed
 npm run meta    # regenerates page meta from site.config.json
 ```
 
-There's no build step. Cloudflare serves the repository assets directly, which is why
-`wrangler.toml` is three lines and why `.assetsignore` does real work — it keeps SQL, tests
-and docs out of the published bundle.
+No build step. Cloudflare serves the repository assets directly, which is why `wrangler.toml` is
+three lines and why `.assetsignore` does real work — it keeps SQL, tests and docs out of the
+published bundle.
 
 ---
 
-## التوثيق الهندسي الكامل (بالعربي)
-
-تطبيق ويب عربي لإدارة ملفات المرضى والقياسات والتحاليل والمواعيد، مع تكامل Supabase وبوابة للمريض.
-
-## الاختبارات المتاحة في هذا المستودع
-
-- يتطلب تشغيل الاختبارات Node.js يدعم `node:test` (Node.js 22 مستخدم في بيئة التحقق الحالية).
-- شغّل من جذر المستودع:
-
-  ```sh
-  npm test
-  ```
-
-- الأمر أعلاه يشغّل `node --test tests/*.test.cjs`. الاختبارات الحالية تعتمد على محاكاة DOM/RPC أو اختبارات ثابتة؛ ليست اختبارات متصفح حقيقية ولا تختبر سياسات RLS على قاعدة Supabase فعلية.
-- لا توجد حاليًا في المستودع مجموعات `tests/pgtap/` أو `tests/e2e/`، ولا إعداد Playwright/Cypress.
-- اختبار `tests/portal-login-security.test.cjs` يتحقق من أن **آخر تعريف فعّال** لدخول البوابة داخل `sql/baseline.sql` يطابق قرار تأجيل OTP، وأن ترحيل تفعيل OTP ما زال محفوظًا كمسار منفصل، وأن هذا القرار موثّق هنا.
+# التوثيق الهندسي
 
 ## الإصلاح المركزي (2026-11-06)
 
-> هدف التعديل: **مصدر واحد** لكل حاجة كانت متكررة/مكشوفة، بدل تعديل كل ملف لوحده.
+> هدف التعديل: **مصدر واحد** لكل حاجة كانت متكررة أو مكشوفة، بدل تعديل كل ملف لوحده.
 
 | البند | المصدر الوحيد | الناتج |
 |---|---|---|
-| مخطط التأسيس | `sql/baseline.sql` | لا SQL ولا أسماء جداول في المتصفح؛ `sql/` مستبعد من النشر؛ 18 ملف اختبار يقرأ منه |
-| إعداد السيرفر | `js/config.js` | Project URL + مفتاح `anon` العام فقط + `TRIAL_DAYS` + `APP_BRAND` + `newRequestId`/`logError`. ممنوع `service_role` أو أي سر Cloudflare/Supabase في `js/` |
-| هوية الواجهة | `APP_BRAND` في `js/config.js` | `js/app.js` / `js/message-style.js` / `js/patient-portal.js` تقرأ القيم المحايدة منه، وبعد الدخول تُستبدل من `State.settings` / جدول `clinics`؛ حقول الشريط الجانبي `skel` لحد ما البيانات توصل. **لا أسماء عيادات/أطباء/مواقع/أرقام ثابتة** |
-| عناوين الصفحات والمشاركة | `site.config.json` + `npm run meta` | يولّد بلوك `<!-- SITE-META:START/END -->` في `index.html` و`reset.html`: `<title>`، الوصف، `theme-color`، `noindex`، أيقونة حقيقية `favicon.svg`، Open Graph + Twitter بصورة `preview.png` بمقاس 1200×630. كمان يولّد `robots.txt` و`sitemap.xml` (فقط لو `allowIndexing=true` مع `siteUrl`). المولّد **idempotent** |
-| ترويسات HTTP | `_headers` | `X-Frame-Options`، و`Content-Security-Policy: frame-ancestors 'self'` (التي **لا تصح داخل `<meta>`**)، `X-Content-Type-Options`، `Referrer-Policy`، `Permissions-Policy`. سياسة الـ CSP الأصلية تفضل في `<meta>` زي ما هي |
-| شاشة التعذّر | `#setupView` | «تعذّر الاتصال بالسيرفر» + زر إعادة المحاولة فقط، بلا صندوق SQL ولا زر نسخ ولا طلب لصق مفاتيح. بوابة الإقلاع في `js/main.js` لسه مانعة |
+| مخطط التأسيس | `sql/baseline.sql` | لا SQL ولا أسماء جداول في المتصفح؛ `sql/` مستبعد من النشر؛ كل اختبارات المخطط تقرأ منه |
+| إعداد السيرفر | `js/config.js` | Project URL + مفتاح `anon` العام فقط + `TRIAL_DAYS` + `APP_BRAND`. ممنوع `service_role` أو أي سر في `js/` |
+| هوية الواجهة | `APP_BRAND` | تُقرأ من `config.js`، وبعد الدخول تُستبدل من `State.settings` / جدول `clinics`. لا أسماء عيادات أو أرقام ثابتة |
+| عناوين الصفحات | `site.config.json` + `npm run meta` | يولّد بلوك `SITE-META` في `index.html` و`reset.html` (title، وصف، OG، favicon) + `robots.txt` و`sitemap.xml`. المولّد idempotent |
+| ترويسات HTTP | `_headers` | `X-Frame-Options`، `frame-ancestors 'self'` (التي **لا تصح داخل `<meta>`**)، `X-Content-Type-Options`، `Referrer-Policy`، `Permissions-Policy` |
+| شاشة التعذّر | `#setupView` | «تعذّر الاتصال بالسيرفر» + زر إعادة المحاولة فقط، بلا صندوق SQL ولا طلب لصق مفاتيح |
 
-**قبل النشر:** حط الدومين الحقيقي في `site.config.json` → `siteUrl`، وبعدين شغّل `npm run meta` عشان يطلع `canonical` و`og:url` و`sitemap.xml` و`og:image` من نفس الأصل. لحد ما `siteUrl` فاضي، `og:image` بيشاور على `preview.png` على `main` عبر jsDelivr (URL مطلق https، وبيشتغل بعد ما الملف يوصل `main`)، ومفيش canonical. فضّل `allowIndexing=false` لتطبيق طبي خاص بالمرضى.
-
-⚠️ `frame-ancestors` في `<meta http-equiv="Content-Security-Policy">` **يتجاهله المتصفح**؛ لذلك جاء في `_headers` فقط. اختبار `tests/central-hardening.test.cjs` يمنع رجوعه للـ meta وأي محاولة لإعادة SQL للعميل.
+✅ **بناء الإنتاج على `main` نجح** (Workers Builds: `clinic-staging`, رجع `success`). `compatibility_date`
+مثبّت على تاريخ في الماضي لأن Cloudflare يرفض المستقبل. نجاح البناء ≠ اختبار متصفح فعلي.
 
 ## إعداد قاعدة البيانات
 
-- SQL التأسيس الكامل انتقل إلى **`sql/baseline.sql`** (مصدر واحد، 2296 سطراً) — **خارج حزمة المتصفح تماماً**: `js/config.js` بقى عنوان المشروع + مفتاح `anon` العام فقط، و`.assetsignore` يستبعد `sql/` من الأصول المنشورة. أي زائر كان يقدر يقرأ `js/config.js` حتى لو شاشة الإعداد مخفية بـ `hidden`؛ دلوقتي مفيش DDL ولا سياسات RLS ولا أسماء جداول في أي ملف يصل للمتصفح، ولا شاشة تطلب لصق مفاتيح أو SQL. الملف يمثل حالة **تثبيت جديد من الصفر** ويطابق القرار الحالي: دخول المريض بالكود الدائم + رقم الموبايل، مع تأجيل OTP.
-- جميع اختبارات المخطط (18 ملفاً) تقرأ من `sql/baseline.sql` مباشرة، و`tests/central-hardening.test.cjs` يمنع رجوع أي `SUPABASE_SQL` أو `create table`/`create policy` إلى `js/` أو `index.html`.
-- ترحيلات التحديث المنفصلة موجودة في `sql/migrations/`، ويجب مراجعة ترتيبها واعتمادها على بيئة غير إنتاجية قبل أي تطبيق.
-- لا تطبق SQL التأسيس الكامل والترحيلات على قاعدة قائمة دون تحديد مسار التحديث الصحيح ومراجعة حالة المخطط؛ كون بعض الأوامر idempotent لا يجعل كل ترتيب نشر آمنًا تلقائيًا.
-- ترحيل `sql/migrations/20261101_require_mfa.sql` يفرض مستوى MFA ‏(aal2) على بيانات الأطباء. قبل تطبيقه على مشروع قائم، يجب حصر الحسابات القائمة والتحقق من تفعيل TOTP لها، وتجربة مسار الدخول/الاستعادة في بيئة staging. لا تنشر الترحيل كخطوة أولى؛ خطّط لتفعيل MFA والتحقق منه لكل طبيب ثم نفّذ الترحيل مع خطة استرجاع.
-- حالة دخول بوابة المريض والـ OTP المؤجّل موثّقة في القسم التالي 👇.
-- ترحيل `20261108_patient_portal_clinical_history.sql` يضيف RPC محمية لعرض التحاليل وقراءات السكر/الضغط في صفحة تقدم المريض، من دون منح البوابة قراءة مباشرة للجداول. سجل السكر والضغط يظهر فقط إذا كانت المتابعة مفعّلة للعيادة والمريض.
-- السكر في القراءات الجديدة يُسجّل بوحدة ثابتة `mg/dL`؛ حد التنبيه المنخفض أقل من 70 mg/dL، والتنبيه الأشد أقل من 54 mg/dL. الضغط أعلى من 180 انقباضيًا أو 120 انبساطيًا يُظهر تنبيهًا للطبيب في لوحة التحكم والمريض بعد الحفظ. القراءات التاريخية بلا وحدة تبقى غير محددة ولا تُصنّف آليًا. لا يوجد حد مرتفع للسكر معتمد هنا. يقيّد ترحيل `20261107_patient_portal_daily_write_limit.sql` إدخالات البوابة بـ20 قراءة يوميًا للمريض عبر الأنواع المختلفة، بقفل ذري وتوقيت القاهرة.
-- حذف المريض نهائيًا يضيف صور سجلاته إلى طابور خاص عبر `20261106_patient_photo_cleanup_queue.sql`؛ يلزم أيضًا نشر `purge-patient-photos` وإعداد جدولته وVault كما في README الخاص بالدالة. لا يُحذف الملف من Storage بمجرد تشغيل migration وحدها.
-- **حالة الجاهزية السريرية: غير جاهز لبيانات مرضى حقيقية.** تأجيل OTP يعني أن الكود الدائم المطبوع + رقم الموبايل يفتحان ملف المريض، والكود يُخزَّن كما هو؛ أضف إلى ذلك أن MFA وتنظيف الصور يحتاجان إعدادًا واختبارًا فعليًا في staging. تنبيهات السكر والضغط ظاهرة داخل التطبيق، وليست خدمة طوارئ أو إشعارًا فوريًا خارج التطبيق. لا تعتمد على النظام قبل استكمال نشر واختبار هذه البنود.
-- لم يُرفق في هذا المستودع حاليًا اختبار pgTAP أو shim لاختبار Supabase، ولا تُعد اختبارات Node بديلًا عن اختبار RLS/RPC على PostgreSQL فعلي.
-
-## حالة النشر على Supabase (فحص 2026-11-05 — تاريخي)
-
-> ⚠️ **هذا القسم تاريخي ويصف المشروع القديم `clinicv2` الذي حُذف لاحقاً.** الفحص ده اتعمل عبر Supabase Management API على **المشروع الحقيقي**، مش تخمين من الملفات. **لا تُعد تطبيق أيّاً من هجرات هذا القسم على المشروع الحالي.**
-
-### حادثة 2026-11-06 — «غير متصل بالخادم» عند تسجيل الدخول
-
-| البند | الحقيقة |
-|---|---|
-| المشروع القديم `clinicv2` / `phmkvbszyaqagezpaduz` | ❌ محذوف نهائياً من Supabase (Management API يرد `Resource has been removed`؛ النطاق لا يُحل DNS) |
-| المشروع الحالي `clinicv3` / `xfppempsztxidjmlwrza` | ✅ `ACTIVE_HEALTHY` لكافة الخدمات (auth/db/rest/storage/pooler)، `/auth/v1/health` يستجيب |
-| الجداول والدوال وسياسات RLS | ✅ 17 جدول + 17 دالة RPC + 33 سياسة RLS + bucket واحد — المخطط سليم |
-| **البيانات** | ⚠️ **صفر**: 0 مستخدمي Auth، 0 أطباء، 0 عيادات، 0 مرضى. الحسابات القديمة لا يمكن استعادتها تلقائياً؛ أنشئ حساباً جديداً من شاشة «حساب جديد» أو استعد نسخة احتياطية إن وُجدت |
-
-**أسباب ظهور الرسالة (مترابطة):**
-1. أي طلب لمشروع محذوف يفشل بـ `Failed to fetch`، فيُترجم في `js/utils.js` إلى «تعذّر الاتصال بالخادم — تحقق من الإنترنت وأعد المحاولة».
-2. الـ Service Worker القديم `clinic-shell-v2` كان يخزّن `./js/config.js` بسياسة cache-first، فظلّ يقدّم **عنوان المشروع المحذوف** من كاش المتصفح حتى بعد تعديل الملف على الخادم. لهذا رُفع `CACHE_NAME` إلى `clinic-shell-v4` كي يمسح الكاش القديم عند التفعيل.
-3. النسخة المنشورة استخدمت مفتاح `sb_publishable_...` بينما مكتبة `supabase-js@2.118.0` مثبّتة بـ SRI؛ استُخدم بدلاً منه مفتاح `anon` (JWT) الخاص بنفس المشروع لضمان التوافق.
-
-### حادثة 2026-11-06 (٢) — خطأ تسجيل الدخول بعد إنشاء حساب جديد
-
-| البند | الحقيقة |
-|---|---|
-| `auth.signUp` | ✅ أنشأ المستخدم وأكّد بريده (`kemo8298@gmail.com`) وسجّل عاملاً TOTP |
-| `public.doctors` / `public.clinics` | ❌ كانوا **صفر صفوف** |
-| النتيجة | `loadSettingsRow()` يرمي `clinic_profile_missing` → «تعذّر العثور على ملف العيادة…» |
-
-**السبب:** «Confirm email» مفعّل في Supabase، فـ `signUp()` بيرجع **بدون session**، و`DB.register()` كان يرمي `confirm-email` **قبل** إدراج صفّي `doctors`/`clinics` (الإدراج محتاج `auth.uid()` تحت RLS). بعد تأكيد البريد ونجاح الدخول + MFA، mفيش صف دكتور فيسقط التحميل.
-
-**الإصلاح (مركزي + آمن):**
-- `DB.readDoctorSettings()` → عند غياب الصف يستدعي `ensureDoctorProfile()` مرة واحدة، يعيد القراءة، ثم يكمّل.
-- `ensureDoctorProfile()` → `upsert(..., { onConflict:'id', ignoreDuplicates:true })` من بيانات المستخدم (`doctor_name` / `specialty` / `clinic_name`) + فرع افتراضي واحد، بفترة تجربة 14 يوماً. **لا يكتب فوق صف موجود** فلا يُعاد ضبط اشتراك موقوف أبداً.
-- `register()` بقى يحفظ `clinic_name` في `user_metadata` عشان الإصلاح يرجّع اسم العيادة الأصلي.
-- نسخة الكاش `clinic-shell-v8`، و9 اختبارات جديدة في `tests/profile-self-heal.test.cjs`، و10 في `tests/mfa-login-errors.test.cjs` (303/303).
-
-كمان اتعمل إصلاح فوري لبيانات الحساب الحالي على السيرفر (INSERT فقط، بدون حذف أو تعديل أي بيانات موجودة) ⇒ الدخول يشتغل دلوقتي حتى قبل نشر الكود.
-
-> حل فوري دون انتظار نشر: افتح الموقع في **نافذة خاصة (Incognito)** — لا يوجد Service Worker مسجّل فيها — أو اعمل Unregister للـ Service Worker ثم Hard Reload. بعدها سيتصل بالمشروع الحي، وستحتاج إلى إنشاء حساب جديد لأن قاعدة البيانات فارغة.
->
-> تغييرات الفرع لا تظهر على `clinic-staging.kemo8298.workers.dev` إلا بعد رفعها ونشرها.
-
-| البند | الحالة |
-|---|---|
-| الجداول الأساسية (17 جدول) + `patient-photos` | ✅ موجودة |
-| `20261111` / `20261112` / `20261113` (الفروع، الكود الدائم، الفرع النشط) | ✅ **مطبّقة** على المشروع (اتطبّقت يدوياً من SQL Editor، فمش ظاهرة في `supabase_migrations.schema_migrations`). `clinics` و`patient_portal_credentials` و`patients.clinic_id` و`set_row_clinic_id()` و`patient_portal_login(text,text)` كلهم موجودين. **لا تُعد تطبيقها**. |
-| `20261107` (الحد اليومي) + `20261108` + `20261110` | ✅ موجودة في سجل الترحيلات |
-| `20261114_offline_conflict_tickets.sql` | ✅ اتطبّق في 2026-11-05: الجدول + 3 دوال + سياسة RLS + الصلاحيات. فحص بتوكن غير صالح رجع `{ok:false}` من غير ما يسجّل أي صف. |
-| `20261101_portal_photo_upload.sql` | ✅ اتطبّق في 2026-11-05: اتنشأت `patient_portal_photo_authorize` (service_role فقط) و**اتشالت سياسة `portal_photo_insert`** اللي كانت بتسمح بـ INSERT مباشر من `anon` على Storage. |
-| Edge Function `portal-photo-upload` | ✅ اتنشرت `ACTIVE` و`verify_jwt = false` (مطابق لـ `supabase/config.toml`). نُشرت كملف واحد `supabase/functions/portal-photo-upload/standalone.ts` لأن الـ Management API بيقبل ملف مصدر واحد؛ نشر الـ CLI يفضل يستخدم `index.ts` + `handler.mjs`. `scripts/build-edge-standalone.mjs` بيولّد النسخة و`tests/edge-standalone.test.cjs` بيمنع أي انحراف. |
-| Edge Function `purge-patient-photos` | ✅ `ACTIVE` و`verify_jwt = true` (كانت منشورة قبل كده). ⚠️ **الجدولة و`pg_cron`/Vault لسه مش متظبطة** — وجود الدالة لوحده ما بيمسحش صور. |
-| صلاحيات RPC | ✅ فحص `has_function_privilege`: دوال البوابة `anon`، دوال الدكتور `authenticated`، و`patient_portal_photo_authorize` و`offline_ack/list` مقصورة على الأدوار الصحيحة. |
-| `portal_photo_read` (SELECT) | ✅ مقصورة على الجلسة المعالِجة (`auth.uid()`), والبوابة أصلاً ما بتعرضش صور. |
-
-**⚠️ نتيجة مهمة:** تشخيص «حدث خطأ غير متوقع = ترحيلات ناقصة» **ما عادش صح** على المشروع ده. الترحيلات والـ RPCs والصلاحيات متطابقة مع الكود. لو الخطأ لسه بيظهر، سببه حاجة تانية (جلسة MFA، الشبكة، أو خطأ في المتصفح) ولازم يتفحص بـ F12 Console + Network + سطر `[clinic] {requestId,...}` — مش يتطبّق SQL تاني.
-
-### Cloudflare Workers Builds
-
-- ✅ **بناء الإنتاج على `main` نجح**: الـ check `Workers Builds: clinic-staging` على `9b6449d` رجع `success` في 2026-11-05 (Build `caac08ac…` / Version `e40f69eb…`). ⚠️ بناءات فروع الـ PR الثلاثة لسه فاشلة لحظياً بلا `output.text` ولا annotations؛ السبب المرجّح إعداد Preview/non-production في لوحة Cloudflare، **مش متأكد منه عن بُعد**. نجاح `main` ≠ اختبار متصفح فعلي.
-- أضفنا `wrangler.toml` بـ `[assets] directory = "./"` (الموقع ثابت بلا bundler) و`.assetsignore` عشان ما يتسرّبش `sql/` و`supabase/` و`tests/` و`scripts/` و`.git/` و`site.config.json`. الأصول العامة الجديدة `favicon.svg` و`preview.png` و`robots.txt` و`_headers` **مقصود نشرها**؛ `_headers` بيطبّقه Workers مش بيُserve كملف.
-- ⚠️ `compatibility_date` مثبّت على **2026-11-04 UTC** مش تاريخ اليوم المحلي: Cloudflare بيقارنه بـ UTC و**بيرفض أي تاريخ في المستقبل**، وبناء `2026-11-04T23:09Z` كان فاشل لما كان مضبوط على `2026-11-05`. فيه اختبار في `tests/edge-standalone.test.cjs` بيمنع رجوعه للمستقبل تاني.
-
-## حالة دخول بوابة المريض الآن (كود دائم — OTP مؤجّل)
-
-> **قرار مسجّل:** دخول المريض بيتم بـ **كود دائم** تسلّمه العيادة للمريض + رقم موبايله. الكود **لا يتغيّر أبداً ولا يوجد زر تغيير**. التحقق برمز SMS (OTP) **مؤجّل** وسيُفعّل في **أول تجربة فعلية** كـ **طبقة إضافية فوق الكود**، مش بديل عنه.
-
-- شكل الكود (بعد التقصير): `SHB1-482913` — البادئة `SHB1` بتعرّف **الفرع بالظبط** ويختارها الدكتور، وبعدها **ستة أرقام** عشوائية من السيرفر. الواجهة (`index.html` + `js/main.js` + `js/patient-portal.js`) تطلب الكود + الرقم، وتستدعي `patient_portal_login(p_code, p_phone)` كزائر `anon` بلا جلسة Supabase Auth للهاتف.
-- الكود القديم الطويل `PREFIX-XXXX-XXXX-XXXX` **لسه مقبول في الدخول** (`array_length(v_parts,1) not in (2,4)`): أي مريض استلم كارت بالشكل القديم بيدخل بيه عادي، لأن **مفيش تدوير/تغيير لأي كود اتسلّم**. الأكواد **الجديدة فقط** هي اللي بتطلع بالشكل القصير.
-- ⚠️ ستة أرقام = مليون احتمال فقط، أصعب شوية في الأمان من 12 خانة. التعويض: `issue_patient_code` بيعيد التوليد حتى 12 مرة لو الكود اتكرر (لأن `code unique`)، وقفل التخمين 5 محاولات / 15 دقيقة لكل (فرع + رقم)، والكود لوحده ما يكفيش لازم رقم المريض كمان. لو حابب أقوى، ارجع لـ 8 خانات.
-- `sql/migrations/20261112_patient_access_codes.sql` هو **التعريف الفعّال الوحيد** للدخول: بيحذف الدالة القديمة `(text, date)` ويمنح `(text, text)` لـ `anon`. البادئة بتحوّل المطابقة إلى نطاق فرع واحد، فما عاد فيه فخ `duplicate-match` العالمي؛ قفل التخمين بقى 5 محاولات / 15 دقيقة لكل (فرع + رقم)، ورسالة الخطأ واحدة عامة.
-- **تخزين الكود كما هو** (قرار صريح من صاحب المشروع) عشان يظهر للدكتور في ملف المريض وللمريض **دائماً** جوّه البوابة «عشان يفضل فاكره». ⚠️ **النتيجة:** أي جهة تقرأ الداتابيز مباشرة تقدر تدخل كأي مريض. الحماية الموجودة: جدول `patient_portal_credentials` بلا أي سياسة RLS (غير مرئي للمتصفح)، وكل الوصول عبر RPC `security definer` مقيد بحساب الدكتور أو بتوكن الجلسة، والجدول **لا يُضاف** إلى `DB.dumpAll()`.
-- بما إن **مفيش زر تغيير**، الكارت لو ضاع أو اتسرق **ما لهوش استرجاع آمن**؛ المتاح فقط زر **إيقاف** بوابة المريض (`set_patient_portal_access`) اللي بيمسح جلساته فوراً، ثم ملف/كود جديد. لازم يتحط في الحسبان قبل أي بيانات حقيقية.
-- **ترحيلات الدخول القديمة تاريخية الآن:** `20261103_patient_portal_login_atomic.sql` (قفل ذري) → `20261105_patient_portal_phone_otp.sql` (OTP بجلسة هاتف) → `20261109_patient_portal_phone_otp_temporary_disable.sql` (تعطيل مؤقت للـ staging برقم + ميلاد) → `20261111_multi_clinic_branches.sql` (الفروع) → **`20261112_patient_access_codes.sql` (الكود الدائم)** → `20261113_active_clinic.sql` (الفرع الحالي + وسم الصفوف الجديدة ← الحالة الحالية). ترحيل `20261110_fix_portal_phone_normalization.sql` مستقل عن قرار OTP ولسه مستخدم في تطبيع الأرقام التي تبدأ بـ `+20`.
-- ⚠️ ترحيل `20261105` مكتوب على التوقيع القديم `(text, date)`؛ قبل تفعيل OTP لازم **إعادة أساس** له على `(text, text)` بحيث يبقى طبقة فوق الكود لا بديلاً عنه. العميل لسه ما يملكش `signInWithOtp` / `verifyOtp` ولا شاشة لإدخال رمز SMS، و`DB.patientAuth` في `js/db.js` مجرد موضع محجوز بتعليق. تطبيق الترحيل وحده هيجعل `auth.uid() = null` وسيمنع كل المرضى من الدخول.
-
-### قائمة تفعيل OTP في أول تجربة فعلية (طبقة فوق الكود)
-
-1. تفعيل **Phone Auth** ومزود **SMS** وحدود الإرسال (rate limits) في Supabase، واختبار الاستلام بأرقام تجريبية.
-2. بناء مسار العميل: عميل Supabase منفصل وغير دائم للمرضى، إرسال الكود، شاشة إدخال الكود + إعادة الإرسال، التحقق، ثم استدعاء `patient_portal_login` بالكود **وبجلسة الهاتف المؤكدة**.
-3. **إعادة أساس** `20261105_patient_portal_phone_otp.sql` على التوقيع `(text, text)`: إضافة شرط `phone_confirmed_at` بعد نجاح الكود، **سحب صلاحية `anon`** (تصبح `authenticated` فقط)، وإبطال جلسات البوابة القديمة.
-4. تحديث هذا المستند و`sql/baseline.sql` للتثبيتات الجديدة، وتعديل `tests/portal-login-security.test.cjs` الذي يثبت حالياً **غياب** OTP ليُثبت **وجوده** بعد التفعيل.
-5. اختبار المسار كاملًا في staging بطلبات HTTP حقيقية وبيانات اصطناعية: دخول ناجح، كود SMS خاطئ، انتهاء الجلسة، تسجيل خروج، ورفض أي استدعاء `anon`.
-6. قبل أي بيانات حقيقية: إكمال MFA للأطباء، نشر `purge-patient-photos` وجدولتها، ومراجعة RLS/RPC على قاعدة فعلية (اختبارات Node لا تغني عن ذلك).
-
-## استعادة كلمة المرور
-
-- نموذج طلب رابط الاستعادة موجود في `index.html`، أما صفحة إدخال كلمة المرور الجديدة فهي صفحة مستقلة: `reset.html` + `js/reset.js`.
-- `DB.resetPassword` و`Admin.resetPassword` يرسلان `redirectTo` إلى `reset.html` (مشتق من مسار الاستضافة الحالي، وليس من نطاق ثابت).
-- **إعداد Supabase المطلوب:** أضف `https://<your-domain>/reset.html` إلى **Authentication → URL Configuration → Redirect URLs**، واضبط **Site URL** على رابط الموقع. بدون هذا الإعداد يرفض Supabase رابط الاستعادة.
-- الصفحة تدعم رابط PKCE (`?code=...`) ورابط الـ implicit القديم (`#access_token=...&type=recovery`)، وتنتظر حدث `PASSWORD_RECOVERY`. بعد الحفظ تُنهي جلسة الاستعادة (aal1) وتُعيد الطبيب لتسجيل الدخول العادي المحمي بـ MFA، وتُنظّف الرابط من الـ URL.
-- لو **Confirm email = ON** في إعدادات Auth، تسجيل حساب طبيب جديد يفشل برسالة `confirm-email` لأن `DB.register` يحتاج جلسة فورية قبل إعداد MFA. للتجربة: عطّل التأكيد أو جهّز مسار تأكيد قبل الإطلاق.
-- اختبارات `tests/password-recovery.test.cjs` تغطي المسار بمحاكاة DOM/Supabase؛ لم يُختبر الرابط على مشروع Supabase أو بريد فعلي بعد.
-
-## تجربة العرض (ديمو ببيانات اصطناعية)
-
-> **بيانات وهمية 100%**، على **مشروع Supabase تجريبي منعزل فقط**. لا تُدخل بيانات مرضى حقيقية ولا ترفع لقطة قاعدة فعلية إلى المستودع.
-
-- السكربت: `sql/demo_seed_synthetic.sql`. نفّذه من SQL Editor بعد تطبيق SQL التأسيس (أو كل الترحيلات بالترتيب).
-- الخطوات: ① أنشئ حساب طبيب بالبريد `demo-doctor@clinic.invalid` في المشروع التجريبي ② سجّل الدخول به مرة واحدة (لإنشاء صف `doctors` ومكتبة الخطط) ③ نفّذ السكربت.
-- يزرع 4 مرضى اصطناعيين (سمنة / علاج طبيعي)، منحنى قياسات وزن، قياس من بوابة المريض، فحص InBody، مواعيد اليوم والقادمة وموعدًا ملغيًا، ملاحظات زيارات، تحليلًا وقراءات سكر/ضغط — مع تفعيل الأقسام السريرية الاختيارية للعرض فقط.
-- أرقام الهاتف تبدأ بـ `+2019` (بادئة غير مخصصة للموبايلات المصرية → غير قابلة للاتصال)، وأسماء المرضى تبدأ بكلمة «تجريبي». بوابة المريض تُجرّب بها بالأكواد الثابتة القصيرة `DEMO1-000001` … `DEMO1-000004` اللي السكربت بيصدرها + الرقم.
-- السكربت آمن للتكرار (`on conflict (id) do nothing`)، ويرفض العمل إذا وجد أي بيانات مرضى أخرى في نفس الحساب، وكل الصفوف مقيدة بـ `doctor_id`. وصفة التنظيف موجودة في آخر الملف **معطّلة بتعليقات** ولا تُنفّذ تلقائيًا.
+- SQL التأسيس في **`sql/baseline.sql`** — خارج حزمة المتصفح تماماً: `.assetsignore` يستبعد `sql/`،
+  فمفيش DDL ولا سياسات RLS ولا أسماء جداول في أي ملف يصل للمتصفح. `tests/central-hardening.test.cjs`
+  يمنع رجوع أي `create table`/`create policy` إلى `js/` أو `index.html`.
+- الترحيلات في `sql/migrations/` بتترتيب زمني، ولازم مراجعتها واعتمادها على بيئة غير إنتاجية قبل
+  التطبيق. كون بعض الأوامر idempotent لا يجعل كل ترتيب نشر آمناً — **لا تشغّل** التأسيس والترحيلات
+  معاً على قاعدة قائمة.
+- `20261101_require_mfa.sql` يفرض `aal2` على بيانات الأطباء: احصر الحسابات القائمة، وتأكد من TOTP
+  لكل واحد، وجرّب مسار الدخول/الاستعادة في staging **قبل** الترحيل.
+- السكر يُسجّل بوحدة ثابتة `mg/dL`؛ تنبيه أدنى من 70، وأشد أدنى من 54. الضغط أعلى من 180/120
+  يُظهر تنبيه للطبيب. القراءات **التاريخية** بلا وحدة تبقى غير محددة ولا تُصنّف آلياً.
+- `20261106_patient_photo_cleanup_queue.sql` بيضيف صور المريض المحذوف لطابور تنظيف؛ محتاج كمان
+  نشر `purge-patient-photos` وجدولتها وVault.
+- **حالة الجاهزية السريرية: غير جاهز لبيانات مرضى حقيقية.** تأجيل OTP يعني أن الكود الدائم المطبوع
+  + رقم الموبايل يفتحان ملف المريض، والكود يُخزَّن **كما هو**؛ أضف أن MFA وتنظيف الصور محتاجين
+  إعداد واختبار فعلي.
 
 ## فروع العيادة (الدفعات ١–٣)
 
-> **قرارات مسجّلة:** الدكتور **لوج واحد** لكل عياداته؛ **بادئة الكود يختارها الدكتور** بنفسه؛ **كود المريض دائم بلا زر تغيير**؛ والمريض ممكن يبقى له **أكتر من لوج إن** لو راح لأكتر من فرع/دكتور.
+> **قرارات مسجّلة:** الدكتور **لوج واحد** لكل عياداته؛ **بادئة الكود يختارها الدكتور** بنفسه؛
+> **كود المريض دائم بلا زر تغيير**؛ والمريض ممكن يبقى له **أكتر من لوج إن** لو راح لأكتر من فرع.
 
-- `sql/migrations/20261111_multi_clinic_branches.sql` أضاف جدول `clinics` وعمود `clinic_id` على الجداول السريرية وجلسات البوابة، مع قيد مركّب يضمن إن الفرع تابع لنفس الدكتور صاحب الصف (إضافة فقط، والأعمدة `nullable` أثناء الانتقال).
-- بما إن كل الفروع مملوكة لنفس حساب الدكتور، سياسات RLS الحالية (`auth.uid() = doctor_id`) **ما اتغيّرتش**؛ أُضيفت سياسة واحدة للجدول الجديد `clinics` بنفس الشكل.
-- `clinics.code` فريد **عالمياً عبر كل الدكاترة** عشان البادئة تعرّف العيادة بالظبط. يبدأ `NULL` لحد ما الدكتور يختاره عبر `set_clinic_prefix`، ويتقفل بعد إصدار أول كود مريض عشان الكرارت المطبوعة ما تبطلش.
-- `sql/migrations/20261112_patient_access_codes.sql` أضاف: جدول `patient_portal_credentials`، و`issue_patient_code` (إصدار **مرة واحدة**، idempotent، بلا أي دالة تغيير)، و`set_patient_portal_access` (صمّام **إيقاف** طوارئ بيمسح الجلسات)، ودخول البوابة بالكود، و`patient_portal_access_code` اللي بيخلي الكود ظاهر للمريض **دائماً**.
-- `sql/migrations/20261113_active_clinic.sql` أضاف دالة `set_row_clinic_id()` وترايجر `BEFORE INSERT` على الجداول السريرية السبعة: أي صف جديد — حتى اللي بيتعمل من جوّه RPC `create_patient_with_measurements` — يتوسم تلقائياً بـ `clinic_id` بتاع **الفرع الحالي** المحفوظ في `doctors.settings->>'activeClinicId'`. الصفوف القديمة اللي بلا فرع بتظهر في الفرع النشط أثناء الانتقال.
+- `20261111_multi_clinic_branches.sql` أضاف جدول `clinics` وعمود `clinic_id` على الجداول السريرية،
+  بقيد مركّب يضمن إن الفرع تابع لنفس الدكتور. كل الفروع مملوكة لنفس الحساب، فسياسات RLS
+  (`auth.uid() = doctor_id`) **ما اتغيّرتش** — السياسة الجديدة على `clinics` بس بنفس الشكل.
+- `clinics.code` فريد عالمياً عشان البادئة تعرّف العيادة بالظبط. يبدأ `NULL` لحد ما الدكتور يختاره،
+  ويتقفل بعد أول كود مريض عشان الكرارت المطبوعة ما تبطلش.
+- `20261113_active_clinic.sql` أضاف `set_row_clinic_id()` وترايجر `BEFORE INSERT` على الجداول
+  السريرية: أي صف جديد — حتى من جوّه RPC — يتوسم تلقائياً بفرع `doctors.settings->>'activeClinicId'`.
+- مُبدّل «الفرع الحالي» في الشريط الجانبي بينادي `save_clinic_settings({ activeClinicId })` (RPC
+  موجودة أصلاً) ويعيد تحميل القوائم. الفلترة بـ `clinic_id` **عرضية داخل نفس الحساب**، مش عزل
+  أمني — العزل لسه RLS + القيد المركّب.
+- `portalBirthDate()` **اتشالت نهائياً** من `js/patient-portal.js`.
+- `DB.dumpAll()` بيصدّر جدول `clinics` كمان، و**ما بيصدّرش** `patient_portal_credentials`.
 
-### واجهة الدكتور (الدفعة ٣)
+### إرسال الكود واتساب بدون ما يظهر في أي لينك
 
-| المكان | اللي بيحصل |
-| --- | --- |
-| الشريط الجانبي `#activeClinic` | مُبدّل «الفرع الحالي» يظهر لو فيه فرعين أو أكتر. التبديل بينادي `save_clinic_settings({ activeClinicId })` (RPC موجودة أصلاً، ما أضفناش RPC جديدة) ويعيد تحميل القوائم. **لوج واحد** للدكتور على كل فروعه. |
-| «الإعدادات ← الفروع وأكواد الدخول» | قائمة الفروع، اختيار **بادئة** الفرع عبر `set_clinic_prefix`، وإضافة فرع جديد. كل حساب دكتور جديد يُنشأ له **فرع افتراضي واحد بلا بادئة** لحد ما يختارها. |
-| «ملف المريض ← كود دخول بوابة المريض» | يستدعي `issue_patient_code` (idempotent) ويعرض **الكود الدائم كما هو**، وجنبه زر **«إرسال الكود واتساب»** + «نسخ الكود» + زرّي **إيقاف / إعادة تشغيل** الطوارئ (`set_patient_portal_access`). **ما فيش ولا زر تغيير أو تدوير للكود** لا هنا ولا في أي مكان تاني. |
+واتساب بيحط أي «رسالة جاهزة» بعد `?text=` **جوه الرابط**، فيبقى الكود في تاريخ المتصفح والسجلات.
+لذلك الزر **مش بيستخدم `?text=` ولا `encodeURIComponent` على الكود**:
 
-### إرسال الكود للمريض بالواتساب + لينك صفحته (بدون ما يظهر في أي لينك)
+1. بينسخ رسالة كاملة للحافظة (الكود + لينك `?portal=1` + تعليمات) محلياً على جهاز الدكتور.
+2. بيفتح `https://wa.me/<رقم>` فاضية بـ `noopener,noreferrer`.
+3. الدكتور يلصق ويبعت.
 
-واتساب أي «رسالة جاهزة» بيحطها بعد `?text=` **جوه الرابط نفسه**، يعني الكود هيبقى مكتوب في تاريخ المتصفح والسجلات وأي صورة للشاشة. لذلك زر `pt-code-wa` في `js/patient.js` **مش بيستخدم `?text=` ولا `encodeURIComponent` على الكود**:
+الكود محفوظ في متغير ذاكرة أثناء عرض الملف بس: **مش في لينك، ولا `data-*`، ولا في الاستعلام**.
 
-1. بينسخ **رسالة جاهزة كاملة** للحافظة (`navigator.clipboard.writeText`): الكود الدائم + **لينك صفحة المريض** `?portal=1` + تعليمات الدخول — محلياً على جهاز الدكتور.
-2. بيفتح `https://wa.me/<رقم المريض>` **فاضية من غير أي نص** ومع `noopener,noreferrer`.
-3. الدكتور يلصق الرسالة **مرة واحدة** ويبعت.
+## دخول بوابة المريض (كود دائم — OTP مؤجّل)
 
-الكود محفوظ في متغير ذاكرة `patientAccessCode` أثناء عرض الملف فقط: **مش في لينك، ولا في `data-*` attribute، ولا في الاستعلام**. فيه كمان زر «نسخ الكود» لوحده وزر «نسخ اللينك» (`pt-link-copy`) كبديلين، ورسالة تذكير بموافقة المريض على التواصل. ✅ لا يوجد أي مسار يكتب الكود داخل URL.
+> **قرار مسجّل:** الدخول بكود **دائم** تسلّمه العيادة + رقم الموبايل. الكود **لا يتغيّر أبداً ولا
+> يوجد زر تغيير**. التحقق برمز SMS **مؤجّل**، وسيُفعّل في **أول تجربة فعلية** كـ **طبقة فوق الكود**،
+> مش بديل عنه.
 
-#### لينك صفحة المريض (`?portal=1`)
+- شكل الكود بعد التقصير: `SHB1-482913` — البادئة تعرّف الفرع ويختارها الدكتور، وبعدها ستة أرقام
+  من السيرفر. الشكل القديم الطويل لسه مقبول، لأن **مفيش تدوير** لأي كود اتسلّم.
+- ⚠️ ستة أرقام = **مليون احتمال** فقط. التعويض: توليد متكرر حتى 12 مرة، وقفل تخمين 5 محاولات /
+  15 دقيقة لكل (فرع + رقم)، والكود لوحده ما يكفيش لازم رقم المريض.
+- `20261112_patient_access_codes.sql` هو **التعريف الفعّال الوحيد** للدخول: بيمسح الدالة القديمة
+  ويمنح التوقيع الجديد لـ `anon`.
+- **تخزين الكود كما هو** (قرار صريح) عشان يفضل ظاهر للدكتور وللمريض دائماً. ⚠️ **النتيجة:** أي جهة تقرأ الداتابيز مباشرة تقدر تدخل كأي مريض. التعويض: `patient_portal_credentials` بلا أي سياسة RLS
+  (غير مرئي للمتصفح)، والوصول كله عبر RPC `security definer`، والجدول مش في `DB.dumpAll()`.
+- بما إن **مفيش زر تغيير**، الكارت لو ضاع **ما لهوش استرجاع آمن**؛ المتاح زر **إيقاف** البوابة
+  (`set_patient_portal_access`) اللي بيمسح الجلسات فوراً.
+- **ترحيلات الدخول القديمة تاريخية الآن:** `20261103` (قفل ذري) → `20261105_patient_portal_phone_otp.sql`
+  (OTP بجلسة هاتف) → `20261109` (تعطيل مؤقت) → `20261111_multi_clinic_branches.sql` (الفروع) →
+  `20261112` (الكود الدائم) → `20261113_active_clinic.sql` (الحالة الحالية). و
+  `20261110_fix_portal_phone_normalization.sql` مستقل ولسه مستخدم في تطبيع أرقام `+20`.
+- ⚠️ `20261105` مكتوب على التوقيع القديم؛ قبل تفعيل OTP لازم **إعادة أساس** له على التوقيع الجديد
+  ليبقى طبقة فوق الكود. العميل لسه ما يملكش `signInWithOtp` / `verifyOtp` ولا شاشة SMS. تطبيق
+  الترحيل لوحده هيخلي `auth.uid() = null` ويمنع كل المرضى.
+- لو عدّلت `20261112` في مكانه (زي ما حصل في التقصير)، **أعد تشغيل الملف** على المشروع.
 
-`portalShareLink()` في `js/patient.js` بيشتقّ اللينك من `location.href` نفسه (فبيشتغل على staging والإنتاج والمحلي **بدون نطاق مثبّت**)، بيمسح أي query/hash قديم عشان ما يتسرّبش حاجة من الرابط الحالي، ويضيف `?portal=1` **فقط**. `js/main.js` بيقرأ المعامل عند الإقلاع وينادي `switchAuthTab('patient')`، فالمريض يلاقي **تبويب «دخول بوابة المرضى» مفتوح مباشرة** بدل شاشة دخول الدكتور؛ وبعد ما يكتب رقم موبايله والكود بيدخل على صفحته (`Portal.login` ← `showScreen('portal')`). `#portal` مدعوم كبديل يدوي.
+### قائمة تفعيل OTP في أول تجربة فعلية
 
-⚠️ اللينك **عام بلا أي كود أو توكن أو بيانات مريض**، ومفيش دخول تلقائي باللينك (مقصود): الكود الدائم + رقم الموبايل لازم يتأكدوا على السيرفر عبر `patient_portal_login`. الكارت بيعرض اللينك كمان عشان يتنسخ يدوياً لو الحافظة اتبلّكت.
+1. تفعيل Phone Auth ومزود SMS وحدود الإرسال في Supabase، واختبار الاستلام.
+2. بناء مسار العميل: عميل منفصل للمرضى، إرسال، شاشة رمز، تحقق، ثم `patient_portal_login`.
+3. **إعادة أساس** `20261105` على التوقيع الجديد + شرط `phone_confirmed_at` + سحب صلاحية `anon`.
+4. تحديث `sql/baseline.sql` و`tests/portal-login-security.test.cjs` (اللي بيثبت **غياب** OTP حالياً).
+5. اختبار staging بطلبات حقيقية وبيانات اصطناعية.
+6. قبل أي بيانات حقيقية: MFA للأطباء، نشر `purge-patient-photos` وجدولتها، ومراجعة RLS/RPC على
+   قاعدة فعلية.
 
-- القوائم بتتفلتر بـ `clinic_id`: `pagePatients` و`loadRoster` وتنبيهات السكر/الضغط من السيرفر، و`rosterArr()` والمواعيد والخطط وعدّاد المرضى والأرشيف في الذاكرة. الفصل هنا **عرضي داخل نفس الحساب**، مش عزل أمني؛ العزل لسه RLS + القيد المركّب.
-- `DB.dumpAll()` بيصدّر كمان جدول `clinics` (أسماء الفروع والبادئات)، و**ما بيصدّرش** `patient_portal_credentials` قصداً عشان الكود ما يطلعش في ملف النسخة.
-- `portalBirthDate()` اتشالت نهائياً من `js/patient-portal.js` — ما عاد فيه أي أثر لحقول الميلاد في الواجهة.
-- ⚠️ الكود الدائم بلا زر تغيير معناه إن الكارت لو ضاع أو اتسرق **ما لهوش استرجاع آمن**؛ الحل الوحيد إيقاف بوابة المريض ده وفتح ملف/كود جديد. وتخزين الكود كما هو معناه إن أي جهة تقرأ الداتابيز مباشرة تقدر تدخل كأي مريض — راجع قسم الدخول أعلاه.
-- 🔄 **بعد تقصير الكود:** عُدّل `20261112_patient_access_codes.sql` في مكانه (لم يُضف ترحيل رابع) وما زالت القائمة 3 ملفات. لو كنت طبّقت الملفات بالفعل، **أعد تشغيل الملف `20261112` وحده** (`create or replace` فقط — لا يمس الجداول ولا أكواد المرضى الموجودة).
+## استعادة كلمة المرور
+
+- الصفحة مستقلة: `reset.html` + `js/reset.js`. `DB.resetPassword` يرسل `redirectTo` مشتق من مسار
+  الاستضافة الحالي، مش نطاق ثابت.
+- **إعداد Supabase المطلوب:** أضف `https://<your-domain>/reset.html` إلى **Authentication → URL
+  Configuration → Redirect URLs**، واضبط **Site URL**. بدونه Supabase يرفض الرابط.
+- تدعم PKCE والرابط القديم، وتنتظر `PASSWORD_RECOVERY`، وتنهي جلسة الاستعادة (aal1) بعد الحفظ.
+- لو **Confirm email = ON**، تسجيل طبيب جديد يفشل بـ `confirm-email` لأن `DB.register` محتاج جلسة
+  فورية قبل MFA. للتجربة: عطّل التأكيد أو جهّز مسار تأكيد قبل الإطلاق.
+- `tests/password-recovery.test.cjs` تغطي المسار بمحاكاة؛ **لم يُختبر** على مشروع Supabase أو بريد
+  فعلي بعد.
+
+## تجربة العرض (ديمو ببيانات اصطناعية)
+
+> **بيانات وهمية 100%**، على **مشروع تجريبي منعزل فقط**. لا بيانات مرضى حقيقية ولا لقطة قاعدة
+> حقيقية في المستودع.
+
+- السكربت: `sql/demo_seed_synthetic.sql`. نفّذه من SQL Editor بعد التأسيس أو الترحيلات.
+- ① أنشئ حساب بالبريد `demo-doctor@clinic.invalid` ② سجّل الدخول مرة واحدة (لإنشاء صف `doctors`)
+  ③ نفّذ السكربت.
+- يزرع 4 مرضى، منحنى قياسات، قياس من البوابة، InBody، مواعيد بحالاتها، ملاحظات، تحليل، وقراءات
+  سكر/ضغط — مع تفعيل الأقسام السريرية الاختيارية للعرض.
+- الهواتف تبدأ بـ `+2019` (بادئة غير مخصصة → غير قابلة للاتصال)، والأسماء تبدأ بـ «تجريبي».
+  بوابة المريض تُجرّب بالأكواد الثابتة `DEMO1-000001` … `DEMO1-000004` + الرقم.
+- آمن للتكرار، ويرفض العمل لو لقى بيانات مرضى أخرى، وكل الصفوف مقيدة بـ `doctor_id`. وصفة التنظيف
+  في آخر الملف **معطّلة بتعليقات**.
 
 ## الأوفلاين (الدفعات ١–٤ من ٤)
 
-> **قرارات صاحب المشروع:** الدفتر على **جهاز صاحبه فقط** — صريحاً **جهاز العيادة وموبايل المريض معاً** (لا نسخة سحابية ولا جهة ثالثة)؛ **أي تعارض أو فشل دائم يطلع تنبيه للدكتور يراجعه بيده** (مش قرار أوتوماتيك)؛ **موافقة صريحة** على تخزين بيانات المرضى محلياً بشرط إنها تكون مشفّرة ومؤقتة وعلى الجهاز.
+> **قرارات صاحب المشروع:** الدفتر على **جهاز صاحبه فقط** — صريحاً **جهاز العيادة وموبايل المريض معاً** (لا نسخة سحابية ولا جهة ثالثة)؛ وأي تعارض بيطلع **تنبيه للدكتور** بدل ما يتصلّح أوتوماتيك.
 
-**الفكرة ببساطة:** لما النت يقطع في العيادة أو عند المريض، الكتابة بتتحفظ في «دفتر» مشفّر على الجهاز، وأول ما النت يرجع بيترفع كله للسيرفر بالترتيب.
-
-### الأساس (الدفعة ١)
-
-| الملف | اللي بيحمله |
+| الطبقة | التنفيذ |
 |---|---|
-| `sw.js` | نسخة من الموقع على الجهاز (Service Worker): يخزّن HTML/CSS/JS + مكتبات CDN المثبتة بـ SRI، فالصفحة تفتح حتى لو النت مقطوع. 🚫 **لا يتدخل ولا يخزّن أي طلب لـ `supabase.co`** (بيانات مرضى وتوكنات). نسخة واحدة بإصدار `clinic-shell-v11`، وأي تعديل في ملفات الواجهة لازم يرفع الإصدار. |
-| `js/offline.js` | شريط `#offlineBar` (بدون نت / عدد المعلّق / تنبيه المراجعة) + **الدفتر المشفّر**: `IndexedDB` فقط، `AES-GCM` بمفتاح 256 بت عشوائي **غير قابل للتصدير** محفوظ على الجهاز، وكل عنصر له `iv` عشوائي و`requestId`. |
-| `js/offline.js` → `flush()` | الرفع بالترتيب الصارم؛ عملية فاشلة ما توقفش الباقي؛ **الفشل الشبكي يوقف ويحتفظ بالباقي**؛ والتعارض/الفشل الدائم بيتعلّم `conflict` ويطلع **تنبيه للدكتور** (أو رسالة للمريض على موبايله: «احتفظ بالبيانات ولا تمسحها») مع زرّي «إعادة المحاولة» / «حذف». |
-| `js/utils.js` | بدل «حدث خطأ غير متوقع»: أكواد `PGRST205/204/202/200` و`42P01/42703/42883` بقت **«تعذّر قراءة بيانات العيادة — حدّث الصفحة، ولو تكرّر الخطأ تواصل مع إدارة النظام»**. النص القديم اللي بيطلب من الدكتور تطبيق ترحيلات اتشال لأن الترحيلات مطبّقة فعلاً. |
+| `js/offline.js` | شريط حالة (بدون نت / عدد المعلّق / تنبيه المراجعة) + **الدفتر المشفّر**: `IndexedDB` فقط، `AES-GCM` بمفتاح 256 بت عشوائي على الجهاز |
+| `sw.js` | نسخة من الموقع على الجهاز، فالصفحة تفتح بدون نت. 🚫 **لا يتدخل ولا يخزّن أي طلب لـ `supabase.co`** |
+| مبدأ التصميم | **مفيش توكن ولا كود دخول جوه الدفتر** — بنخزّن علامة `__session` بس، والتوكن يُقرأ وقت الرفع |
+| الصور | **الصور بقت جوه الدفتر** (مشفّرة، حتى 5MB)؛ لو الرفع فشل بيطلع تعارض `attachment` بدل ما تضيع بصمت |
+| منع التكرار | `measurementLooksUploaded()` بيسأل البوابة قبل رفع أي قياس وزن |
+| النسخة الاحتياطية | `js/offline-snapshot.js` نسخة **للقراءة فقط** بعد reload، وترفض العمل لو مفيش توكن جلسة في نفس المتصفح |
+| تذاكر المراجعة | `20261114_offline_conflict_tickets.sql`: جدول + 3 دوال. التذكرة **بلا أي اسم مريض ولا قيم سريرية** |
 
-### الدفعة ٢ — الكتابة الفعلية بقت متوصّلة بالدفتر
+⚠️ **قيود لازم تعرفها:** أول دخول لازم يكون بالنت (الأوفلاين معناه «أنت داخل بالفعل»)؛ حد 20 كتابة
+يومياً ونافذة 7 أيام على السيرفر لسه ساريين وقت الرفع؛ **OTP/SMS لسه مؤجّل** فلما يتفعّل هيتظبط مع
+عامل الرفع؛ نسخة الدكتور قراءة فقط وجزئية؛ وService Worker محتاج HTTPS وأول زيارة بالنت.
 
-`js/offline-capture.js` هو طبقة الالتقاط/الرفع. كل الكتابات بتعدّي على نداء شبكة واحد ملفوف بـ `offlineCall` / `portalOfflineCall`؛ لو النت مقطوع (أو الرد ضاع) بتتسجّل عملية قابلة لإعادة التنفيذ، وباقي كود الميثود يكمّل ويحدّث الذاكرة بشكل متفائل.
-
-| جهاز | المسارات المتوصّلة |
-|---|---|
-| **العيادة** (`js/db.js`) | `add` (مريض/موعد/خطة + مريض جديد بقياسات بداية)، `update`، `remove`، `addNote`، `deleteNote`، `addLab`، `updateLab`، `deleteLab`، `addHealthReading`، `deleteHealthReading`، `updatePatientMonitoring`، `addRecord`، `updateRecord`، `deleteRecord` |
-| **موبايل المريض** (`js/patient-portal.js`) | قياس الوزن، قراءة السكر/الضغط، إلغاء الموعد (الموقعين) |
-
-**قواعد الأمان في الدفعة ٢:**
-
-1. **مفيش توكن ولا كود دخول جوه الدفتر.** بوابة المريض بتحتاج `p_token` في كل RPC، فبنخزّن علامة `__session` بس، وعند الرفع بنقرأ `Portal.token` الحالي ونحقنه ساعتها. `assertSafe` بيرفض أي `p_token` / `p_code` / `token` / `password` يدخل الدفتر. **الصور استُثنيت في الدفعة ٤**: بتتشفّر في مخزن مستقل، لكن عمرها ما تدخل الدفتر كبايتات غير مشفّرة ولا باسم ملفها الأصلي.
-2. **ربط الهوية:** كل عملية بتتقيّد بـ `doctorId` + `clinicId` (أو `patientId`). لو اتسجّل دخول بحساب تاني قبل الرفع → **تعارض وتنبيه، مش رفع غلط**. ده بيمنع أخطر حاجة: بيانات مريض تترفع على حساب مريض تاني، أو بيانات دكتور تترفع بحساب دكتور تاني.
-3. **UUID مولّد على الجهاز** لكل صف جديد. الـ id بيبقى ثابت في الدفتر وفي Postgres، فمفيش إعادة تسمية ولا قياسات تايهة. مريض جديد بقياسات بداية بيتسجّل كعمليتين مرتّبتين بنفس الـ id (الـ RPC المباشر بيولّد الـ id جوه Postgres، فالأوفلاين مش بيستخدمه).
-4. **الرفع آمن عند التكرار:** الإضافات بتتنفّذ `upsert ... on conflict (id) do nothing`، والقراءات بتاخد `p_request_id` من الدفتر. لو الرد ضاع بعد ما السيرفر سجّل، إعادة الرفع مش هتعمل تكرار.
-5. **`clinic_id`** بيتسجّل مع العملية عشان ينتمي للفرع اللي اتسجّل فيه. لو القاعدة لسه ما طبّقتش `20261111` والعمود غايب (`42703`)، الرفع بيعيد بدون العمود بدل ما يفشل.
-6. **مفيش رفع قبل جلسة صاحبة البيانات:** `Offline.canSync()` بيمنع أي `flush()` لو حدث `online` جه قبل تسجيل الدخول. بعد الدخول أو استعادة الجلسة، `syncWhenReady()` بيرفع المعلّق فوراً.
-7. التدقيق: وقت الأوفلاين بنستغنى عن سطر `audit`، ووقت الرفع بيتسجّل سطر `sync` واحد لكل عملية (بدون أي بيانات مرضى). بوابة المريض بتدوّن من جوه الـ RPC بتاعها.
-
-### الدفعة ٣ — قواعد التعارض، منع التكرار، وباقي المسارات
-
-**أهم إصلاح:** `patient_portal_add_measurement` **معندهاش `p_request_id`** على السيرفر (عكس قراءة السكر/الضغط). يعني لو الرد ضاع بعد ما السيرفر سجّل القياس، إعادة الرفع كان ممكن تعمل **قياس مكرر**. الدفعة ٣ ما حلتش ده أوتوماتيك:
-
-- قبل رفع أي قياس وزن، `measurementLooksUploaded()` بيسأل `patient_portal_records` (قراءة آمنة عبر RPC البوابة). لو لقى تطابق في التاريخ + الوزن + الملاحظة/المحيطات → **تعارض `possible-duplicate` وتنبيه للدكتور**، مش حذف ولا تكرار.
-- الدكتور يقرر: **«حذف»** لو اتأكد إنه مكرر، أو **«تأكيد الرفع»** (`force`) لو مختلف. علم `forced` بيتخزّن جوه العملية المشفّرة بعد إعادة تشفيرها بـ `iv` جديد، والفحص بيتخطّى مرة واحدة بس.
-- لو فشلت قراءة السيرفر نفسها → بنعتبرها فشل شبكي، **نوقف الرفع ونحتفظ بالعنصر** بدل ما نرفع على العمياني.
-
-**تصنيف الأخطاء** (`classifyRpcMessage` / `classifyThrown`) بدل رسالة عامة، وكل صنف له قرار مختلف:
-
-| الصنف | المثال | القرار |
-|---|---|---|
-| `possible-duplicate` | قياس بنفس التاريخ والوزن موجود | تعارض + «تأكيد الرفع» / «حذف» |
-| `daily-limit` | «وصلت للحد اليومي 20 قراءة» | تعارض وتنبيه للدكتور |
-| `date-window` | «التاريخ لازم يكون خلال آخر أسبوع» | تعارض وتنبيه — **لا تعديل في التاريخ** |
-| `duplicate` / `foreign-key` | `23505` / `23503` | تعارض وتنبيه |
-| `schema` | `PGRST205` / `42703` | «تعذّر قراءة بيانات العيادة — حدّث الصفحة» (بلا أي تعليمات SQL للمستخدم) |
-| `permission` | `42501` / جلسة MFA خلصت | تعارض + «سجّل دخول تاني» |
-| `alreadyApplied` | «الموعد مش موجود أو مكتمل أو تاريخه فات» | رفع آمن: المطلوب اتحقق خلاص، العنصر يتشال |
-| جلسة منتهية / فشل شبكي | — | **معلّق** (يستنى)، مش تعارض |
-| `unknown` / `validation` | أي رفض تاني | تعارض وتنبيه |
-
-**تذكرة مراجعة قابلة للنقل بين الأجهزة:** زر «نسخ تذكرة المراجعة» في شريط الحالة بينسخ **وصف العملية + نوع التعارض + السبب + التوقيت + رقم الطلب + نوع الجهاز فقط** — **بلا أي اسم مريض ولا قيم سريرية ولا أكواد**. المريض يقدر يوريها للدكتور، والدكتور يعرف إن البيانات لسه على الجهاز وما وصلتش للسيرفر. دي بداية عملية بدل «جدول تعارضات على السيرفر»؛ الجدول الحقيقي عبر الأجهزة محتاج ترحيل SQL جديد، وسيبته **بعد** ما الترحيلات الحالية تتطبّق عشان ما نزودش عبء النشر.
-
-**المسارات اللي اتوصّلت في الدفعة ٣:**
-
-| المسار | الطريقة |
-|---|---|
-| `saveSettings` | `rpc` عادي؛ التحذير: الإعدادات `shallow-merge` على السيرفر، فلو دكتور تاني غيّر نفس المفتاح وقت الأوفلاين هيظهر تعارض للمراجعة |
-| `restore` (استعادة من الأرشيف) | `update` عادي + تخطّي `loadAll()` وقت الأوفلاين مع تنبيه إن الشاشة هتتحدّث بعد الرفع |
-| `updateHealthReading` | **`kind: method`** — الميثود دي لازم تقرأ الصف الحالي من السيرفر قبل `validateHealthReading`. مش بنخزّن تعديل سريري غير متحقّق منه، فبنأجّل **العملية كلها** ووقت الرفع بتتنفّذ كاملة؛ لو التحقق فشل ساعتها بيظهر تعارض للدكتور |
-
-**تنبيه ناعم للحد اليومي:** `warnBudget()` بيحسب كتابات البوابة المعلّقة بتوقيت **القاهرة**، ولو قربت من 20 بيطلع تنبيه — **من غير ما يمنع التسجيل** (السيرفر هو اللي بيقرر في النهاية).
-
-### الدفعة ٤ — النسخة المشفّرة بعد reload، الصور، وتنبيه الدكتور عبر الأجهزة
-
-| الحاجة | التنفيذ |
-|---|---|
-| **البوابة تفتح أوفلاين بعد reload** | `js/offline-snapshot.js` — نسخة **للقراءة فقط** من `patient_portal_data` محفوظة في `meta` بنفس مفتاح الجهاز المشفّر. `OfflineSnapshot.save()` يتجدّد بعد كل تحميل ناجح، و`Portal.load()` لو فشل شبكياً بيستدعي `restore()`. `restore` **بيرفض لو مفيش توكن جلسة في نفس المتصفح**، فالنسخة مش بديل عن الدخول. `logout()` أو رفض صريح للجلسة بيمسح النسخة. |
-| **مفيش أسرار جوه النسخة** | `sanitize()` بيشيل تعاودياً أي مفتاح `code`/`token`/`password`/... ثم `Offline.assertSafe()` بيتأكد. الكود الدائم **ما بيتخزّنش** — الواجهة بتظهر `—` في الأوفلاين. النسخة الأقدم من 30 يوماً بتظهر بس بتتعلّم «قديمة، راجع العيادة». |
-| **الصور جوه الدفتر** | IndexedDB اترقّى لـ v2 بمخزن `photos`. البايتات تتشفّر `AES-GCM`، واسم الملف **ما بيتخزّنش أصلاً** (ممكن يكون فيه اسم مريض) — الميتاداتا الوحيدة نوع MIME من 3 قيم. اللي بيدخل العملية هو **مفتاح الصورة** بس. |
-| **رفع الصورة وقت الرفع** | `OfflineCapture.replay()` بيفكّ الصورة، يعيد بناء `File`، يرفعها عبر `portal-photo-upload` بنفس توكن الجلسة، ويحقن `p_photo_path` في الـ RPC. لو فشل الرفع → تعارض `attachment` والعنصر والصورة يفضلوا (مفيش قياس بدون صورة ولا صورة يتيمة). لو نجح → الصورة تتمسح مع العنصر. |
-| **تنبيه الدكتور عبر الأجهزة** | ترحيل **`sql/migrations/20261114_offline_conflict_tickets.sql`** (اختياري ومستقل): جدول `offline_conflict_tickets` + 3 دوال `security definer` للبلاغ/العرض/الإقرار. التذكرة **بلا أي بيانات مرضى**، والـ RLS بيسمح للدكتور بقراءة تذاكره فقط، ومفيش سياسة إدراج للعميل. حد 20 تذكرة/مريض خلال 24 ساعة، و`on conflict do nothing` يمنع تكرار البلاغ بعد رد ضايع. |
-
-**سلوك «أفضل جهد»:** لو `20261114` لسه ما اتطبّقش، `PGRST205`/`42883` بتتجاهل بهدوء والتطبيق يكتفي بتذكرة المراجعة المحلية المنسوخة — **ما بيحصلش فشل في رفع البيانات الأصلية**. وعلى جهاز العيادة، لوحة الحالة بتعرض «تذاكر من أجهزة المرضى» مع زر «تمت المراجعة» (إقرار يدوي فقط؛ البيانات نفسها لسه على موبايل المريض). 🚫 تعارضات **الهوية** ما بتبعتش أبداً بتوكن مريض تاني.
-
-**✅ الترحيل ده اتطبّق فعلاً على `clinicv2` في 2026-11-05** (الجدول + 3 دوال + سياسة RLS + الصلاحيات). **لا تُعد تطبيقه**. يبقى أول تجربة فعلية على جهاز حقيقي.
-
-### إضافات بعد اكتمال الدفعات الأربع
-
-| التحسين | التفاصيل |
-|---|---|
-| **نسخة أوفلاين للدكتور (قراءة فقط)** | `OfflineSnapshot.saveDoctor()` بتحفظ فهرس المرضى الخفيف + المواعيد + الخطط + الإعدادات + الفروع + التنبيهات، مشفّرة بنفس مفتاح الجهاز، بعد كل `DB.loadAll()` ناجح. عند فشل شبكي في `mfaGate` أو تحميل البيانات، `tryOfflineDoctorFallback()` بيفتح **الرئيسية** من النسخة. |
-| **ربط الهوية** | `readDoctor(uid)` بيرفض لو `uid` الجلسة مختلف عن `uid` النسخة، أو لو كاش `clinic_doctor` مش موجود في نفس المتصفح — فالنسخة مش بديل عن الدخول/MFA ولا بتتشارك بين دكتورين. `doLogout()` بيمسح نسختَي الدكتور والمريض. |
-| **حدود النسخة** | الفهرس بيتقص عند 2000 مريض (مع وسم «فهرس مختصر»)، والمواعيد 2000 والخطط 200. `sanitize` بيشيل أي `code`/`token` (بما فيه بادئة الفرع). النسخة الأقدم من 30 يوماً بتتعلّم «قديمة». شاشتا **المرضى/ملف المريض** بيحتاجوا صفحات من السيرفر، ففي الوضع الأوفلاين `go()` بيوجّه للرئيسية مع تنبيه بدل خطأ شبكة. |
-| **الرجوع للنت** | أول ما النت يرجع، مستمع `online` في `boot()` بيستنّى عامل الرفع يخلص، وبعدين بيعمل `DB.loadAll()` ويمسح علامة النسخة ويحدّث الشاشة. |
-| **تنظيف الدفتر تلقائياً** | `purgeOrphanPhotos()` بيمسح أي صورة مشفّرة مالهاش عملية في الدفتر (عنصر اتمسح أو تلف)، وبيتنادى عند الإقلاع وبعد كل `flush()`. زر **«مسح النسخة من الجهاز»** في لوحة الحالة بيمسح النسخ المشفّرة للقراءة فقط — **من غير ما يلمس التسجيلات المعلّقة**. |
-
-### ⚠️ قيود لازم تعرفها قبل التجربة
-
-- **أول دخول لازم يكون بالنت**: تسجيل دخول الدكتور (MFA) ودخول المريض بالكود الدائم محتاجين السيرفر. الأوفلاين معناه «أنت داخل بالفعل والنت ضعيف/انقطع»، مش «افتح الموقع أول مرة من غير نت». الدفتر في `IndexedDB` ف**قفل التبويب ما يضيّعش المعلّق** (بس لو مسحت بيانات المتصفح أو مسحت المفتاح، يضيع). نسخة البوابة المشفّرة بتخليك تشوف بياناتك بعد reload أوفلاين، بس ما بتسمحش بدخول جديد من غير نت.
-- **الصور بقت جوه الدفتر** (مشفّرة، حتى 5MB، JPG/PNG/WebP). رفعها بيحصل وقت رفع القياس عبر `portal-photo-upload` (منشورة دلوقتي ✅)؛ لو الرفع فشل لأي سبب، هيطلع تعارض `attachment` للمراجعة بدل ما الصورة تضيع بصمت.
-- **حد الـ 20 كتابة يومياً ونافذة الـ 7 أيام** على السيرفر (ترحيل `20261107`) لسه ساريين وقت الرفع: لو البيانات اتأخرت أكتر من أسبوع، أو اليوم اللي اترفعت فيه عدّى الحد، السيرفر هيرفض → **تعارض وتنبيه للدكتور**، مش تعديل أوتوماتيك في التاريخ.
-- **انتهاء جلسة المريض / MFA**: لو الجلسة خلصت قبل الرفع، العملية بتفضل «معلّقة» (مش تعارض، وما تضيعش) وأول ما يسجّل دخول تاني `syncWhenReady()` بيرفعها لوحدها من غير ضغطة. أمّا لو دخل **مريض/دكتور تاني** فده تعارض حقيقي بتنبيه. **OTP/SMS لسه مؤجّل**؛ لما يتفعّل هيتظبط مع عامل الرفع.
-- **مريض جديد أوفلاين** بياخد كود بوابته (كود الدائم) أول ما يتعرض ملفه والنت راجع — `issue_patient_code` محتاج سيرفر.
-- **التعارضات بتتقيّد بصنفها** (`daily-limit` / `date-window` / `possible-duplicate` / ...) والتذكرة المنسوخة ما فيهاش بيانات مرضى. على موبايل المريض مفيش زر «حذف» ولا «راجعه يا دكتور» حرفياً: الرسالة بتقوله يحتفظ بالبيانات ويعرض التذكرة على العيادة.
-- **تنبيه الدكتور عبر الأجهزة** شغّال دلوقتي بترحيل `20261114` (اتطبّق ✅)، والتذكرة المنسوخة من موبايل المريض فاضلة كـ fallback لو الترحيل اتشال أو البلاغ فشل. والإقرار «تمت المراجعة» بيقفل التذكرة بس — البيانات نفسها لسه على جهاز المريض ولازم الدكتور يوصلها بنفسه.
-- **نسخة الدكتور الأوفلاين قراءة فقط وجزئية**: الرئيسية بتشتغل من الفهرس المحفوظ، لكن شاشات المرضى/ملف المريض/القياسات التفصيلية لسه محتاجة سيرفر (النسخة فيها الفهرس الخفيف بس، مش ملفات كاملة). الكتابة في الوضع ده بتتسجّل في الدفتر وتُرفع أول ما النت يرجع، زي أي أوفلاين تاني.
-- **مسارات مستبعدة قصداً**: `register` و`seed` (تأسيس حساب)، `loadClinics` (أثر جانبي لعملية قراءة)، و`set_clinic_prefix` / إضافة فرع (إعدادات إدارية). كلهم محتاجين سيرفر أو قرار صريح، وما بيدخلوش الدفتر.
-- Service Worker محتاج **HTTPS** وأول زيارة **بالنت**؛ `file://` مش هيشتغل. الدفتر **لكل متصفح/جهاز لوحده**، والمفتاح عليه كمان — لازم قفل الجهاز وعدم مشاركته.
-- ⚠️ **اتصحّح التشخيص القديم**: الترحيلات مطبّقة والـ RPCs والصلاحيات سليمة على `clinicv2` (راجع «حالة النشر» فوق). الدفعات الأربع ما كانتش بتصلّح الاتصال، والاتصال نفسه اتظبط على مستوى الداتابيز في 2026-11-05. بناء الواجهة على Cloudflare على `main` **اتأكد نجاحه** ✅، لكن لسه مفيش **اختبار فعلي من متصفح** ولا تأكيد إن الرابط الحي بيقدّم الصفحة للمستخدم.
-
-### اللي لسه قدامنا بعد اكتمال الدفعات الأربع
-
-- ✅ **اتعمل:** فحص المشروع الحقيقي، تطبيق `20261114` و`20261101_portal_photo_upload`، نشر `portal-photo-upload`، وإضافة `wrangler.toml` + `.assetsignore`.
-- ✅ **اتأكد:** أول **Workers Build** على `main` نجح. يبقى ضبط جدولة `purge-patient-photos` + Vault، وتتبّع سبب فشل بناءات الـ PR من لوحة Cloudflare.
-- **اختبار فعلي على جهاز** مع فصل النت يدوياً: دخول → تسجيل قياس + صورة → قفل التبويب → reload أوفلاين → إعادة النت → التأكد إن كل حاجة اترفعت بالترتيب ومن غير تكرار. لحد دلوقتي كل الاختبارات `node:test` بمخازن ذاكرة ومحاكاة، **مش متصفح ولا E2E**.
-- نسخة أوفلاين **كاملة** لملفات المرضى والقياسات التفصيلية على جهاز الدكتور (الحالية فهرس خفيف + الرئيسية فقط).
-- سياسة تقادم تلقائية للنسخ المشفّرة: حالياً بتتجدّد بعد كل تحميل ناجح، وبتتمسح عند الخروج أو يدوياً، والصور اليتيمة بتتمسح تلقائياً.
-- **الأهم:** الاختبار الفعلي على جهاز هو اللي بيحوّل كل الكود ده من «معمارياً سليم ومتطابق مع الداتابيز» لـ «مجرّب فعلاً».
-
-## قيود معروفة قبل الإطلاق الأول
-
-- **OTP/SMS مؤجّل** حتى أول تجربة فعلية؛ انظر القائمة المرقّمة أعلاه، وترحيل `20261105` يحتاج إعادة أساس على التوقيع الجديد.
-- **الكود الدائم مخزون كما هو وبلا زر تغيير:** لا استرجاع آمن عند فقدان الكارت، وأي جهة تقرأ الداتابيز مباشرة تقدر تدخل كأي مريض. صمّام الإيقاف (`set_patient_portal_access`) موجود على مستوى قاعدة البيانات وواجهته في ملف المريض (الدفعة ٣).
-- **النسخة الاحتياطية:** `DB.dumpAll()` يصدّر `patients` و`appointments` و`patient_notes` و`plans` و`patient_records` و`clinics` فقط، ولا يشمل `patient_labs` ولا `patient_health_readings` ولا `patient_portal_credentials`، ولا يوجد مسار استيراد/استعادة. التصدير للمراجعة حاليًا لا يُغني عن نسخة قاعدة كاملة.
-- **الصور والاحتفاظ:** الدالتان `portal-photo-upload` و`purge-patient-photos` **منشورتان و`ACTIVE`** ✅. يبقى أسرار Vault + جدولة `pg_cron` + اختبار في staging قبل الاعتماد على مسح الصور بعد 30 يومًا؛ وجود الدالة لوحدها لا يمسح شيئاً.
-- **الاختبارات:** اختبارات `node:test` بمحاكاة DOM/RPC وفحوص SQL ثابتة؛ لا توجد اختبارات RLS/RPC على PostgreSQL فعلي، ولا Playwright/CI. يجب اختبار عزل العيادات على قاعدة منعزلة قبل أي بيانات حقيقية.
-- **تأكيد البريد واستعادة كلمة المرور:** لم يُختبرا على مشروع Supabase حقيقي؛ راجع القسمين أعلاه.
+- **الاختبار:** لحد دلوقتي كل الاختبارات `node:test` بمخازن ذاكرة ومحاكاة، **مش متصفح ولا E2E**.
+  المطلوب: دخول → تسجيل قياس + صورة → قفل التبويب → reload أوفلاين → إعادة النت → التأكد إن كل حاجة
+  اترفعت بالترتيب ومن غير تكرار. الاختبار الفعلي على جهاز هو اللي بيحوّل الكود من «معمارياً سليم»
+  لـ «مجرّب فعلاً».
 
 ## رفع صور بوابة المريض
 
-- دالة الرفع موجودة في `supabase/functions/portal-photo-upload/`، وهي **منشورة و`ACTIVE`** على `clinicv2` ✅.
-- إعداد `verify_jwt = false` لهذه الدالة محدد في `supabase/config.toml` لأن البوابة تستخدم رمز المريض الخاص بها، لا JWT لمستخدم Supabase. التحقق الفعلي من الرمز يتم داخل الدالة عبر RPC مقصور على `service_role` (`patient_portal_photo_authorize`، اتطبّق ✅). سياسة الإدراج المباشر للـ `anon` اتشالت.
-- `standalone.ts` هو نسخة **ملف واحد** من `handler.mjs` + `index.ts` للنشر عبر Management API؛ ولّدها بـ `node scripts/build-edge-standalone.mjs`. نشر الـ CLI يستخدم الملفين الأصليين.
-- راجع `supabase/functions/portal-photo-upload/README.md`. ⚠️ لسه مطلوب **اختبار HTTP فعلي** بصورة اصطناعية وتوكن بوابة صحيح (نجاح + توكن منتهي/ملغي + حجم/صيغة غلط) قبل الاعتماد على الدالة ببيانات حقيقية.
-- لا تضع مفاتيح الخدمة أو بيانات اعتماد حقيقية في المستودع أو الواجهة الأمامية.
+الدالة في `supabase/functions/portal-photo-upload/` و**منشورة وACTIVE**. `verify_jwt = false` لأن
+البوابة تستخدم رمز المريض لا JWT؛ التحقق الفعلي جوّه الدالة عبر RPC مقصور على `service_role`.
+`standalone.ts` نسخة ملف واحد للنشر عبر Management API (ولّدها بـ `node scripts/build-edge-standalone.mjs`).
+⚠️ لسه مطلوب **اختبار HTTP فعلي** بصورة اصطناعية وتوكن صحيح، بما فيه التوكن المنتهي والحجم الغلط.
 
-## ديون تقنية ما زالت تمنع عرضًا إنتاجيًا
+## قيود معروفة قبل الإطلاق الأول
 
-- **اتصحّح:** SQL التأسيس لم يعد مضمّناً في `js/config.js`؛ انتقل نصّه حرفياً إلى `sql/baseline.sql` (مصدر واحد خارج الأصول المنشورة). بقيت اختبارات التزامن بين كتل `sql/migrations/` وبين الـ baseline، لكن الـ baseline نفسه لسه ملف يدوي مش مولّد من الترحيلات؛ لا تشغّل SQL التأسيس والترحيلات معًا على قاعدة قائمة.
-- حدود التنبيه الحالية تغطي انخفاض السكر والضغط الشديد فقط؛ لا يوجد حد مرتفع للسكر معتمد ولا إشعار دفع للطبيب. تنبيه الطبيب يظهر داخل لوحة التحكم بعد تحميل البيانات، والمريض يراه فور الحفظ.
-- يجب في أول تجربة فعلية تفعيل **OTP/SMS** بالقائمة أعلاه، وتفعيل MFA للحسابات القائمة قبل فرض السياسة، ونشر مهمة تنظيف الصور وجدولتها واختبارها في staging. هذه التغييرات المحلية لا تثبت إعدادات أو نشر المشروع الفعلي.
+- **OTP/SMS مؤجّل** حتى أول تجربة فعلية، و`20261105` يحتاج إعادة أساس على التوقيع الجديد.
+- **الكود الدائم مخزون كما هو وبلا زر تغيير:** لا استرجاع آمن عند فقدان الكارت، وأي جهة تقرأ الداتابيز مباشرة تقدر تدخل كأي مريض.
+- **النسخة الاحتياطية:** `DB.dumpAll()` يصدّر `patients` و`appointments` و`patient_notes` و`plans`
+  و`patient_records` و`clinics` فقط، **ولا يشمل** `patient_labs` ولا `patient_health_readings` ولا
+  `patient_portal_credentials`، ومفيش مسار استيراد.
+- **الصور والاحتفاظ:** الدالتان منشورتان، ويتبقى Vault + `pg_cron` + اختبار staging — وجود الدالة
+  لوحدها لا يمسح شيئاً.
+- **الاختبارات:** `node:test` بمحاكاة وفحوص SQL ثابتة؛ لا RLS/RPC على PostgreSQL فعلي. لازم اختبار
+  عزل العيادات على قاعدة منعزلة قبل أي بيانات حقيقية.
+- **تأكيد البريد واستعادة كلمة المرور:** لم يُختبرا على مشروع Supabase حقيقي.
+- **ديون تقنية:** `sql/baseline.sql` ملف يدوي مش مولّد من الترحيلات؛ تنبيهات السكر/الضغط تغطي
+  الحالات الشديدة فقط ولا يوجد إشعار دفع للطبيب.
 
-## التحقق المحلي
+## الاختبارات
 
-```sh
-npm test
-npm run meta        # يعيد توليد <head> + robots.txt من site.config.json (بدون تغيير لو مفيش تعديل)
-node --check js/*.js sw.js
-node scripts/build-edge-standalone.mjs
-node --check supabase/functions/portal-photo-upload/standalone.ts
+```bash
+npm test    # node --test tests/*.test.cjs — 42 ملف، محاكاة DOM/RPC وفحوص SQL ثابتة
 ```
 
-فحوص صياغة PostgreSQL تحتاج محللًا خارجيًا أو قاعدة اختبار، ولا يوجد أمر لها ضمن `package.json` حاليًا. لا تُشغّل أي migration على الإنتاج كجزء من الاختبارات.
+لا توجد مجموعات `tests/pgtap/` ولا `tests/e2e/`، ولا إعداد Playwright/Cypress. اختبار
+`tests/portal-login-security.test.cjs` بيتحقق إن **آخر تعريف فعّال** لدخول البوابة داخل
+`sql/baseline.sql` يطابق قرار تأجيل OTP.
 
+## سجل الحوادث
 
-### حادثة 2026-11-06 (٣) — «حدث خطأ غير متوقع» بعد كتابة كود TOTP
-
-| البند | الحقيقة |
-|---|---|
-| بيانات الحساب | ✅ سليمة بعد الحادثة (٢): دكتور + فرع + `clinic_active()=true` + تجربة حتى 2026-11-20 |
-| Supabase | ✅ 3 جلسات جديدة و3 تحدّيات MFA ناجحة؛ `plans=0` و`audit_logs=0` ⇒ `loadAll()` **لم يُستدعى إطلاقاً** |
-| موضع الفشل | داخل `DB.mfaVerify()` نفسها، قبل `routeAfterAuth('ready')` |
-| الرسالة | `explainError()` → `authErrorAr(null)` = الرسالة العامة |
-
-**السبب:** `authErrorAr()` كان يعرف `invalid_totp` و`mfa_no_factor` فقط، بينما GoTrue يُصدر أكواداً حقيقية مثل `mfa_verification_failed`، `mfa_challenge_expired`، `mfa_ip_address_mismatch`، `mfa_verification_rejected`، `insufficient_aal`، `session_not_found`. ولا `AuthSessionMissingError` (بلا `code`، رسالته `Auth session missing!`) كان مُترجماً. فوق ذلك `mfaVerify` كان يقرأ `ch.data.id` مباشرة: لو `data:null` بلا `error` يرمي `TypeError`. كل هذه الحالات كانت تسقط في الرسالة العامة، فلا يعرف الدكتور هل الكود غلط، انتهى، اتغيرت الشبكة، أو انتهت الجلسة.
-
-**الإصلاح (مركزي، بلا أي تغيير في Supabase أو SQL أو البيانات):**
-- `js/utils.js` → ترجمة 14 كود MFA/جلسة إلى رسائل عربية **تقول إيه المطلوب عمله**، وشبكة أنماط للرسائل التي تصل بلا `error_code`؛ أي خطأ غير معروف يبقى آمناً لكنه يحمل **رقم مرجع** `req-…` يربطه بسطر الـ Console.
-- `js/db.js` → `mfaVerify()` يتحقق من `data.totp` و`ch.data.id` قبل الاستخدام، ويرمي `mfa_no_factor` / `session_not_found` بدل `TypeError`.
-- `js/main.js` → عند أخطاء الجلسة/انتهاء الرمز يظهر زر **«سجّل الدخول من جديد»** بدل تكرار الكود على شاشة خطأ.
-- `js/config.js` → `logError()` يسجّل `code` / `name` / `status` / تصنيفاً محدوداً `shape` (مثل `mfa-challenge-expired`) **بدون نص الرسالة ولا أي بيانات مرضى**.
-- `sw.js` → `clinic-shell-v8` لضمان تحميل النسخة الجديدة؛ 10 اختبارات في `tests/mfa-login-errors.test.cjs` تمنع عودة التعمية.
-
-> لم يُغيّر أي إعداد Auth، ولم تُطبّق ترحيلات، ولم تُعد بيانات، ولم تُنشر Edge Functions.
-
-
-### حادثة 2026-11-06 (٤) — التحقق من الربط بعد حذف المشروع القديم
-
-| الفحص | النتيجة |
-|---|---|
-| المشاريع المتبقية | `clinicv3` (`xfppempsztxidjmlwrza`, eu-west-1, ACTIVE_HEALTHY) + `teaching-wep` ( unrelated )؛ المشروع القديم محذوف نهائياً ✅ |
-| `js/config.js` في المستودع | `https://xfppempsztxidjmlwrza.supabase.co` + anon JWT بـ `ref = xfppempsztxidjmlwrza` ✅ |
-| `list_api_keys` | مفتاح `anon` **مطابق حرفياً** لما في الكود ✅ |
-| الموقع المنشور `/js/config.js` | مطابق للمستودع، وبلا أي إشارة للمشروع القديم ✅ |
-| `/auth/v1/health?apikey=…` | `GoTrue v2.197.0` ⇒ المفتاح يعمل فعلاً على السيرفر ✅ |
-| صحة الخدمات | 8/8 `ACTIVE_HEALTHY` · `validate_credential` ناجح ✅ |
-| `site_url` / redirect | `https://clinic-staging.kemo8298.workers.dev` (+ `/reset.html`) ✅ |
-| البيانات | 1 مستخدم · 1 عامل TOTP مُ.verify · 1 دكتور · 1 فرع · `clinic_active() = true` ✅ |
-
-**إذن الربط سليم تماماً.** سبب استمرار «خطأ غير متوقع» هو إعداد Auth على المشروع الجديد:
-`mfa_totp_enroll_enabled = false`، `mfa_totp_verify_enabled = false`، `mfa_allow_low_aal = false`.
-كود GoTrue (`internal/api/mfa.go`, `ChallengeFactor`) يرفض إنشاء التحدّي قبل تسجيله برسالة
-`MFA verification is disabled for TOTP` / كود `mfa_totp_verify_not_enabled`؛ الدليل على السيرفر:
-جلسة جديدة في `13:19` بلا أي `mfa_challenge` بعد `11:53`، و`plans = 0` / `audit_logs = 0`.
-بما أن كل سياسات RLS الطبية `RESTRICTIVE` وتشترط `aal2`، فلا يوجد مسار آمن داخل التطبيق لتجاوز ذلك.
-
-**الحل:** تفعيل TOTP/MFA من لوحة Supabase (Authentication ← Sign In / Providers) ثم Hard Reload.
-هذا تغيير في إعدادات Auth **لم ينفّذه الوكيل**؛ التغيير الوحيد في الكود هو جعل الرسالة توجّه إلى
-صفحة الإعداد بدل «تواصل مع إدارة النظام»، ورفع الكاش إلى `clinic-shell-v8`، مع اختبارين إضافيين (303/303).
-
-
-### حادثة 2026-11-06 (٥) — مُبدّل الفروع «أبيض على أبيض»
-
-عند إضافة فرع ثانٍ يظهر `<select id="activeClinic">` في الشريط الجانبي (كان مخفياً بـ `.hide`
-طالما `clinics.length < 2`). العنصر يحمل class `input` الذي يفرض `background:#fbfdfd`
-من `css/components.css`، بينما `#sidebar` يورّث `color:#d8f3ef`. النتيجة: **نص فاتح على
-خلفية بيضاء** (تباين < 4.5:1) وغير مقروء.
-
-**الإصلاح:**
-- إزالة الـ inline style من `index.html` حتى لا يغطّي ألوان/أحجام ورقة الأنماط.
-- قاعدة مخصّصة في `css/layout.css` (`#sidebar`/`.side-brand select#activeClinic`، مُحمّلة بعد
-  `components.css`): خلفية داكنة شفافة + نص `#e8fbf8` + حدود فاتحة + سهم SVG بلون `#a7e8df`،
-  مع `hover` / `focus` واضحين، و`option` بنص داكن على أبيض، و`.hide` صريح.
-- `css/settings.css`: اسم الفرع في قائمة الإعدادات بـ `--ink` والكود كـ chip تركوازي بدل أن
-  يرثا `muted` الباهت.
-- `tests/branch-switcher-contrast.test.cjs`: 8 اختبارات تحسب تباين WCAG فعلياً من ألوان
-  الملفات (≥ 7:1 AAA لكل الحالات)، وتثبت أن التباين القديم كان < 4.5:1، وتحمي ترتيب
-  الـ cascade وإخفاء الفرع الواحد.
-- `sw.js` → `clinic-shell-v8` · 303/303 اختبار.
-
-لا تغيير في أي منطق JS أو SQL أو بيانات.
-
-### حادثة 2026-11-06 (٦) — الهاتف هو الجهاز الأساسي: تحسين السلاسة والوضوح
-
-الاستخدام الفعلي هيكون من الموبايل في المقام الأول، بينما قواعد `css/responsive.css`
-وصُغت أساساً للكمبيوتر. مراجعة الأوراق كشفت سبع نقاط ملموسة:
-
-| المشكلة | الأثر على الهاتف |
-| --- | --- |
-| حقول `.input` بـ `font-size:14.5px` | Safari على iOS يكبّر الصفحة تلقائياً عند التركيز → قفزة وفقدان موضع المؤشر |
-| `.icon-btn.sm` 32px، `.btn.sm` ≈36px، أزرار التنقل ≈48px بخط 10.5px | ضغطات خاطئة ونص غير مقروء |
-| `env(safe-area-inset-bottom)` بلا fallback | لو المتصفح لا يدعمه يسقط `calc()` كله؛ الأزرار تلتصق بحافة الآيفون، والـ notch يغطي الشريط العلوي |
-| لا `touch-action` ولا `-webkit-tap-highlight-color` | تأخير ~300ms وميضة زرقا مع كل لمسة |
-| زر «مريض جديد» يتحوّل لأيقونة بلا `aria-label` (`hide-sm`) | هدف صغير بلا اسم لقارئ الشاشة |
-| الحالة النشطة في الشريط السفلي = لون نص فقط | صعوبة معرفة القسم الحالي بسرعة |
-| شاشة الدخول: بانر `padding:30px` + `h1:34px` قبل الفورم | حقل البريد يبقى تحت الطية على هاتف صغير |
-
-**الإصلاح** — ملف واحد جديد `css/mobile.css` يُستورد **أخيراً** في `main.css`، فلا يُعدّل أي ورقة قائمة:
-
-- `font-size:16px` لكل `input/select/textarea` على ≤768px — القاعدة الوحيدة التي تمنع zoom iOS.
-- أهداف لمس ≥44px لكل عنصر تفاعلي، و54px لأزرار التنقل مع خلفية `--teal-50` وشارة علوية
-  (تباين 5.06:1 ≥ AA).
-- `env(safe-area-inset-*)` مع `, 0px` fallback في الشريط العلوي، المحتوى، القائمة الجانبية،
-  المودال، التنبيهات والشريط السفلي؛ وتصحيح القاعدتين الناقصتين في `overlays.css` و `portal.css`.
-- `touch-action:manipulation` + `-webkit-tap-highlight-color:transparent` + رد فعل `:active`
-  على شاشات اللمس + `@media (prefers-reduced-motion:reduce)`.
-- `overflow-x:clip` داخل `@supports` (لا يُنشئ scroll container، فلا يكسر `position:sticky`).
-- Bottom sheet بمقبض بصري + `overscroll-behavior:contain` + مساحة الأمان، على ≤768px فقط.
-- `index.html`: `aria-label` لزر «+» وللـ `<nav>`، و`type="search"` / `inputmode` /
-  `autocomplete` لحقول البحث وإعادة التعيين.
-- `tests/mobile-ux.test.cjs`: 10 اختبارات تستخرج أهداف اللمس من CSS، تحسب تباين WCAG،
-  تتحقق من كل `env()`, وتمنع regress في فتح القائمة الجانبية.
-- `tests/mobile-ux-preview.html`: معاينة ثابتة قبل/بعد بمقاس 340px (داخل `tests/`، مستبعدة من النشر).
-- `sw.js` → `clinic-shell-v9` مع إضافة `./css/mobile.css` إلى `SHELL` · **313/313 اختبار**.
-
-لا تغيير في أي منطق JS أو SQL أو إعدادات Auth أو بيانات أو صلاحيات. الاختبارات هنا ثابتة؛
-**التحقق على جهاز/iOS Safari وأندرويد حقيقي ما زال مطلوباً** قبل اعتبار التحسين مؤكداً بصرياً.
-
-### حادثة 2026-11-06 (٧) — شريط «النت مقطوع» كان بيغطي الشريط العلوي
-
-الشريط في `index.html` كان يحمل inline style:
-`position:fixed;top:0;left:0;right:0;z-index:9999` مع `flex-wrap:wrap`،
-و`#offlineLabel` بـ `flex:1;min-width:200px`، و`#offlinePanel` بـ `flex-basis:100%`.
-على هاتف 320–390px النص الطويل بيلفّ ٣ أسطر، ومع الـ chip والزرين واللوحة
-يبقى الشريط **٣–٤ صفوف (~146px)**، و**بما إنه `fixed` فوق كل حاجة (`z-index:9999`)
-فبيغطي `#topbar` بالكامل، ومن ضمنه زر «إضافة مريض جديد`** — لا يزيح المحتوى ولا
-يحترم `safe-area-inset-top`. المشكلة كانت على الكمبيوتر كمان، بس أثرها أكبر على الموبايل.
-
-**الإصلاح** — ورقة مستقلة `css/offline-bar.css` تُستورد أخيراً، والـ inline styles اتنقلت
-إليها (نفس نهج إصلاح مُبدّل الفروع):
-
-- `position:sticky` بدل `fixed` ⇒ الشريط بقى **في تدفّق الصفحة**، فبيزيح المحتوى
-  لأسفل تلقائياً بدل ما يغطيه؛ `z-index:70` بدل `9999`.
-- **سطر واحد**: `flex-wrap:nowrap` + `#offlineLabel{min-width:0;white-space:nowrap;
-  text-overflow:ellipsis}` + ارتفاع ثابت `--offline-bar-h` = `calc(46px + env(safe-area-inset-top,0px))`.
-- النص التحذيري الكامل (بما فيه «مشفّرة» و«هتترفع أول ما النت يرجع») **ما اتغيّرش**،
-  واتحط كمان في `label.title` و`aria-label` على الشريط + `role="status" aria-live="polite"`.
-- `#offlinePanel` بقت **طبقة مستقلة** `position:fixed;bottom:0;max-height:70dvh;
-  overflow-y:auto`، فالشريط يفضل رفيع مهما كترت التعارضات. ولسه جوّه `#offlineBar`
-  في الـ DOM عشان تفويض النقر في `Offline.bindUI` ما ينكسرش.
-- `Offline.render()` بيضيف `body.offline-bar-visible`، و`body.offline-bar-visible #topbar
-  {top:var(--offline-bar-h)}` بيزاح بيه الـ topbar الـ sticky عند السكرول.
-- `#offlineBar[hidden]{display:none!important}` يغلب الـ inline `display` اللي `render()`
-  بيضبطه، فالإخفاء ما اتأثرش.
-- `tests/offline-bar-layout.test.cjs`: 10 اختبارات تمنع عودة `fixed`/`z-index:9999`/
-  `min-width:200px`/`flex-wrap:wrap`، وتتحقق من الإزاحة والـ safe-area والبانل
-  ومن **عدم تغيّر ثوابت الأوفلاين** (`assertSafe`، AES-GCM، bypass لـ `supabase.co`، عدم اعتراض الكتابات).
-- `tests/offline-bar-preview.html`: معاينة ثابتة قبل/بعد على 320px (داخل `tests/`).
-- `sw.js` → `clinic-shell-v10` مع إضافة `./css/offline-bar.css` إلى `SHELL` · **323/323 اختبار**.
-
-لا تغيير في منطق الرفع، التعارضات، التشفير، SQL، Auth، البيانات أو الصلاحيات.
-التأكيد البصري على جهاز حقيقي (بعد Hard Reload واحدة) لسه مطلوب.
-
-### حادثة 2026-11-06 (٨) — إرسال لينك صفحة المريض مع الكود
-
-المطلوب: لما الدكتور يبعت كود دخول البوابة للمريض، يتبعت معاه **لينك الصفحة**،
-واللينك يفتح **صفحة المريض مباشرة** بدل ما يفتح شاشة دخول الدكتور ويضطر المريض
-يدوّر على رابط «أنت مريض؟».
-
-**القيد اللي ما اتكسرش:** من حادثة تقصير الكود، زر الواتساب ممنوع يستخدم `?text=`
-لأن الكود الدائم هيبقى مكتوب في تاريخ المتصفح والسجلات. فالحل **ما حطّش الكود في أي URL**،
-بل حطّه في **نص الرسالة المنسوخة للحافظة**:
-
-- `js/patient.js`:
-  - `portalShareLink()` → `?portal=1` مشتقّ من `location.href` (يمسح query/hash قديم،
-    بلا نطاق مثبّت، بلا كود/توكن/بيانات).
-  - `patientCodeMessage()` → رسالة جاهزة: تحية + اللينك + الكود + تعليمات الدخول.
-  - `sendPatientCodeWA()` بينسخ الرسالة كاملة ويفتح `wa.me/<رقم>` **فاضية** زي ما هي.
-  - `copyPortalLink()` + زر `pt-link-copy` + عرض اللينك في كارت الكود (بديل لو الحافظة اتبلّكت).
-  - زر «نسخ الكود» (`pt-code-copy`) لسه بينسخ الكود لوحده، ما اتغيّرش.
-- `js/main.js`: عند الإقلاع، `?portal=1` (أو `#portal`) → `switchAuthTab('patient')`
-  فبيفتح تبويب دخول بوابة المرضى مباشرة. بعد `Portal.login(phone, code)` بيدخل صفحته.
-- `tests/patient-code-share.test.cjs`: اتعدّلت لضمان إن الرسالة فيها الكود **واللينك**،
-  مع بقاء كل ضمانات «الكود مش في URL / ما فيش `?text=` / `noopener,noreferrer`».
-- `tests/patient-portal-link.test.cjs`: 10 اختبارات جديدة للـ deep link، اشتقاق النطاق
-  (staging/إنتاج/محلي)، مسح query/hash القديم، غياب الكود من اللينك، graceful degradation
-  لو `location` مش متاح، و**عدم تغيّر SQL/Auth/منطق الدخول**.
-- `tests/patient-share-preview.html`: معاينة ثابتة لشكل الرسالة ومسار المريض (داخل `tests/`).
-- `sw.js` → `clinic-shell-v11` · **333/333 اختبار**.
-
-⚠️ مفيش «دخول تلقائي باللينك» عن قصد: اللينك لو حمل الكود هيبقى ثغرة دائمة
-(الكود لا يتغيّر)، فالدخول لسه بيحتاج رقم الموبايل + الكود يتأكدوا على السيرفر.
-لا تغيير في أي SQL، ترحيل، RLS، Auth، بيانات أو صلاحيات. التحقق على جهاز/واتساب حقيقي لسه مطلوب.
-
-### حادثة 2026-11-06 (٩) — فشل عابر لوحدة اختبارات `main` بعد دمج #35
-
-**المؤكد:** بعد دمج #35، وحدة `npm test + syntax check` على `main` (`6c5d85f`) طلعت
-`failure` في خطوة «Unit tests» خلال ٨ ثوانٍ، رغم أن **نفس الشجرة بالضبط**
-(`git diff 5be57cd 6c5d85f` فارغ) نجحت على الفرع مرتين ومحلياً 333/333،
-و`Workers Builds: clinic-staging` على `main` نجح، والملفات الحيّة (`sw.js` v11،
-`js/patient.js`، `js/main.js`) متأكد منها. سجلات الـ job **غير متاحة** من بيئة الوكيل
-(`results-receiver.actions.githubusercontent.com` خارج النطاق المسموح)،
-و`gh run rerun` اترفض (`workflow file may be broken`) و`workflow_dispatch` رجع 403
-(صلاحيات Actions)، ف**سبب ذلك الفشل بعينه لم يتأكد بشكل قاطع**.
-
-**الاستنتاج المدعوم بالكود:** فحص الاختبارات كشف **race حقيقي بالتصميم**:
-`tests/central-hardening.test.cjs` و`tests/edge-standalone.test.cjs` يشغّلان `execFileSync`
-لسكربتات **تكتب فعلياً** `index.html` / `reset.html` / `robots.txt` / `standalone.ts`،
-بينما `node --test` يشغّل ملفات الاختبار في عمليات **متوازية** → أي اختبار آخر يقرأ
-`index.html` في لحظة الكتابة قد يقرأ ملفاً ناقصاً. هذا تفسير معقول لفشل يظهر مرة ويختفي،
-ولكنه **استنتاج وليس إثباتاً** لفشل `6c5d85f`.
-
-**الإصلاح الوقائي:** `package.json` → `node --test --test-concurrency=1 tests/*.test.cjs`
-(تسلسل ملفات الاختبار، بلا تغيير في أي اختبار ولا في ملفات واجهة منشورة،
-لذلك **لم يُرفع `CACHE_NAME`**، و`README` ما زال يشير إلى `clinic-shell-v11`).
-`preflight.sh` و CI يستخدمان `npm test` نفسه فيسري عليهما التسلسل.
-`tests/test-runner-safety.test.cjs`: 3 اختبارات تثبت الإعداد وتوثّق الملفات التي تكتب.
-**336/336 اختبار**، والزمن ما زال ~2.4 ثانية.
-
-> ⚠️ الـ check-run الأحمر على `6c5d85f` سجل تاريخي لا يمكن تعديله بدون صلاحيات Actions؛
-> المرجع هو نتيجة أحدث commit على `main`. لا يوجد أي تغيير في SQL أو Auth أو بيانات.
+الحوادث اللي حصلت أثناء التطوير (`2026-11-06`) اتنقلت بالكامل إلى
+[`docs/INCIDENTS.md`](docs/INCIDENTS.md) — بما فيها حذف مشروع Supabase القديم، ومشاكل بناء
+Cloudflare، وشريط الأوفلاين اللي كان بيغطي الهيدر. القرارات الناتجة عنها موجودة فوق في الأقسام.
