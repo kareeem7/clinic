@@ -59,9 +59,11 @@ function leaveAdmin() {
 
 // Rebuild navigation rails for the current role
 function buildNav() {
+  // نفس قاعدة authErrorAr: الدالة بتتجرّب لوحدها، فبندوّر على الطبقة بأمان.
+  const L = s => (typeof I18N !== 'undefined' && I18N.t ? I18N.t(s) : s);
   const set = State.isAdmin
-    ? [['admin-dashboard', 'الرئيسية', 'fa-gauge-high'], ['admin-doctors', 'الدكاترة والعيادات', 'fa-user-doctor'], ['admin-settings', 'إعدادات النظام', 'fa-gears']]
-    : [['dashboard', 'الرئيسية', 'fa-house'], ['patients', 'المرضى', 'fa-users'], ['appointments', 'المواعيد', 'fa-calendar-check'], ['plans', 'خطط التغذية', 'fa-utensils'], ['settings', 'الإعدادات', 'fa-gear']];
+    ? [['admin-dashboard', L('الرئيسية'), 'fa-gauge-high'], ['admin-doctors', L('الدكاترة والعيادات'), 'fa-user-doctor'], ['admin-settings', L('إعدادات النظام'), 'fa-gears']]
+    : [['dashboard', L('الرئيسية'), 'fa-house'], ['patients', L('المرضى'), 'fa-users'], ['appointments', L('المواعيد'), 'fa-calendar-check'], ['plans', L('خطط التغذية'), 'fa-utensils'], ['settings', L('الإعدادات'), 'fa-gear']];
   $('#sideNav').innerHTML = set.map(r =>
     '<button data-route="' + r[0] + '"' + (r[0] === (State.isAdmin ? 'admin-dashboard' : 'dashboard') ? ' class="active"' : '') + '>' +
     '<i class="fa-solid ' + r[2] + '"></i><span>' + r[1] + '</span></button>').join('');

@@ -13,6 +13,9 @@
    js/utils.js — أدوات مساعدة عامة
    ============================================================ */
 const $  = s => document.querySelector(s);
+// اختصار الترجمة. موجود هنا مش في i18n.js عشان كل الملفات بتستخدم utils
+// أصلاً، ومحدش يضطر يستورد حاجة زيادة.
+const t = (key, vars) => (typeof I18N !== 'undefined' ? I18N.t(key, vars) : String(key ?? ''));
 const $$ = s => [...document.querySelectorAll(s)];
 const uid = () => 'id' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
@@ -20,9 +23,24 @@ const uid = () => 'id' + Date.now().toString(36) + Math.random().toString(36).sl
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 // ---- التواريخ ----
-const MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
-const DAYS   = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
-const DAYS_S = ['أحد','اثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'];
+const MONTHS_AR = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+const DAYS_AR   = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+const DAYS_S_AR = ['أحد','اثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'];
+const MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAYS_EN   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const DAYS_S_EN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+// let مش const: الشهور بتتبدّل مع اللغة. كل القراءات بتحصل وقت الرسم،
+// فإعادة التعيين هنا كفاية من غير ما أي ملف تاني يتغيّر.
+let MONTHS = MONTHS_AR, DAYS = DAYS_AR, DAYS_S = DAYS_S_AR;
+function refreshDateNames() {
+  const en = typeof I18N !== 'undefined' && I18N.lang === 'en';
+  MONTHS = en ? MONTHS_EN : MONTHS_AR;
+  DAYS   = en ? DAYS_EN   : DAYS_AR;
+  DAYS_S = en ? DAYS_S_EN : DAYS_S_AR;
+}
+if (typeof I18N !== 'undefined') I18N.onChange(refreshDateNames);
+refreshDateNames();
 
 const pad = n => String(n).padStart(2, '0');
 const isoOf = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
@@ -116,7 +134,11 @@ function authErrorAr(code) {
     '42703':    SCHEMA_HINT,
     '42883':    SCHEMA_HINT
   };
-  return M[code] || 'حدث خطأ غير متوقع — حدّث الصفحة وأعد المحاولة، ولو تكرّر تواصل مع إدارة النظام';
+  // الدالة دي بتتناول لوحدها في الاختبارات (بلا تحميل الملف كله)، فالتحقق
+  // من I18N بـ typeof مش تكرار: لو مش موجودة بنرجّع العربي زي الأول.
+  const msg = M[code];
+  return (typeof I18N !== 'undefined' && I18N.t ? I18N.t(msg) : msg)
+    || 'حدث خطأ غير متوقع — حدّث الصفحة وأعد المحاولة، ولو تكرّر تواصل مع إدارة النظام';
 }
 
 // Central error explainer: Supabase error codes + message fallbacks, all in clear Arabic.
@@ -151,12 +173,13 @@ const initials = name => { const p = String(name).trim().split(/\s+/); return (p
 
 // ---- التنبيهات (Toast) ----
 function toast(msg, type = 'success') {
-  const t = document.createElement('div');
-  t.className = 'toast ' + type;
+  // الاسم el مش t: t() بقت دالة الترجمة العامة، وأي const t هنا بيظلّلها
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
   // (بند 30) الأيقونة زخرفية — النص وحده هو اللي يتعلن (الحاوية #toastRoot عليها aria-live)
   t.innerHTML = '<i aria-hidden="true" class="fa-solid fa-' + (type === 'success' ? 'circle-check' : type === 'error' ? 'circle-exclamation' : 'circle-info') + '"></i><span>' + esc(msg) + '</span>';
-  $('#toastRoot').appendChild(t);
-  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 300); }, 3200);
+  $('#toastRoot').appendChild(el);
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 300); }, 3200);
 }
 
 // ---- المودالات ----

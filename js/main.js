@@ -279,7 +279,20 @@ async function routeAfterAuth(step, access) {
 }
 
 // The rest is inside the boot to keep all bindings together
+/* الترجمة عند الإقلاع وعند كل تبديل لغة.
+   الترتيب مقصود: الواجهة الثابتة (data-i18n) بتتظبط فوراً، واللي بيترسم
+   بـJS بيتعاد رسمه من الشاشة الحالية نفسها — مش بنعيد تحميل الصفحة عشان
+   ما نفقدش حالة مفتوحة (مودال، أو قياس بيتكتب). */
+function applyLang() {
+  if (typeof I18N === 'undefined') return;
+  I18N.applyDom(document);
+  try { buildNav(); } catch (e) { /* لسه ما دخلناش */ }
+  try { if (State && State.route) refreshCurrent(); } catch (e) { /* شاشة الدخول */ }
+}
+if (typeof I18N !== 'undefined') I18N.onChange(applyLang);
+
 async function boot() {
+  applyLang();
   // Central action dispatcher + navigation + modal close (also needed on the setup screen)
   document.addEventListener('click', e => {
     const ac = e.target.closest('[data-action]');

@@ -164,9 +164,9 @@ function buildStyledMessage(type, dataWithCtx, extra) {
 // Same footer/emoji rule applied to any raw body (e.g. plan body)
 function styleWrap(body) {
   const ms = getMsgStyle();
-  let t = body + styleFooter(ms, styleCtx());
-  if (!ms.useEmoji) t = stripEmoji(t);
-  return t;
+  let out = body + styleFooter(ms, styleCtx());
+  if (!ms.useEmoji) out = stripEmoji(out);
+  return out;
 }
 
 /* ===== المرحلة 13: مودال التأليف — المعاينة القابلة للتعديل للإرسال الفعلي ===== */

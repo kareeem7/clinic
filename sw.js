@@ -9,7 +9,7 @@
    ===================================================================== */
 'use strict';
 
-const CACHE_NAME = 'clinic-shell-v13';
+const CACHE_NAME = 'clinic-shell-v14';
 
 /* الملفات الكبيرة اللي مايصحش تدخل كاش الواجهة.
    الفيديو ٣.٩ ميجا: لو دخل الكاش هيقعد يتحمّل كله ويملا مساحة الجهاز،
@@ -73,6 +73,10 @@ const SHELL = [
   './js/site-config.js',
   './js/state.js',
   './js/utils.js',
+
+  './js/i18n.js',
+
+  './js/lang-en.js',
   './js/whatsapp.js'
 ];
 
