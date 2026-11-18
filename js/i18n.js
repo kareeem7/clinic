@@ -102,7 +102,10 @@ const I18N = {
         const explicit = el.getAttribute('data-i18n');
         el.dataset.i18nKey = (explicit && explicit.trim())
           ? explicit.trim()
-          : this._directText(el).trim();
+          // النص في HTML سليم ممكن يكون متكسّر على كذا سطر بمسافات بادئة،
+          // والمفاتيح في القاموس مكتوبة بمسافة واحدة — من غير التوحيد ده
+          // العنصر مش بيتطابق أبداً ويفضل عربي في وضع الإنجليزي.
+          : this._directText(el).replace(/\s+/g, ' ').trim();
       }
       const key = el.dataset.i18nKey;
       if (!key) return;

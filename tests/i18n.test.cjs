@@ -14,6 +14,7 @@ const read = p => fs.readFileSync(path.join(root, p), 'utf8');
 const i18nSource = read('js/i18n.js');
 const langSource = read('js/lang-en.js');
 const html = read('index.html');
+const landing = read('landing.html');
 
 // القاموس زي ما بيتحمّل فعلاً — بنشغّل ملف اللغة مش بنقراه بـregex
 function loadDict() {
@@ -30,8 +31,8 @@ const DICT = loadDict();
    لازم نمشي بالعمق: العنصر اللي جوّاه <b> أو <span> بياخد نصه هو بس،
    لأن applyDom بيكتب في الـtext nodes المباشرة ومش بيلمس الأبناء.
    وبنشيل التعليقات الأول — دي مكانتش نص في الـDOM من الأساس. */
-function htmlKeys() {
-  const clean = html.replace(/<!--[\s\S]*?-->/g, '');
+function htmlKeys(source) {
+  const clean = source.replace(/<!--[\s\S]*?-->/g, '');
   const tag = /<\/?([a-zA-Z0-9]+)([^>]*?)(\/?)>/g;
   const keys = [];
   let m;
@@ -58,11 +59,14 @@ function htmlKeys() {
 
 /* ─────────────────────────── القاموس ─────────────────────────── */
 
-test('every translated element in index.html has an English entry', () => {
-  const keys = htmlKeys();
-  assert.ok(keys.length >= 40, 'المفروض عشرات العناصر متظبطة، لقينا ' + keys.length);
+/* الصفحتين اللي بيقابلهم الزائر: التطبيق وصفحة العرض */
+[['index.html', html], ['landing.html', landing]].forEach(([name, source]) => {
+test('every translated element in ' + name + ' has an English entry', () => {
+  const keys = htmlKeys(source);
+  assert.ok(keys.length >= 40, 'المفروض عشرات العناصر متظبطة في ' + name + '، لقينا ' + keys.length);
   const missing = keys.filter(k => !Object.prototype.hasOwnProperty.call(DICT, k));
-  assert.deepEqual(missing, [], 'مفاتيح من غير ترجمة: ' + missing.slice(0, 5).join(' | '));
+  assert.deepEqual(missing, [], 'مفاتيح من غير ترجمة في ' + name + ': ' + missing.slice(0, 5).join(' | '));
+});
 });
 
 test('every t() call in the code has a translation — no silent Arabic in English mode', () => {

@@ -29,9 +29,14 @@ test('صفحة العرض لا تحمّل أي كود من التطبيق ولا
   // ولا أي مفتاح أو توكن
   assert.doesNotMatch(landing, /eyJ[A-Za-z0-9_-]{20,}/);
   assert.doesNotMatch(landing, /service_role/);
-  // السكربتات المسموحة فقط
+  // السكربتات المسموحة فقط: طبقة الترجمة (مش بتلمس شبكة ولا بيانات)،
+  // إعدادات الأسعار العامة، سكربت الصفحة، وجسر الترجمة بتاعها.
+  // أي حاجة زيادة هنا معناها كود تطبيق اتسرّب للصفحة التسويقية.
   const scripts = [...landing.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]);
-  assert.deepEqual(scripts, ['js/site-config.js', 'js/landing.js']);
+  assert.deepEqual(scripts, [
+    'js/i18n.js', 'js/lang-en.js',
+    'js/site-config.js', 'js/landing.js', 'js/landing-i18n.js'
+  ]);
 });
 
 test('الأسعار في صفحة العرض تطابق SYS_DEFAULT في js/admin.js', () => {

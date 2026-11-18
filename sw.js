@@ -58,6 +58,7 @@ const SHELL = [
   './js/health-monitoring.js',
   './js/labs.js',
   './js/landing.js',
+  './js/landing-i18n.js',
   './js/main.js',
   './js/message-style.js',
   './js/notes.js',

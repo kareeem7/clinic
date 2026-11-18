@@ -233,3 +233,19 @@
   .lp-btn-lg { width: 100%; }
   .lp-cta-row { flex-direction: column; align-items: stretch; }
 }
+
+/* ── زر تبديل اللغة (الصفحة بتشتغل بالعربي والإنجليزي) ── */
+.lp-lang {
+  background: transparent;
+  border: 1.5px solid var(--lp-line, #d8e3e1);
+  color: var(--lp-ink, #123);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 7px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.lp-lang:hover { background: rgba(13, 148, 136, .08); border-color: #0d9488; }
+.lp-lang:focus-visible { outline: 2px solid #0d9488; outline-offset: 2px; }

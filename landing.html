@@ -23,12 +23,13 @@
 <!-- ══ الشريط العلوي ══ -->
 <header class="lp-nav">
   <div class="lp-wrap">
-    <a class="lp-logo" href="landing.html"><i class="fa-solid fa-heart-pulse"></i> عيادتي</a>
+    <a class="lp-logo" href="landing.html" data-i18n><i class="fa-solid fa-heart-pulse"></i> عيادتي</a>
     <nav>
-      <a href="#features" class="lp-hide-sm">المزايا</a>
-      <a href="#pricing">السعر</a>
-      <a href="#faq" class="lp-hide-sm">أسئلة</a>
-      <a class="lp-btn lp-btn-primary" href="index.html?app=1" style="padding:9px 18px;font-size:14px">
+      <a href="#features" class="lp-hide-sm" data-i18n>المزايا</a>
+      <a href="#pricing" data-i18n>السعر</a>
+      <a href="#faq" class="lp-hide-sm" data-i18n>أسئلة</a>
+      <button type="button" class="lp-lang" data-lang-toggle aria-label="تغيير اللغة">English</button>
+      <a class="lp-btn lp-btn-primary" href="index.html?app=1" style="padding:9px 18px;font-size:14px" data-i18n>
         <i class="fa-solid fa-right-to-bracket"></i> دخول / تجربة
       </a>
     </nav>
@@ -39,24 +40,24 @@
 <section class="lp-hero">
   <div class="lp-wrap">
     <div>
-      <span class="lp-eyebrow"><i class="fa-solid fa-gift"></i> جرّب <span data-trial>14</span> يوم مجانًا — بدون بطاقة</span>
-      <h1 class="lp-h1">عيادتك كلها في شاشة واحدة — <em>بدل الكشكول والورق</em></h1>
-      <p class="lp-sub">
+      <span class="lp-eyebrow" data-i18n><i class="fa-solid fa-gift"></i> جرّب مجانًا — بدون بطاقة · <span data-trial>14</span> <span data-i18n>يوم</span></span>
+      <h1 class="lp-h1" data-i18n>عيادتك كلها في شاشة واحدة — <em data-i18n>بدل الكشكول والورق</em></h1>
+      <p class="lp-sub" data-i18n>
         ملفات مرضى كاملة، منحنى تطور الوزن، مواعيد بتذكير واتساب، وخطط تغذية جاهزة.
-        مصمم مخصوص لعيادات <strong>العلاج الطبيعي والسمنة</strong> — بالعربي المصري.
+        مصمم مخصوص لعيادات <strong data-i18n>العلاج الطبيعي والسمنة</strong> <span data-i18n>— بالعربي المصري.</span>
       </p>
       <div class="lp-cta-row">
-        <a class="lp-btn lp-btn-primary lp-btn-lg" href="index.html?app=1" data-cta="trial">
+        <a class="lp-btn lp-btn-primary lp-btn-lg" href="index.html?app=1" data-cta="trial" data-i18n>
           <i class="fa-solid fa-bolt"></i> ابدأ التجربة المجانية
         </a>
-        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="#demo">
+        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="#demo" data-i18n>
           <i class="fa-solid fa-circle-play"></i> شوف البرنامج بيشتغل
         </a>
       </div>
       <div class="lp-trust">
-        <span><i class="fa-solid fa-lock"></i> بيانات مرضاك ما بيشوفهاش غيرك</span>
-        <span><i class="fa-solid fa-wifi"></i> شغّال حتى لو النت ضعيف</span>
-        <span><i class="fa-solid fa-mobile-screen"></i> من أي جهاز</span>
+        <span data-i18n><i class="fa-solid fa-lock"></i> بيانات مرضاك ما بيشوفهاش غيرك</span>
+        <span data-i18n><i class="fa-solid fa-wifi"></i> شغّال حتى لو النت ضعيف</span>
+        <span data-i18n><i class="fa-solid fa-mobile-screen"></i> من أي جهاز</span>
       </div>
     </div>
 
@@ -65,11 +66,11 @@
         <div id="demoVideoSlot">
           <video controls playsinline preload="metadata"
                  poster="media/poster.jpg?v=46adb74d6f38"
-                 src="media/clinic_demo_60s.mp4?v=46adb74d6f38">
+                 src="media/clinic_demo_60s.mp4?v=46adb74d6f38" data-i18n>
             متصفحك مش بيدعم تشغيل الفيديو.
           </video>
         </div>
-        <div class="lp-frame-cap">من جوه البرنامج — بيانات عرض وهمية</div>
+        <div class="lp-frame-cap" data-i18n>من جوه البرنامج — بيانات عرض وهمية</div>
       </div>
     </div>
   </div>
@@ -81,22 +82,22 @@
     <div class="lp-pain">
       <i class="fa-solid fa-book"></i>
       <div>
-        <strong>مواعيدك متناثرة</strong>
-        <p>كشكول هنا، واتساب هناك، وورقة على المكتب. مش عارف مين جاي بكرة.</p>
+        <strong data-i18n>مواعيدك متناثرة</strong>
+        <p data-i18n>كشكول هنا، واتساب هناك، وورقة على المكتب. مش عارف مين جاي بكرة.</p>
       </div>
     </div>
     <div class="lp-pain">
       <i class="fa-solid fa-chart-line"></i>
       <div>
-        <strong>مش بتشوف تقدم المريض</strong>
-        <p>الوزن بيتسجل في ورق ومش بيتقارن. المريض يسألك «نزلت قد إيه؟» وتدوّر.</p>
+        <strong data-i18n>مش بتشوف تقدم المريض</strong>
+        <p data-i18n>الوزن بيتسجل في ورق ومش بيتقارن. المريض يسألك «نزلت قد إيه؟» وتدوّر.</p>
       </div>
     </div>
     <div class="lp-pain">
       <i class="fa-solid fa-clock-rotate-left"></i>
       <div>
-        <strong>وقت ضايع في التنظيم</strong>
-        <p>ساعة كل يوم في ترتيب المواعيد وتذكير المرضى — على حساب الوقت مع المريض.</p>
+        <strong data-i18n>وقت ضايع في التنظيم</strong>
+        <p data-i18n>ساعة كل يوم في ترتيب المواعيد وتذكير المرضى — على حساب الوقت مع المريض.</p>
       </div>
     </div>
   </div>
@@ -106,39 +107,39 @@
 <section class="lp-section" id="features">
   <div class="lp-wrap">
     <div class="lp-head">
-      <h2>اللي هتحتاجه فعلاً — ومش أكتر</h2>
-      <p>مبني على احتياج عيادة العلاج الطبيعي والسمنة، مش «نظام لكل التخصصات»</p>
+      <h2 data-i18n>اللي هتحتاجه فعلاً — ومش أكتر</h2>
+      <p data-i18n>مبني على احتياج عيادة العلاج الطبيعي والسمنة، مش «نظام لكل التخصصات»</p>
     </div>
     <div class="lp-grid">
       <article class="lp-card">
         <div class="lp-card-ico"><i class="fa-solid fa-users"></i></div>
-        <h3>ملف المريض كامل</h3>
-        <p>التشخيص، السن، الوزن والهدف، الحالة الصحية، وكل زيارة — في مكان واحد تفتحه في ثانية.</p>
+        <h3 data-i18n>ملف المريض كامل</h3>
+        <p data-i18n>التشخيص، السن، الوزن والهدف، الحالة الصحية، وكل زيارة — في مكان واحد تفتحه في ثانية.</p>
       </article>
       <article class="lp-card">
         <div class="lp-card-ico"><i class="fa-solid fa-chart-line"></i></div>
-        <h3>منحنى تطور الوزن</h3>
-        <p>كل قياس بيتحول لنقطة على المنحنى. ورّي المريض تقدمه بالصورة — بيحوّل الالتزام.</p>
+        <h3 data-i18n>منحنى تطور الوزن</h3>
+        <p data-i18n>كل قياس بيتحول لنقطة على المنحنى. ورّي المريض تقدمه بالصورة — بيحوّل الالتزام.</p>
       </article>
       <article class="lp-card">
         <div class="lp-card-ico"><i class="fa-solid fa-calendar-check"></i></div>
-        <h3>مواعيد بتذكير واتساب</h3>
-        <p>احجز الموعد بضغطة، وابعت تذكير للمريض برسالة جاهزة. الغياب بيقل والوقت بيفضل.</p>
+        <h3 data-i18n>مواعيد بتذكير واتساب</h3>
+        <p data-i18n>احجز الموعد بضغطة، وابعت تذكير للمريض برسالة جاهزة. الغياب بيقل والوقت بيفضل.</p>
       </article>
       <article class="lp-card">
         <div class="lp-card-ico"><i class="fa-solid fa-weight-scale"></i></div>
-        <h3>فحوص InBody</h3>
-        <p>فحص InBody بتاريخه منفصل عن القياس اليدوي — مع كتلة الدهون والعضلات والماء.</p>
+        <h3 data-i18n>فحوص InBody</h3>
+        <p data-i18n>فحص InBody بتاريخه منفصل عن القياس اليدوي — مع كتلة الدهون والعضلات والماء.</p>
       </article>
       <article class="lp-card">
         <div class="lp-card-ico"><i class="fa-solid fa-flask-vial"></i></div>
-        <h3>تحاليل وسكر وضغط</h3>
-        <p>سجل تحاليل مستقل، وقراءات سكر وضغط بتنبيهات للمستويات الخطرة. اختياري لو مش محتاجه.</p>
+        <h3 data-i18n>تحاليل وسكر وضغط</h3>
+        <p data-i18n>سجل تحاليل مستقل، وقراءات سكر وضغط بتنبيهات للمستويات الخطرة. اختياري لو مش محتاجه.</p>
       </article>
       <article class="lp-card">
         <div class="lp-card-ico"><i class="fa-solid fa-utensils"></i></div>
-        <h3>مكتبة خطط تغذية</h3>
-        <p>١٠ خطط جاهزة من ١٢٠٠ سعرة لبناء العضلات — اربطها بأي مريض وابعتله الخطة واتساب.</p>
+        <h3 data-i18n>مكتبة خطط تغذية</h3>
+        <p data-i18n>١٠ خطط جاهزة من ١٢٠٠ سعرة لبناء العضلات — اربطها بأي مريض وابعتله الخطة واتساب.</p>
       </article>
     </div>
   </div>
@@ -148,25 +149,25 @@
 <section class="lp-section lp-section-alt">
   <div class="lp-wrap">
     <div class="lp-head">
-      <h2>تبدأ في دقيقتين</h2>
-      <p>مفيش تنزيل، مفيش تنصيب، مفيش تدريب طويل</p>
+      <h2 data-i18n>تبدأ في دقيقتين</h2>
+      <p data-i18n>مفيش تنزيل، مفيش تنصيب، مفيش تدريب طويل</p>
     </div>
     <div class="lp-steps">
       <div class="lp-step">
-        <strong>اعمل حسابك</strong>
-        <p>اسمك وتخصصك وإيميل — من غير بطاقة ولا بيانات دفع.</p>
+        <strong data-i18n>اعمل حسابك</strong>
+        <p data-i18n>اسمك وتخصصك وإيميل — من غير بطاقة ولا بيانات دفع.</p>
       </div>
       <div class="lp-step">
-        <strong>أضف أول مريض</strong>
-        <p>الاسم والموبايل والوزن والهدف. بيدخل القائمة فورًا.</p>
+        <strong data-i18n>أضف أول مريض</strong>
+        <p data-i18n>الاسم والموبايل والوزن والهدف. بيدخل القائمة فورًا.</p>
       </div>
       <div class="lp-step">
-        <strong>سجّل قياس</strong>
-        <p>الوزن والخصر — والمنحنى بيتحدث لوحده.</p>
+        <strong data-i18n>سجّل قياس</strong>
+        <p data-i18n>الوزن والخصر — والمنحنى بيتحدث لوحده.</p>
       </div>
       <div class="lp-step">
-        <strong>احجز موعد</strong>
-        <p>وابعت التذكير واتساب بضغطة واحدة.</p>
+        <strong data-i18n>احجز موعد</strong>
+        <p data-i18n>وابعت التذكير واتساب بضغطة واحدة.</p>
       </div>
     </div>
   </div>
@@ -176,34 +177,34 @@
 <section class="lp-section" id="pricing">
   <div class="lp-wrap">
     <div class="lp-head">
-      <h2>سعر واحد، وكل حاجة</h2>
-      <p>من غير باقات ولا «ميزات مدفوعة» مخفية</p>
+      <h2 data-i18n>سعر واحد، وكل حاجة</h2>
+      <p data-i18n>من غير باقات ولا «ميزات مدفوعة» مخفية</p>
     </div>
     <div class="lp-price-wrap">
       <div class="lp-price lp-price-feat">
-        <span class="lp-price-badge">سعر تأسيسي — أول <span data-seats>5</span> عيادات</span>
-        <h3>شهري</h3>
-        <div class="lp-amount"><span data-price-m>250</span><small> ج/شهر</small></div>
+        <span class="lp-price-badge" data-i18n><span data-seats>5</span> عيادات بسعر التأسيس</span>
+        <h3 data-i18n>شهري</h3>
+        <div class="lp-amount"><span data-price-m>250</span><small data-i18n> ج/شهر</small></div>
         <ul>
-          <li><i class="fa-solid fa-check"></i> مرضى غير محدودين</li>
-          <li><i class="fa-solid fa-check"></i> كل المزايا مفعّلة</li>
-          <li><i class="fa-solid fa-check"></i> <span data-trial>14</span> يوم تجربة مجانًا</li>
-          <li><i class="fa-solid fa-check"></i> السعر ثابت ليك — مش هيزيد لو التجربة عجبتك</li>
+          <li data-i18n><i class="fa-solid fa-check"></i> مرضى غير محدودين</li>
+          <li data-i18n><i class="fa-solid fa-check"></i> كل المزايا مفعّلة</li>
+          <li data-i18n><i class="fa-solid fa-check"></i> <span data-trial>14</span> يوم تجربة مجانًا</li>
+          <li data-i18n><i class="fa-solid fa-check"></i> السعر ثابت ليك — مش هيزيد لو التجربة عجبتك</li>
         </ul>
-        <a class="lp-btn lp-btn-primary" style="width:100%" href="index.html?app=1" data-cta="trial">ابدأ مجانًا</a>
+        <a class="lp-btn lp-btn-primary" style="width:100%" href="index.html?app=1" data-cta="trial" data-i18n>ابدأ مجانًا</a>
       </div>
       <div class="lp-price">
-        <h3>سنوي</h3>
-        <div class="lp-amount"><span data-price-y>2500</span><small> ج/سنة</small></div>
+        <h3 data-i18n>سنوي</h3>
+        <div class="lp-amount"><span data-price-y>2500</span><small data-i18n> ج/سنة</small></div>
         <ul>
-          <li><i class="fa-solid fa-check"></i> شهرين مجانًا مقابل الشهري</li>
-          <li><i class="fa-solid fa-check"></i> كل المزايا مفعّلة</li>
-          <li><i class="fa-solid fa-check"></i> دفعة واحدة للسنة كلها</li>
+          <li data-i18n><i class="fa-solid fa-check"></i> شهرين مجانًا مقابل الشهري</li>
+          <li data-i18n><i class="fa-solid fa-check"></i> كل المزايا مفعّلة</li>
+          <li data-i18n><i class="fa-solid fa-check"></i> دفعة واحدة للسنة كلها</li>
         </ul>
-        <a class="lp-btn lp-btn-ghost" style="width:100%" data-wa href="#">اسأل عن السنوي</a>
+        <a class="lp-btn lp-btn-ghost" style="width:100%" data-wa href="#" data-i18n>اسأل عن السنوي</a>
       </div>
     </div>
-    <p class="lp-note">
+    <p class="lp-note" data-i18n>
       <i class="fa-solid fa-circle-info"></i>
       مفيش بطاقة في التجربة — لو ماكملتش، البيانات بتتقفل من غير أي رسوم.
     </p>
@@ -213,31 +214,31 @@
 <!-- ══ الأسئلة ══ -->
 <section class="lp-section lp-section-alt" id="faq">
   <div class="lp-wrap">
-    <div class="lp-head"><h2>أسئلة بتتكرر</h2></div>
+    <div class="lp-head"><h2 data-i18n>أسئلة بتتكرر</h2></div>
     <div class="lp-faq">
       <details open>
-        <summary>بيانات مرضايا آمنة؟ مين بيشوفها؟</summary>
-        <p>كل دكتور عنده مساحة معزولة تمامًا على مستوى قاعدة البيانات نفسها (Row Level Security) — مش مجرد تصفية في الشاشة. بياناتك ما بتظهرش لأي حساب تاني، ولا لصاحب المنصة نفسه. والنسخة الاحتياطية بتتصدّر مشفّرة بكلمة سر إنت اللي تحطها.</p>
+        <summary data-i18n>بيانات مرضايا آمنة؟ مين بيشوفها؟</summary>
+        <p data-i18n>كل دكتور عنده مساحة معزولة تمامًا على مستوى قاعدة البيانات نفسها (Row Level Security) — مش مجرد تصفية في الشاشة. بياناتك ما بتظهرش لأي حساب تاني، ولا لصاحب المنصة نفسه. والنسخة الاحتياطية بتتصدّر مشفّرة بكلمة سر إنت اللي تحطها.</p>
       </details>
       <details>
-        <summary>محتاج نت؟ لو النت قطع؟</summary>
-        <p>محتاج نت عادي. ولو قطع في أثناء الشغل، القياسات والمواعيد اللي بتسجلها بتُحفظ مشفّرة على جهازك وبتترفع لوحدها أول ما النت يرجع.</p>
+        <summary data-i18n>محتاج نت؟ لو النت قطع؟</summary>
+        <p data-i18n>محتاج نت عادي. ولو قطع في أثناء الشغل، القياسات والمواعيد اللي بتسجلها بتُحفظ مشفّرة على جهازك وبتترفع لوحدها أول ما النت يرجع.</p>
       </details>
       <details>
-        <summary>ينفع أستخدمه من الموبايل؟</summary>
-        <p>أيوه — الواجهة متظبطة للموبايل والتابلت والكمبيوتر. كتير من الدكاترة بيسجلوا القياس من الموبايل جوه غرفة الجلسة.</p>
+        <summary data-i18n>ينفع أستخدمه من الموبايل؟</summary>
+        <p data-i18n>أيوه — الواجهة متظبطة للموبايل والتابلت والكمبيوتر. كتير من الدكاترة بيسجلوا القياس من الموبايل جوه غرفة الجلسة.</p>
       </details>
       <details>
-        <summary>إيه اللي بيحصلي بعد الـ<span data-trial>14</span> يوم؟</summary>
-        <p>الحساب بيتقفل بس البيانات بتفضل محفوظة. لو قررت تكمل تدفع <span data-price-m>250</span> جنيه شهريًا وكل حاجة ترجع زي ما هي. مفيش مسح تلقائي.</p>
+        <summary data-i18n>إيه اللي بيحصلي بعد ما التجربة تخلص؟</summary>
+        <p data-i18n>الحساب بيتقفل بس البيانات بتفضل محفوظة. لو قررت تكمل تدفع <span data-price-m>250</span> <span data-i18n>جنيه شهريًا وكل حاجة ترجع زي ما هي. مفيش مسح تلقائي.</span></p>
       </details>
       <details>
-        <summary>عندي أكتر من فرع — ينفع؟</summary>
-        <p>أيوه. الفروع بتتضاف من الإعدادات، وكل فرع ليه بادئة خاصة في كروت المرضى، وتقدر تتنقل بين الفروع من الشريط الجانبي بحساب واحد.</p>
+        <summary data-i18n>عندي أكتر من فرع — ينفع؟</summary>
+        <p data-i18n>أيوه. الفروع بتتضاف من الإعدادات، وكل فرع ليه بادئة خاصة في كروت المرضى، وتقدر تتنقل بين الفروع من الشريط الجانبي بحساب واحد.</p>
       </details>
       <details>
-        <summary>فيه بوابة للمريض؟</summary>
-        <p>الخاصية موجودة — المريض بيدخل بكود من العيادة ويشوف تطوره.</p>
+        <summary data-i18n>فيه بوابة للمريض؟</summary>
+        <p data-i18n>الخاصية موجودة — المريض بيدخل بكود من العيادة ويشوف تطوره.</p>
       </details>
     </div>
   </div>
@@ -246,13 +247,13 @@
 <!-- ══ الخاتمة ══ -->
 <section class="lp-final">
   <div class="lp-wrap">
-    <h2>جرّبه على مرضاك الحقيقيين</h2>
-    <p>افتح حساب، حط ٣ مرضى، وشوف بنفسك. <span data-trial>14</span> يوم مجانًا وبدون بطاقة — لو مش عاجبك، سيب وهتنساه.</p>
+    <h2 data-i18n>جرّبه على مرضاك الحقيقيين</h2>
+    <p data-i18n>افتح حساب، حط ٣ مرضى، وشوف بنفسك — <span data-trial>14</span> <span data-i18n>يوم مجانًا وبدون بطاقة. لو مش عاجبك، سيب وهتنساه.</span></p>
     <div class="lp-cta-row">
-      <a class="lp-btn lp-btn-primary lp-btn-lg" href="index.html?app=1" data-cta="trial">
+      <a class="lp-btn lp-btn-primary lp-btn-lg" href="index.html?app=1" data-cta="trial" data-i18n>
         <i class="fa-solid fa-bolt"></i> ابدأ دلوقتي
       </a>
-      <a class="lp-btn lp-btn-wa lp-btn-lg" data-wa href="#" target="_blank" rel="noopener">
+      <a class="lp-btn lp-btn-wa lp-btn-lg" data-wa href="#" target="_blank" rel="noopener" data-i18n>
         <i class="fa-brands fa-whatsapp"></i> كلّمني على واتساب
       </a>
     </div>
@@ -261,20 +262,20 @@
 
 <section class="lp-section lp-section-alt" style="padding-top:0">
   <div class="lp-wrap" style="text-align:center">
-    <p style="font-size:14px;color:#5b7370;font-weight:700;margin:0">
+    <p style="font-size:14px;color:#5b7370;font-weight:700;margin:0" data-i18n>
       عندك حساب بالفعل؟
-      <a href="index.html?app=1" style="color:#0d9488;font-weight:800;text-decoration:none">تسجيل الدخول من هنا</a>
+      <a href="index.html?app=1" style="color:#0d9488;font-weight:800;text-decoration:none" data-i18n>تسجيل الدخول من هنا</a>
     </p>
   </div>
 </section>
 
 <footer class="lp-foot">
   <div class="lp-wrap">
-    <span>عيادتي — نظام إدارة عيادات العلاج الطبيعي والسمنة</span>
+    <span data-i18n>عيادتي — نظام إدارة عيادات العلاج الطبيعي والسمنة</span>
     <span>
-      <a href="index.html?app=1">دخول</a> ·
-      <a href="#pricing">السعر</a> ·
-      <a data-wa href="#" target="_blank" rel="noopener">واتساب</a>
+      <a href="index.html?app=1" data-i18n>دخول</a> ·
+      <a href="#pricing" data-i18n>السعر</a> ·
+      <a data-wa href="#" target="_blank" rel="noopener" data-i18n>واتساب</a>
     </span>
   </div>
 </footer>
@@ -283,7 +284,10 @@
   <i class="fa-brands fa-whatsapp"></i>
 </a>
 
+<script src="js/i18n.js"></script>
+<script src="js/lang-en.js"></script>
 <script src="js/site-config.js"></script>
 <script src="js/landing.js"></script>
+<script src="js/landing-i18n.js"></script>
 </body>
 </html>
