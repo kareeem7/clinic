@@ -3,9 +3,35 @@
 A clinic app for Arabic-speaking clinics: patients, appointments, measurements, lab results,
 nutrition plans — plus a portal where a patient can follow their own readings.
 
-**Live staging:** https://clinic-staging.kemo8298.workers.dev — login required; demo account on request.
+**Live staging:** https://clinic-staging.kemo8298.workers.dev — the login screen has a **دخول ديمو** button. No account, no QR code.
 
 ![dashboard](./preview.png)
+
+## Demo
+
+One button on the login screen opens a seeded clinic: two branches, six patients, appointments
+spread across today / next week / cancelled, weight trends that actually move, glucose and
+blood-pressure series, lab results, a nutrition plan and visit notes. Nothing is mocked in the
+templates — the numbers come back through the same RLS-scoped queries a real clinic uses, which
+is the part worth looking at.
+
+How it's put together, since a demo that hides this is just a screenshot:
+
+- **`sql/demo_account_seed.sql`** — the data. Fixed UUIDs, `on conflict (id) do nothing`, every
+  row carries the demo `doctor_id`, and a barrier aborts the run if the account already holds
+  patients outside the seed. All phone numbers are `+2019…`, a prefix no Egyptian carrier
+  allocates, so nothing can be mistaken for a real patient.
+- **`sql/migrations/20261118_demo_account.sql`** — 2FA stays mandatory for every doctor. The demo
+  account is exempted **by uid**, in the RLS policies and in `js/db.js` (`DEMO_UID`), so the two
+  layers can't drift apart — a frontend-only exemption would have rendered empty tables, because
+  the `require_mfa` policies are `RESTRICTIVE` and demand `aal2` on the rows themselves.
+  `superadmins`, `admin_notes`, `system_settings`, `audit_logs` and doctor deletion keep `aal2`
+  and stay invisible to it.
+- **`tests/demo-account.test.cjs`** — the test that matters is the negative one: a *different*
+  uid must still hit the TOTP gate.
+
+The account's subscription is set to `active` so the demo doesn't expire and take the data with
+it — `clinic_active()` returns false for a lapsed trial, and RLS then hides every row.
 
 ## Why it looks the way it does
 
@@ -26,7 +52,7 @@ six months and the wrong one after — the state syncing in particular is manual
 would have made it boring. I'm rebuilding the dashboard in React and TypeScript now, mostly
 to see where the trade actually pays off, and I'll write down what I find.
 
-41 test files cover the main flows, run with the Node test runner. Playwright handles the
+42 test files cover the main flows, run with the Node test runner. Playwright handles the
 browser paths. Cloudflare serves the repo as a Worker, with `_headers` carrying the CSP,
 `frame-ancestors`, `X-Frame-Options` and `Referrer-Policy`.
 

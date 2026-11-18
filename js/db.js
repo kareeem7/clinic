@@ -18,6 +18,13 @@
    ============================================================ */
 
 // خرائط تحويل أسماء الحقول: camelCase في الواجهة ↔ snake_case في قاعدة البيانات
+// الحساب التجريبي المعروض في زر «دخول ديمو» — متطابق مع استثناء سياسات RLS.
+const DEMO_EMAIL = 'demo@clinic.dev';
+const DEMO_PASSWORD = 'Demo#2026';
+// نفس المعرّف المثبّت بالحرف في سياسات RLS (20261118_demo_account.sql).
+// لو اتغير الحساب لازم يتغير في المكانين مع بعض، وإلا الديمو هيقف عند TOTP.
+const DEMO_UID = '4d71a543-d4ab-44b0-8f58-467121139a06';
+
 const FIELD_MAPS = {
   patients: { targetWeight: 'target_weight', planId: 'plan_id', planStart: 'plan_start', planEnd: 'plan_end', createdAt: 'created_at', birthDate: 'birth_date', consentWa: 'consent_whatsapp', glucoseTrackingEnabled: 'glucose_tracking_enabled', bloodPressureTrackingEnabled: 'blood_pressure_tracking_enabled' },
   appointments: { patientId: 'patient_id', patientName: 'patient_name', cancelledAt: 'cancelled_at', cancelReason: 'cancel_reason' },
@@ -206,8 +213,19 @@ const DB = {
     return this.mfaGate();
   },
 
+  // الحساب التجريبي العام: معفي من 2FA عن قصد، عشان أي حد يفتح العرض من غير
+  // ما يمسك موبايل ويظبّط تطبيق مصادقة. الإعفاء مثبّت في مكانين متطابقين:
+  // هنا، وفي سياسات RLS (require_mfa) على قاعدة البيانات. الحساب ده واحد
+  // بالـ uid، وكل حساب دكتور حقيقي بيكمّل مسار aal2 عادي زي ما كان.
+  async isDemoAccount() {
+    const { data } = await this.sb.auth.getSession();
+    const user = data && data.session && data.session.user;
+    return !!user && user.id === DEMO_UID;
+  },
+
   // Decide whether the session already satisfies the 2FA requirement
   async mfaGate() {
+    if (await this.isDemoAccount()) return 'ready';
     const { data: aal, error } = await this.sb.auth.mfa.getAuthenticatorAssuranceLevel();
     if (error) throw error;
     if (aal.currentLevel === 'aal2') return 'ready'; // caller loads data explicitly — avoids double fetches

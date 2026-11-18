@@ -367,6 +367,27 @@ async function boot() {
     btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i><span>دخول</span>';
   };
 
+  // 4ب) زر الدخول التجريبي.
+  // بيستخدم نفس مسار الدخول بالحرف (DB.signIn ← routeAfterAuth) — الفرق الوحيد
+  // إن الحقول بتتملي لوحدها، فمفيش أي طريق دخول تاني ممكن يتنسى تأمينه.
+  // إعفاء 2FA للحساب ده موجود في DB.mfaGate وسياسات RLS، مش هنا.
+  $('#demoBtn').onclick = async () => {
+    const btn = $('#demoBtn'), err = $('#loginError');
+    const label = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>بنجهّز العيادة...</span>';
+    err.classList.remove('show');
+    try {
+      const step = await DB.signIn(DEMO_EMAIL, DEMO_PASSWORD);
+      await routeAfterAuth(step, 'doctor');
+    } catch (ex) {
+      err.innerHTML = esc(explainError(ex));
+      err.classList.add('show');
+    }
+    btn.disabled = false;
+    btn.innerHTML = label;
+  };
+
   // 5) Create account → mandatory 2FA enrollment
   $('#registerForm').onsubmit = async e => {
     e.preventDefault();
