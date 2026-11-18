@@ -407,6 +407,21 @@ async function boot() {
     btn.innerHTML = label;
   };
 
+  // 4ج) ?demo=1 → دخول الديمو فورًا بدون ضغطة.
+  //     مفيد كديمو بسطر واحد للزائر، ومفيد أكتر في التشخيص: لو الرابط ده بيدخل
+  //     والزر لأ، المشكلة في الصفحة/الضغطة نفسها؛ ولو الاتنين واقفين، المشكلة
+  //     في البيئة (كاش قديم، إضافة بتحجب الطلبات، شبكة).
+  try {
+    const wantsDemo = typeof location !== 'undefined' && typeof URLSearchParams !== 'undefined' &&
+      new URLSearchParams(location.search || '').get('demo') === '1';
+    if (wantsDemo) {
+      setTimeout(() => {
+        const b = $('#demoBtn');
+        if (b && typeof b.click === 'function') b.click();
+      }, 0);
+    }
+  } catch (_) { /* معامل مشوه */ }
+
   // 5) Create account → mandatory 2FA enrollment
   $('#registerForm').onsubmit = async e => {
     e.preventDefault();
